@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # TRACE-S // PUSSIBERAD TNI AD
 ### Social Cyber Intelligence Platform (Platform Intelijen Siber Sosial)
 **Kategori 04: Siber Sosial — Kartika Cyber Hackathon 2026**
@@ -232,3 +233,7 @@ trace-s/
 
 ---
 **PUSSIBERAD TNI AD // TANGGUH, CERMAT, AKUNTABEL**
+=======
+# Trace-S-Project-for-Social-Cyber-II
+We participated into "Hackathon Kartika SATSIBER TNIAD 2026", we'll sacrifice everything for ts competition
+>>>>>>> 5835446b6be58a5c96d1617ca4f0b68e260f94c8
