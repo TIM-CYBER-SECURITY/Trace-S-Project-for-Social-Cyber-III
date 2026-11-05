@@ -1,0 +1,2182 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>TRACE-S // Social Cyber Intelligence Platform — PUSSIBERAD TNI AD</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            neutral: {
+              850: '#1b1b1b',
+              900: '#121212',
+              950: '#0a0a0a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- FontAwesome 6 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root { color-scheme: dark; }
+    html, body { height: 100%; margin: 0; padding: 0; }
+    body { font-family: 'Inter', sans-serif; background-color: #0a0a0a; color: #d4d4d4; }
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: #0a0a0a; }
+    ::-webkit-scrollbar-thumb { background: #262626; border-radius: 2px; }
+    ::-webkit-scrollbar-thumb:hover { background: #404040; }
+    
+    .view-panel { display: none; }
+    .view-panel.active { display: flex; }
+    
+    .sub-tab { display: none; }
+    .sub-tab.active { display: block; }
+    
+    @keyframes pulse-dot { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .3; transform: scale(1.6); } }
+    .threat-dot { animation: pulse-dot 2.2s ease-in-out infinite; }
+    
+    @media print {
+      body { background: white !important; color: black !important; }
+      header, nav, aside, .no-print { display: none !important; }
+      main { padding: 0 !important; overflow: visible !important; }
+      .print-only { display: block !important; }
+    }
+  </style>
+</head>
+<body class="bg-neutral-950 text-neutral-300 min-h-screen flex flex-col antialiased selection:bg-cyan-500/30 selection:text-cyan-200">
+
+<!-- START: MASTER LAYOUT -->
+<div class="h-screen w-screen overflow-hidden flex flex-col">
+
+  <!-- START: TOP BAR -->
+  <header class="h-14 shrink-0 bg-neutral-900 border-b border-neutral-800 flex items-center justify-between px-4 z-40 select-none">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-sm bg-cyan-950/70 border border-cyan-500/50 flex items-center justify-center text-cyan-400 shadow-[0_0_12px_rgba(6,182,212,0.25)]">
+        <i class="fa-solid fa-shield-halved text-sm" aria-hidden="true"></i>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="font-mono font-bold tracking-wider text-sm text-neutral-100">TRACE-S</span>
+          <span class="text-[9px] font-mono tracking-widest text-cyan-400 px-1.5 py-0.2 border border-cyan-500/40 bg-cyan-950/40 rounded-sm">C4ISR</span>
+          <span class="text-[9px] font-mono tracking-widest text-amber-400 px-1.5 py-0.2 border border-amber-500/40 bg-amber-950/40 rounded-sm">SIMULASI</span>
+        </div>
+        <div class="text-[10px] font-mono uppercase tracking-widest text-neutral-500 leading-none">
+          COGNITIVE DEFENSE INITIATIVE // PUSSIBERAD TNI AD
+        </div>
+      </div>
+    </div>
+
+    <!-- Center Coordinates & UTC Clock -->
+    <div class="hidden md:flex items-center gap-6 font-mono text-xs">
+      <div class="flex items-center gap-2 text-neutral-400">
+        <i class="fa-regular fa-clock text-cyan-400 text-[11px]" aria-hidden="true"></i>
+        <span id="topClock" class="tracking-widest">00:00:00 UTC</span>
+      </div>
+      <div class="text-neutral-700 text-[10px]">|</div>
+      <div class="flex items-center gap-2 text-neutral-400">
+        <i class="fa-solid fa-location-crosshairs text-cyan-400 text-[11px]" aria-hidden="true"></i>
+        <span class="text-[11px] tracking-wider text-neutral-400">06°10'30"S 106°49'42"E (HQ PUSSIBERAD)</span>
+      </div>
+    </div>
+
+    <!-- Right Controls: Status Indicators & Role Clearance Switcher -->
+    <div class="flex items-center gap-3">
+      <span class="hidden sm:inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wide text-emerald-400">
+        <span class="relative flex h-2 w-2">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60"></span>
+          <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+        </span>
+        SECURE LINK
+      </span>
+
+      <!-- AI Inference Engine Status -->
+      <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-sm text-[10px] font-mono uppercase tracking-wide border text-amber-400 bg-amber-500/10 border-amber-500/40 shadow-[0_0_10px_rgba(251,191,36,0.15)]" title="AI Inference Engine berjalan secara lokal dalam mode simulasi">
+        <i class="fa-solid fa-microchip" aria-hidden="true"></i> AI: SIMULASI (MockDriver)
+      </span>
+
+      <!-- User Clearance & Quick Role Switch Dropdown -->
+      <div class="relative">
+        <button id="roleDropdownBtn" class="flex items-center gap-2 pl-2 pr-3 py-1 bg-neutral-950 border border-neutral-800 hover:border-neutral-700 rounded-sm transition-colors text-left" aria-label="Beralih Peran Taktis">
+          <div class="h-6 w-6 rounded-sm bg-neutral-800 border border-neutral-700 flex items-center justify-center text-[10px] font-mono text-cyan-400 font-bold" id="userAvatarBadge">AN</div>
+          <div class="leading-tight hidden sm:block">
+            <p class="text-[11px] font-semibold text-neutral-200" id="currentUserName">LETTU ARIS MUNANDAR</p>
+            <p class="text-[9px] font-mono text-cyan-400" id="currentUserClearance">PERAN: ANALIS // LEVEL-2</p>
+          </div>
+          <i class="fa-solid fa-chevron-down text-[10px] text-neutral-500 ml-1"></i>
+        </button>
+
+        <!-- Dropdown Menu -->
+        <div id="roleDropdownMenu" class="hidden absolute right-0 mt-2 w-64 bg-neutral-900 border border-neutral-800 rounded-sm shadow-2xl p-2 z-50 text-xs font-mono">
+          <div class="px-2 py-1.5 border-b border-neutral-800 text-[10px] text-neutral-500 uppercase tracking-wider">
+            Beralih Peran (Evaluasi Juri):
+          </div>
+          <div class="space-y-1 mt-1.5">
+            <button onclick="setRole('operator')" class="w-full text-left px-2 py-1.5 rounded-sm hover:bg-neutral-800 text-[11px] flex items-center justify-between text-neutral-300">
+              <span><i class="fa-solid fa-desktop w-4 text-center mr-1"></i> Operator (Level-1)</span>
+              <span id="role-check-operator" class="hidden text-cyan-400 text-xs"><i class="fa-solid fa-check"></i></span>
+            </button>
+            <button onclick="setRole('analis')" class="w-full text-left px-2 py-1.5 rounded-sm hover:bg-neutral-800 text-[11px] flex items-center justify-between text-cyan-400 font-bold">
+              <span><i class="fa-solid fa-magnifying-glass-chart w-4 text-center mr-1"></i> Analis (Level-2)</span>
+              <span id="role-check-analis" class="text-cyan-400 text-xs"><i class="fa-solid fa-check"></i></span>
+            </button>
+            <button onclick="setRole('komandan')" class="w-full text-left px-2 py-1.5 rounded-sm hover:bg-neutral-800 text-[11px] flex items-center justify-between text-neutral-300">
+              <span><i class="fa-solid fa-star w-4 text-center mr-1"></i> Komandan (Level-3)</span>
+              <span id="role-check-komandan" class="hidden text-cyan-400 text-xs"><i class="fa-solid fa-check"></i></span>
+            </button>
+            <button onclick="setRole('admin')" class="w-full text-left px-2 py-1.5 rounded-sm hover:bg-neutral-800 text-[11px] flex items-center justify-between text-neutral-300">
+              <span><i class="fa-solid fa-server w-4 text-center mr-1"></i> Administrator (Level-4)</span>
+              <span id="role-check-admin" class="hidden text-cyan-400 text-xs"><i class="fa-solid fa-check"></i></span>
+            </button>
+          </div>
+          <div class="border-t border-neutral-800 mt-2 pt-1 text-[10px] text-neutral-500 italic px-2 py-1">
+            * Mensimulasikan matriks izin akses RBAC C4ISR.
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+  <!-- END: TOP BAR -->
+
+  <div class="flex-1 flex min-h-0">
+
+    <!-- START: LEFT SIDEBAR -->
+    <nav class="w-64 shrink-0 bg-neutral-900 border-r border-neutral-800 flex flex-col justify-between select-none overflow-y-auto" aria-label="Navigasi Modul Utama TRACE-S">
+      <div class="py-2">
+        <div class="px-4 py-1.5 text-[10px] uppercase tracking-widest text-neutral-500 font-mono">Modul Taktis C4ISR</div>
+
+        <div class="space-y-0.5">
+          <!-- 1. Early Warning Dashboard -->
+          <button data-view="dashboard" class="nav-btn w-full flex items-center gap-3 px-4 py-2.5 text-xs font-mono uppercase tracking-wider border-l-2 border-cyan-500 bg-cyan-900/20 text-cyan-300 transition-colors">
+            <i class="fa-solid fa-gauge-high w-4 text-center" aria-hidden="true"></i>
+            <span class="flex-1 text-left">Early Warning</span>
+            <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+          </button>
+
+          <!-- 2. Investigasi Kasus (Case Management & Digital Locker) -->
+          <button data-view="cases" class="nav-btn w-full flex items-center gap-3 px-4 py-2.5 text-xs font-mono uppercase tracking-wider border-l-2 border-transparent text-neutral-400 hover:bg-neutral-800/60 hover:text-neutral-200 transition-colors">
+            <i class="fa-solid fa-folder-closed w-4 text-center" aria-hidden="true"></i>
+            <span class="flex-1 text-left">Investigasi Kasus</span>
+            <span class="text-[9px] px-1 bg-neutral-800 text-cyan-400 rounded-sm">TS-001</span>
+          </button>
+
+          <!-- 3. Credibility Scanner & Authenticity Comparator -->
+          <button data-view="scanner" class="nav-btn w-full flex items-center gap-3 px-4 py-2.5 text-xs font-mono uppercase tracking-wider border-l-2 border-transparent text-neutral-400 hover:bg-neutral-800/60 hover:text-neutral-200 transition-colors">
+            <i class="fa-solid fa-radar w-4 text-center" aria-hidden="true"></i>
+            <span class="flex-1 text-left">Credibility Scanner</span>
+            <span class="text-[9px] px-1 bg-neutral-800 text-neutral-400 rounded-sm">3 Tab</span>
+          </button>
+
+          <!-- 4. Cross-Source Verification Workspace (Supplemental §5) -->
+          <button data-view="crosssource" class="nav-btn w-full flex items-center gap-3 px-4 py-2.5 text-xs font-mono uppercase tracking-wider border-l-2 border-transparent text-neutral-400 hover:bg-neutral-800/60 hover:text-neutral-200 transition-colors">
+            <i class="fa-solid fa-code-compare w-4 text-center" aria-hidden="true"></i>
+            <span class="flex-1 text-left">Cross-Source Verify</span>
+            <span class="text-[9px] px-1 bg-neutral-800 text-emerald-400 rounded-sm">5-SIM</span>
+          </button>
+
+          <!-- 5. Threat Actor Network & SNA (Modul C) -->
+          <button data-view="network" class="nav-btn w-full flex items-center gap-3 px-4 py-2.5 text-xs font-mono uppercase tracking-wider border-l-2 border-transparent text-neutral-400 hover:bg-neutral-800/60 hover:text-neutral-200 transition-colors">
+            <i class="fa-solid fa-diagram-project w-4 text-center" aria-hidden="true"></i>
+            <span class="flex-1 text-left">Spread &amp; SNA Analysis</span>
+            <span class="text-[9px] text-amber-500 font-mono">NODE-A1</span>
+          </button>
+
+          <!-- 6. Narrative Cluster Workspace (Supplemental §7) -->
+          <button data-view="narratives" class="nav-btn w-full flex items-center gap-3 px-4 py-2.5 text-xs font-mono uppercase tracking-wider border-l-2 border-transparent text-neutral-400 hover:bg-neutral-800/60 hover:text-neutral-200 transition-colors">
+            <i class="fa-solid fa-cubes-stacked w-4 text-center" aria-hidden="true"></i>
+            <span class="flex-1 text-left">Narrative Cluster</span>
+            <span class="text-[9px] text-cyan-400 font-mono">6 PLATFORM</span>
+          </button>
+
+          <!-- 7. Command Reporting & Dossier (Modul D) -->
+          <button data-view="reports" class="nav-btn w-full flex items-center gap-3 px-4 py-2.5 text-xs font-mono uppercase tracking-wider border-l-2 border-transparent text-neutral-400 hover:bg-neutral-800/60 hover:text-neutral-200 transition-colors">
+            <i class="fa-solid fa-file-shield w-4 text-center" aria-hidden="true"></i>
+            <span class="flex-1 text-left">Intel Brief (16-Sec)</span>
+            <span class="text-[9px] text-emerald-400 font-mono">PDF</span>
+          </button>
+
+          <!-- 8. AI Analyst Console (Modul E) -->
+          <button data-view="console" class="nav-btn w-full flex items-center gap-3 px-4 py-2.5 text-xs font-mono uppercase tracking-wider border-l-2 border-transparent text-neutral-400 hover:bg-neutral-800/60 hover:text-neutral-200 transition-colors">
+            <i class="fa-solid fa-terminal w-4 text-center" aria-hidden="true"></i>
+            <span class="flex-1 text-left">AI Analyst Console</span>
+            <span class="text-[9px] text-cyan-400 font-mono"><i class="fa-solid fa-microchip"></i></span>
+          </button>
+
+          <!-- 9. Local AI Management (Admin / Modul F) -->
+          <button data-view="admin-ai" id="adminNavBtn" class="nav-btn w-full flex items-center gap-3 px-4 py-2.5 text-xs font-mono uppercase tracking-wider border-l-2 border-transparent text-neutral-400 hover:bg-neutral-800/60 hover:text-neutral-200 transition-colors">
+            <i class="fa-solid fa-server w-4 text-center" aria-hidden="true"></i>
+            <span class="flex-1 text-left">Local AI Server</span>
+            <span class="text-[9px] px-1 bg-neutral-800 text-neutral-400 rounded-sm">ADMIN</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Bottom Connector Status (Master Prompt §4.1: Jujur status konektor) -->
+      <div class="p-4 border-t border-neutral-800/80 bg-neutral-950/60 font-mono text-[11px] space-y-2">
+        <div class="text-[9px] uppercase tracking-widest text-neutral-500 flex items-center justify-between mb-1">
+          <span>STATUS NODE PENGUMPUL</span>
+          <span class="text-neutral-600">v1.0</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-neutral-400 flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> News / RSS Feed
+          </span>
+          <span class="text-emerald-400 text-[10px]">ACTIVE</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-neutral-400 flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> URL Evidence Fetch
+          </span>
+          <span class="text-emerald-400 text-[10px]">ACTIVE</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-neutral-400 flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Social Platform API
+          </span>
+          <span class="text-amber-400 text-[10px]">SIMULASI</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-neutral-500 flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-neutral-700"></span> Public Web Search
+          </span>
+          <span class="text-neutral-600 text-[10px]">NOT CONFIGURED</span>
+        </div>
+        <div class="flex items-end gap-0.5 h-4 mt-2" aria-hidden="true">
+          <div class="w-1.5 bg-cyan-900" style="height:35%"></div>
+          <div class="w-1.5 bg-cyan-800" style="height:60%"></div>
+          <div class="w-1.5 bg-cyan-700" style="height:45%"></div>
+          <div class="w-1.5 bg-cyan-800" style="height:75%"></div>
+          <div class="w-1.5 bg-cyan-600" style="height:50%"></div>
+          <div class="w-1.5 bg-cyan-700" style="height:80%"></div>
+          <div class="w-1.5 bg-cyan-500" style="height:65%"></div>
+        </div>
+      </div>
+    </nav>
+    <!-- END: LEFT SIDEBAR -->
+
+    <!-- START: MAIN DYNAMIC WORKSPACE -->
+    <main class="flex-1 overflow-y-auto bg-neutral-950 p-4 lg:p-6 relative">
+
+      <!-- ========================================================================= -->
+      <!-- VIEW 1: EARLY WARNING DASHBOARD (MODUL A)                                  -->
+      <!-- ========================================================================= -->
+      <section id="view-dashboard" class="view-panel active flex-col gap-5 w-full">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-neutral-800 pb-3">
+          <div>
+            <h1 class="text-base font-bold font-mono tracking-wide text-neutral-100 uppercase">EARLY WARNING DASHBOARD</h1>
+            <p class="text-xs text-neutral-500 mt-0.5">Pemantauan real-time fluktuasi narasi siber sosial dan anomali amplifikasi kognitif.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="inline-flex items-center px-2 py-0.5 rounded-sm text-[10px] font-mono font-medium border uppercase tracking-wide text-amber-400 bg-amber-500/10 border-amber-500/40">
+              <i class="fa-solid fa-flask mr-1 text-[9px]"></i> DATASET SIMULASI TS-2026-001
+            </span>
+          </div>
+        </div>
+
+        <!-- 4 Tactical Metric Cards -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+          <div class="bg-neutral-900 border border-neutral-800 rounded-sm p-4 relative overflow-hidden">
+            <div class="text-[10px] font-mono uppercase tracking-widest text-neutral-500">Narasi Dianalisis (24J)</div>
+            <div class="font-mono text-2xl font-bold text-neutral-100 mt-1">214</div>
+            <div class="text-[11px] font-mono text-neutral-500 mt-1 flex items-center gap-1">
+              <span class="text-emerald-400"><i class="fa-solid fa-arrow-up"></i> +18%</span> dari 3 sumber terhubung
+            </div>
+            <div class="absolute right-3 top-3 text-neutral-800 text-3xl"><i class="fa-solid fa-chart-line"></i></div>
+          </div>
+
+          <div class="bg-neutral-900 border border-neutral-800 rounded-sm p-4 relative overflow-hidden">
+            <div class="text-[10px] font-mono uppercase tracking-widest text-neutral-500">Hoaks Kritis Terdeteksi</div>
+            <div class="font-mono text-2xl font-bold text-rose-500 mt-1">7</div>
+            <div class="text-[11px] font-mono text-rose-400/80 mt-1 flex items-center gap-1">
+              <i class="fa-solid fa-triangle-exclamation"></i> Menunggu validasi analis
+            </div>
+            <div class="absolute right-3 top-3 text-rose-950/40 text-3xl"><i class="fa-solid fa-shield-virus"></i></div>
+          </div>
+
+          <div class="bg-neutral-900 border border-neutral-800 rounded-sm p-4 relative overflow-hidden">
+            <div class="text-[10px] font-mono uppercase tracking-widest text-neutral-500">Sentimen Publik Rerata</div>
+            <div class="font-mono text-2xl font-bold text-amber-400 mt-1">-0.12 <i class="fa-solid fa-arrow-down text-sm align-middle text-rose-400" aria-hidden="true"></i></div>
+            <div class="text-[11px] font-mono text-neutral-500 mt-1">Tren kecenderungan provokatif</div>
+            <div class="absolute right-3 top-3 text-neutral-800 text-3xl"><i class="fa-solid fa-face-angry"></i></div>
+          </div>
+
+          <div class="bg-neutral-900 border border-neutral-800 rounded-sm p-4 relative overflow-hidden">
+            <div class="text-[10px] font-mono uppercase tracking-widest text-neutral-500">Klaster Narasi Aktif</div>
+            <div class="font-mono text-2xl font-bold text-cyan-400 mt-1">5</div>
+            <div class="text-[11px] font-mono text-cyan-400/80 mt-1">2 klaster prioritas tinggi</div>
+            <div class="absolute right-3 top-3 text-cyan-950/40 text-3xl"><i class="fa-solid fa-cubes-stacked"></i></div>
+          </div>
+        </div>
+
+        <!-- Main Map & Live Threat Feed Grid -->
+        <div class="grid grid-cols-1 xl:grid-cols-12 gap-5">
+          <!-- Tactical Map (8 Cols) -->
+          <div class="xl:col-span-8 bg-neutral-900 border border-neutral-800 rounded-sm p-4 flex flex-col">
+            <div class="flex items-center justify-between mb-3 border-b border-neutral-800 pb-2">
+              <div class="flex items-center gap-2">
+                <i class="fa-solid fa-map-location-dot text-cyan-400 text-xs"></i>
+                <span class="text-xs font-mono font-semibold tracking-wide text-neutral-200 uppercase">SEBARAN TITIK ANCAMAN KOGNITIF (NUSANTARA)</span>
+              </div>
+              <span class="text-[10px] font-mono text-neutral-500 uppercase tracking-widest">BERDASARKAN DATASET AKTIF</span>
+            </div>
+
+            <div class="relative w-full h-64 sm:h-72 bg-neutral-950 border border-neutral-850 rounded-sm overflow-hidden flex items-center justify-center">
+              <svg viewBox="0 0 620 230" class="w-full h-full" role="img" aria-label="Peta taktis kepulauan Indonesia dengan titik ancaman">
+                <rect x="0" y="0" width="620" height="230" fill="#0a0a0a"/>
+                <!-- Tactical radar grid -->
+                <g stroke="#1f1f1f" stroke-width="1">
+                  <line x1="0" y1="58" x2="620" y2="58"/><line x1="0" y1="115" x2="620" y2="115"/><line x1="0" y1="172" x2="620" y2="172"/>
+                  <line x1="100" y1="0" x2="100" y2="230"/><line x1="200" y1="0" x2="200" y2="230"/><line x1="300" y1="0" x2="300" y2="230"/>
+                  <line x1="400" y1="0" x2="400" y2="230"/><line x1="500" y1="0" x2="500" y2="230"/>
+                </g>
+                <!-- Stylized Island Silhouettes (Tactical geometric representation) -->
+                <!-- Sumatera -->
+                <ellipse cx="95" cy="115" rx="58" ry="18" transform="rotate(-30 95 115)" fill="#171717" stroke="#333333"/>
+                <!-- Jawa -->
+                <ellipse cx="230" cy="165" rx="65" ry="12" fill="#171717" stroke="#333333"/>
+                <!-- Kalimantan -->
+                <ellipse cx="240" cy="95" rx="48" ry="32" fill="#171717" stroke="#333333"/>
+                <!-- Sulawesi -->
+                <ellipse cx="360" cy="115" rx="28" ry="38" fill="#171717" stroke="#333333"/>
+                <!-- Maluku & Papua -->
+                <ellipse cx="440" cy="120" rx="20" ry="25" fill="#171717" stroke="#333333"/>
+                <ellipse cx="530" cy="130" rx="55" ry="28" fill="#171717" stroke="#333333"/>
+
+                <!-- Threat radar pulses -->
+                <!-- Jawa (DKI Jakarta / Surabaya) -->
+                <circle cx="215" cy="162" r="5" fill="#f43f5e" class="threat-dot"/>
+                <circle cx="215" cy="162" r="14" fill="none" stroke="#f43f5e" stroke-width="1" class="threat-dot" style="animation-delay:.2s"/>
+                <text x="225" y="155" fill="#fb7185" font-size="9" font-family="JetBrains Mono" font-weight="bold">TS-2026-001 [KRITIS]</text>
+
+                <!-- Sumatera (Medan) -->
+                <circle cx="85" cy="95" r="4" fill="#fbbf24" class="threat-dot" style="animation-delay:.5s"/>
+                <text x="95" y="90" fill="#fbbf24" font-size="8" font-family="JetBrains Mono">TS-2026-003</text>
+
+                <!-- Sulawesi (Makassar) -->
+                <circle cx="360" cy="140" r="4" fill="#fbbf24" class="threat-dot" style="animation-delay:.9s"/>
+                <text x="370" y="142" fill="#fbbf24" font-size="8" font-family="JetBrains Mono">ANOMALI #4</text>
+              </svg>
+            </div>
+
+            <div class="mt-3 flex flex-wrap items-center justify-between text-[10px] font-mono text-neutral-500 pt-2 border-t border-neutral-850">
+              <div class="flex items-center gap-4">
+                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-rose-500"></span> Disinformasi Kritis</span>
+                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-400"></span> Anomali Perlu Investigasi</span>
+                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-cyan-400"></span> Narasi Terpantau</span>
+              </div>
+              <span class="text-neutral-400">STATUS AIR-GAPPED: <b class="text-emerald-400">SECURE LOCAL</b></span>
+            </div>
+          </div>
+
+          <!-- Live Threat Feed Terminal (4 Cols) -->
+          <div class="xl:col-span-4 bg-neutral-900 border border-neutral-800 rounded-sm p-4 flex flex-col min-h-0">
+            <div class="flex items-center justify-between mb-2 border-b border-neutral-800 pb-2">
+              <div class="flex items-center gap-2">
+                <i class="fa-solid fa-terminal text-cyan-400 text-xs"></i>
+                <span class="text-xs font-mono font-semibold tracking-wide text-neutral-200 uppercase">LIVE THREAT FEED</span>
+              </div>
+              <span class="text-[9px] font-mono text-cyan-400 animate-pulse">POLLING 2s</span>
+            </div>
+
+            <div id="threatFeedBox" class="flex-1 overflow-y-auto font-mono text-[11px] space-y-2 bg-neutral-950 border border-neutral-850 p-3 rounded-sm min-h-[220px] max-h-80">
+              <!-- Rendered via JS -->
+            </div>
+
+            <div class="mt-2 pt-2 border-t border-neutral-850 flex items-center justify-between text-[10px] font-mono text-neutral-500">
+              <span>Filter: <b class="text-neutral-300">SEMUA LEVEL</b></span>
+              <button onclick="clearAndReloadFeed()" class="text-cyan-400 hover:underline">Segarkan Log</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================================= -->
+      <!-- VIEW 2: INVESTIGASI KASUS & EVIDENCE LOCKER (MODUL G)                       -->
+      <!-- ========================================================================= -->
+      <section id="view-cases" class="view-panel flex-col gap-5 w-full">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-800 pb-3">
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="text-base font-bold font-mono tracking-wide text-neutral-100 uppercase">Investigasi Kasus &amp; Brankas Bukti Digital</h1>
+              <span class="text-[9px] font-mono px-2 py-0.5 border border-cyan-500/40 bg-cyan-950/30 text-cyan-400 rounded-sm">MODUL G</span>
+            </div>
+            <p class="text-xs text-neutral-500 mt-0.5">Pengelolaan siklus kasus intelijen 12-tahap dan pencatatan rantai bukti SHA-256 mutlak.</p>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button onclick="openModal('importModal')" class="px-3 py-1.5 bg-cyan-600/20 text-cyan-400 border border-cyan-500/50 hover:bg-cyan-600/40 font-mono text-xs uppercase tracking-wider rounded-sm transition-all flex items-center gap-1.5">
+              <i class="fa-solid fa-file-arrow-up text-xs"></i>
+              <span>Manual Evidence Import</span>
+            </button>
+            <button onclick="openModal('urlFetchModal')" class="px-3 py-1.5 bg-neutral-800 text-neutral-300 border border-neutral-700 hover:bg-neutral-750 font-mono text-xs uppercase tracking-wider rounded-sm transition-all flex items-center gap-1.5">
+              <i class="fa-solid fa-globe text-xs"></i>
+              <span>URL Evidence Fetch</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 12-Stage Operational Pipeline Stepper (Supplemental §4) -->
+        <div class="bg-neutral-900 border border-neutral-800 rounded-sm p-3.5 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-mono uppercase tracking-widest text-neutral-400 font-semibold">12-STAGE C4ISR OPERATIONAL PIPELINE (TS-2026-001)</span>
+            <span class="text-[10px] font-mono text-cyan-400">TAHAP AKTIF: 8 &amp; 9 (AI ASSESSMENT &amp; HUMAN VALIDATION)</span>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2 text-[10px] font-mono pt-1">
+            <div class="p-1.5 bg-neutral-950 border border-emerald-500/40 text-emerald-400 rounded-sm">1. Monitoring &amp; Alert <i class="fa-solid fa-check float-right mt-0.5"></i></div>
+            <div class="p-1.5 bg-neutral-950 border border-emerald-500/40 text-emerald-400 rounded-sm">2. Identifikasi Narasi <i class="fa-solid fa-check float-right mt-0.5"></i></div>
+            <div class="p-1.5 bg-neutral-950 border border-emerald-500/40 text-emerald-400 rounded-sm">3. Akuisisi Bukti <i class="fa-solid fa-check float-right mt-0.5"></i></div>
+            <div class="p-1.5 bg-neutral-950 border border-emerald-500/40 text-emerald-400 rounded-sm">4. Pembentukan Kasus <i class="fa-solid fa-check float-right mt-0.5"></i></div>
+            <div class="p-1.5 bg-neutral-950 border border-emerald-500/40 text-emerald-400 rounded-sm">5. Ekstraksi Klaim <i class="fa-solid fa-check float-right mt-0.5"></i></div>
+            <div class="p-1.5 bg-neutral-950 border border-emerald-500/40 text-emerald-400 rounded-sm">6. Cross-Source Verif <i class="fa-solid fa-check float-right mt-0.5"></i></div>
+            <div class="p-1.5 bg-neutral-950 border border-emerald-500/40 text-emerald-400 rounded-sm">7. Comparator Diff <i class="fa-solid fa-check float-right mt-0.5"></i></div>
+            <div class="p-1.5 bg-neutral-950 border border-cyan-500/60 bg-cyan-950/20 text-cyan-300 font-bold rounded-sm animate-pulse">8. Narrative Cluster</div>
+            <div class="p-1.5 bg-neutral-950 border border-cyan-500/60 bg-cyan-950/20 text-cyan-300 font-bold rounded-sm animate-pulse">9. Spread SNA</div>
+            <div class="p-1.5 bg-neutral-950 border border-amber-500/60 text-amber-400 font-semibold rounded-sm">10. AI Assessment</div>
+            <div class="p-1.5 bg-neutral-950 border border-rose-500/60 text-rose-400 font-semibold rounded-sm">11. Human Validation</div>
+            <div class="p-1.5 bg-neutral-950 border border-neutral-700 text-neutral-500 rounded-sm">12. Command Intel Brief</div>
+          </div>
+        </div>
+
+        <!-- Case Overview Card -->
+        <div class="bg-neutral-900 border border-neutral-800 rounded-sm p-4 space-y-3">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-neutral-800 pb-3">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-mono font-bold text-cyan-400">KASUS #TS-2026-001</span>
+                <span class="px-2 py-0.5 bg-rose-950/60 border border-rose-600/50 text-rose-400 text-[10px] font-mono font-bold uppercase">PRIORITAS TINGGI</span>
+                <span class="px-2 py-0.5 bg-amber-950/60 border border-amber-500/50 text-amber-400 text-[10px] font-mono uppercase">IN REVIEW</span>
+              </div>
+              <h2 class="text-sm font-bold text-neutral-200 mt-1">Cross-Platform Narrative Manipulation &amp; Digital Content Authenticity Investigation</h2>
+            </div>
+            <div class="text-right text-[11px] font-mono text-neutral-500">
+              Dibuat: <span class="text-neutral-300">03 Nov 2026 08:30 WIB</span><br>
+              Operator: <span class="text-cyan-400">Serda Rama Danu</span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-mono">
+            <div class="space-y-1">
+              <span class="text-[10px] uppercase text-neutral-500">Inti Klaim yang Diperiksa:</span>
+              <p class="text-neutral-200 font-sans text-xs bg-neutral-950 p-2.5 border border-neutral-850 rounded-sm leading-relaxed">
+                "Prabowo resmi menghentikan MBG dan KDMP, mengalirkan APBN lebih untuk pendidikan."
+              </p>
+            </div>
+            <div class="space-y-1">
+              <span class="text-[10px] uppercase text-neutral-500">Catatan Awal Operator:</span>
+              <p class="text-neutral-300 font-sans text-xs bg-neutral-950 p-2.5 border border-neutral-850 rounded-sm leading-relaxed">
+                Materi viral bermula dari akun meme Instagram, merembet ke TikTok, YouTube, X, Facebook, dan portal web independen. Terdeteksi pergeseran kata "wacana evaluasi" menjadi "resmi dibatalkan".
+              </p>
+            </div>
+            <div class="space-y-1">
+              <span class="text-[10px] uppercase text-neutral-500">Metrik Dataset Tersimpan:</span>
+              <div class="bg-neutral-950 p-2.5 border border-neutral-850 rounded-sm space-y-1 text-[11px]">
+                <div class="flex justify-between"><span class="text-neutral-400">Total Bukti:</span> <b class="text-cyan-400">11 Berkas</b></div>
+                <div class="flex justify-between"><span class="text-neutral-400">Sumber Referensi:</span> <b class="text-emerald-400">3 Rujukan</b></div>
+                <div class="flex justify-between"><span class="text-neutral-400">Platform Terpantau:</span> <b class="text-neutral-200">6 Kanal</b></div>
+                <div class="flex justify-between"><span class="text-neutral-400">Status Validasi:</span> <b class="text-amber-400">PENDING REVIEW</b></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Evidence Vault Ledger Table -->
+        <div class="bg-neutral-900 border border-neutral-800 rounded-sm p-4 space-y-3">
+          <div class="flex items-center justify-between border-b border-neutral-800 pb-2">
+            <div class="flex items-center gap-2">
+              <i class="fa-solid fa-vault text-cyan-400 text-xs"></i>
+              <span class="text-xs font-mono font-semibold tracking-wide text-neutral-200 uppercase">DAFTAR BUKTI DIGITAL (DIGITAL EVIDENCE LEDGER)</span>
+            </div>
+            <span class="text-[10px] font-mono text-neutral-500">HASHING SHA-256 AUTOMATED</span>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left font-mono text-xs">
+              <thead>
+                <tr class="border-b border-neutral-800 text-[10px] uppercase tracking-wider text-neutral-500 bg-neutral-950/50">
+                  <th class="py-2.5 px-3">Evidence ID</th>
+                  <th class="py-2.5 px-3">Peran Materi</th>
+                  <th class="py-2.5 px-3">Judul / Cuplikan Konten</th>
+                  <th class="py-2.5 px-3">Platform / Penerbit</th>
+                  <th class="py-2.5 px-3">Akses</th>
+                  <th class="py-2.5 px-3">SHA-256 Digest</th>
+                  <th class="py-2.5 px-3 text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-neutral-800/60 font-sans text-xs" id="evidenceTableBody">
+                <!-- Row 1: Ref 1 -->
+                <tr class="hover:bg-neutral-850/50">
+                  <td class="py-2.5 px-3 font-mono font-bold text-cyan-400 text-xs">E-001</td>
+                  <td class="py-2.5 px-3 font-mono text-[10px]"><span class="px-1.5 py-0.5 bg-emerald-950 border border-emerald-600/40 text-emerald-400 uppercase">REFERENCE</span></td>
+                  <td class="py-2.5 px-3 text-neutral-200 font-medium">Pemerintah Kaji Penyesuaian Alokasi Program Prioritas</td>
+                  <td class="py-2.5 px-3 font-mono text-neutral-400 text-[11px]">CNN Indo (Simulasi)</td>
+                  <td class="py-2.5 px-3 font-mono text-[10px] text-emerald-400">BERHASIL</td>
+                  <td class="py-2.5 px-3 font-mono text-[10px] text-neutral-500 select-all">e3b0c44298fc1c149afb...</td>
+                  <td class="py-2.5 px-3 text-right font-mono"><button onclick="viewEvidenceDetails('E-001')" class="text-cyan-400 hover:underline text-[11px]">Inspeksi</button></td>
+                </tr>
+                <!-- Row 2: Ref 2 -->
+                <tr class="hover:bg-neutral-850/50">
+                  <td class="py-2.5 px-3 font-mono font-bold text-cyan-400 text-xs">E-002</td>
+                  <td class="py-2.5 px-3 font-mono text-[10px]"><span class="px-1.5 py-0.5 bg-emerald-950 border border-emerald-600/40 text-emerald-400 uppercase">REFERENCE</span></td>
+                  <td class="py-2.5 px-3 text-neutral-200 font-medium">Klarifikasi Terkait Evaluasi Efisiensi Anggaran Pendidikan</td>
+                  <td class="py-2.5 px-3 font-mono text-neutral-400 text-[11px]">Tribunnews (Simulasi)</td>
+                  <td class="py-2.5 px-3 font-mono text-[10px] text-emerald-400">BERHASIL</td>
+                  <td class="py-2.5 px-3 font-mono text-[10px] text-neutral-500 select-all">f7c3bc1d808e04732adf...</td>
+                  <td class="py-2.5 px-3 text-right font-mono"><button onclick="viewEvidenceDetails('E-002')" class="text-cyan-400 hover:underline text-[11px]">Inspeksi</button></td>
+                </tr>
+                <!-- Row 3: Primary Official -->
+                <tr class="hover:bg-neutral-850/50">
+                  <td class="py-2.5 px-3 font-mono font-bold text-emerald-400 text-xs">E-003</td>
+                  <td class="py-2.5 px-3 font-mono text-[10px]"><span class="px-1.5 py-0.5 bg-cyan-950 border border-cyan-500/50 text-cyan-300 uppercase font-bold">PRIMARY</span></td>
+                  <td class="py-2.5 px-3 text-neutral-100 font-semibold">Siaran Pers Resmi Kemenko: MBG dan KDMP Tetap Berjalan</td>
+                  <td class="py-2.5 px-3 font-mono text-neutral-400 text-[11px]">Kemenko.go.id (Resmi)</td>
+                  <td class="py-2.5 px-3 font-mono text-[10px] text-emerald-400">BERHASIL</td>
+                  <td class="py-2.5 px-3 font-mono text-[10px] text-neutral-500 select-all">4a5b6c7d8e9f01234567...</td>
+                  <td class="py-2.5 px-3 text-right font-mono"><button onclick="viewEvidenceDetails('E-003')" class="text-cyan-400 hover:underline text-[11px]">Inspeksi</button></td>
+                </tr>
+                <!-- Row 4: Suspect Meme Node A1 -->
+                <tr class="hover:bg-neutral-850/50 bg-rose-950/10">
+                  <td class="py-2.5 px-3 font-mono font-bold text-rose-500 text-xs">E-004</td>
+                  <td class="py-2.5 px-3 font-mono text-[10px]"><span class="px-1.5 py-0.5 bg-rose-950 border border-rose-600/50 text-rose-400 uppercase font-bold">SUSPECT (A1)</span></td>
+                  <td class="py-2.5 px-3 text-rose-300 font-medium">Unggahan Meme Viral: "Prabowo resmi hentikan MBG &amp; KDMP"</td>
+                  <td class="py-2.5 px-3 font-mono text-neutral-400 text-[11px]">Instagram @meme_nusantara</td>
+                  <td class="py-2.5 px-3 font-mono text-[10px] text-emerald-400">BERHASIL</td>
+                  <td class="py-2.5 px-3 font-mono text-[10px] text-neutral-500 select-all">9f8e7d6c5b4a3210fedc...</td>
+                  <td class="py-2.5 px-3 text-right font-mono"><button onclick="viewEvidenceDetails('E-004')" class="text-cyan-400 hover:underline text-[11px]">Inspeksi</button></td>
+                </tr>
+                <!-- Row 5: Satellite A2 -->
+                <tr class="hover:bg-neutral-850/50">
+                  <td class="py-2.5 px-3 font-mono font-bold text-neutral-300 text-xs">E-005</td>
+                  <td class="py-2.5 px-3 font-mono text-[10px]"><span class="px-1.5 py-0.5 bg-neutral-800 border border-neutral-700 text-neutral-400 uppercase">COMPARED</span></td>
+                  <td class="py-2.5 px-3 text-neutral-300">Video TikTok Narasi MBG Dibatalkan: "Fix batal gaes anggaran dipangkas"</td>
+                  <td class="py-2.5 px-3 font-mono text-neutral-400 text-[11px]">TikTok @politik_santuy</td>
+                  <td class="py-2.5 px-3 font-mono text-[10px] text-emerald-400">BERHASIL</td>
+                  <td class="py-2.5 px-3 font-mono text-[10px] text-neutral-500 select-all">112233445566778899aa...</td>
+                  <td class="py-2.5 px-3 text-right font-mono"><button onclick="viewEvidenceDetails('E-005')" class="text-cyan-400 hover:underline text-[11px]">Inspeksi</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================================= -->
+      <!-- VIEW 3: CREDIBILITY SCANNER & COMPARATOR SUITE (MODUL B)                    -->
+      <!-- ========================================================================= -->
+      <section id="view-scanner" class="view-panel flex-col gap-5 w-full">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-800 pb-3">
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="text-base font-bold font-mono tracking-wide text-neutral-100 uppercase">Credibility Scanner &amp; Authenticity Comparator</h1>
+              <span class="text-[9px] font-mono px-2 py-0.5 border border-cyan-500/40 bg-cyan-950/30 text-cyan-400 rounded-sm">MODUL B</span>
+            </div>
+            <p class="text-xs text-neutral-500 mt-0.5">Analisis linguistik terstruktur, word-level diff pergeseran makna, dan validasi analis manusia.</p>
+          </div>
+
+          <div class="flex gap-1" role="tablist">
+            <button onclick="switchScannerTab('scan')" id="tabBtn-scan" class="px-3 py-1.5 text-xs font-mono uppercase tracking-wide border border-cyan-500/50 bg-cyan-600/20 text-cyan-300 rounded-sm" role="tab">1. Credibility Scan</button>
+            <button onclick="switchScannerTab('compare')" id="tabBtn-compare" class="px-3 py-1.5 text-xs font-mono uppercase tracking-wide border border-neutral-700 text-neutral-400 hover:text-neutral-200 rounded-sm" role="tab">2. Authenticity Comparator</button>
+          </div>
+        </div>
+
+        <!-- SUB-TAB 1: CREDIBILITY SCAN -->
+        <div id="scannerSubTab-scan" class="sub-tab active space-y-5">
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            <!-- Left Column: Input Form (5 Cols) -->
+            <div class="lg:col-span-5 bg-neutral-900 border border-neutral-800 rounded-sm p-4 space-y-4">
+              <div class="border-b border-neutral-800 pb-2 flex items-center justify-between">
+                <div class="text-xs font-mono uppercase tracking-wider text-neutral-300 font-semibold flex items-center gap-2">
+                  <i class="fa-solid fa-terminal text-cyan-400"></i>
+                  <span>Terminal Input Pindaian</span>
+                </div>
+                <span class="text-[9px] font-mono text-emerald-400 flex items-center gap-1">
+                  <i class="fa-solid fa-lock text-[8px]"></i> ANTI-INJECTION SECURED
+                </span>
+              </div>
+
+              <div class="space-y-1">
+                <label class="text-[10px] uppercase font-mono tracking-wider text-neutral-400">Kasus Terpilih:</label>
+                <div class="px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-sm text-xs font-mono text-cyan-400 truncate">
+                  TS-2026-001 — Cross-Platform Narrative Manipulation
+                </div>
+              </div>
+
+              <div class="space-y-1">
+                <div class="flex items-center justify-between">
+                  <label class="text-[10px] uppercase font-mono tracking-wider text-neutral-400">Teks Narasi / Klaim yang Diperiksa</label>
+                  <button type="button" onclick="loadSampleScanText()" class="text-[9px] font-mono text-cyan-400 hover:underline">
+                    Isi Contoh Skenario (MBG)
+                  </button>
+                </div>
+                <textarea id="scanInputText" rows="7" placeholder="Tempel teks artikel berita, takarir unggahan media sosial, atau klaim narasi..." class="w-full bg-neutral-950 border border-neutral-700 text-neutral-200 px-3 py-2 text-xs font-mono rounded-sm focus:outline-none focus:border-cyan-500 placeholder-neutral-600 leading-relaxed resize-none"></textarea>
+              </div>
+
+              <div class="space-y-1">
+                <label class="text-[10px] uppercase font-mono tracking-wider text-neutral-400">URL Sumber Eksternal (Opsional):</label>
+                <input id="scanInputUrl" type="text" placeholder="https://..." class="w-full bg-neutral-950 border border-neutral-700 text-neutral-300 px-3 py-2 text-xs font-mono rounded-sm focus:outline-none focus:border-cyan-500 placeholder-neutral-600">
+              </div>
+
+              <div class="p-2.5 bg-neutral-950 border border-neutral-850 rounded-sm text-[10px] font-mono text-neutral-500 space-y-1">
+                <div class="flex items-center justify-between">
+                  <span>Engine AI Aktif:</span>
+                  <b class="text-cyan-400">TraceS-Mock-IndoIntel-8B (SIMULASI)</b>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span>Isolasi Prompt Injection:</span>
+                  <b class="text-emerald-400">PromptGuard Active</b>
+                </div>
+              </div>
+
+              <button id="btnInitiateScan" onclick="triggerScanSimulation()" class="w-full py-2.5 bg-cyan-600/20 text-cyan-400 border border-cyan-500/50 hover:bg-cyan-600/40 hover:text-cyan-300 font-mono text-xs uppercase tracking-wider rounded-sm transition-all flex items-center justify-center gap-2 shadow-[0_0_12px_rgba(6,182,212,0.2)]">
+                <i class="fa-solid fa-radar text-xs"></i>
+                <span id="scanBtnText">[ INITIATE COGNITIVE SCAN ]</span>
+              </button>
+              <p id="scanStatusMsg" class="text-[10px] font-mono text-neutral-500 text-center">STATUS: STANDBY — SIAP ANALISIS</p>
+            </div>
+
+            <!-- Right Column: Scan Result (7 Cols) -->
+            <div class="lg:col-span-7 bg-neutral-900 border border-neutral-800 rounded-sm p-4 space-y-4">
+              <!-- Result Header & Radial Score Gauge -->
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-800 pb-3">
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs font-mono font-bold tracking-wider uppercase text-neutral-200">Hasil Penilaian Kognitif</span>
+                    <span class="text-[9px] font-mono px-1.5 py-0.2 border border-amber-500/40 text-amber-500 bg-amber-950/20">DATA SIMULASI</span>
+                  </div>
+                  <div class="text-[10px] font-mono text-neutral-500 mt-0.5">
+                    Model: TraceS-Mock-IndoIntel-8B • UUID: 8a4f10cd-sim
+                  </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                  <span id="classificationBadge" class="px-2 py-0.5 bg-rose-950/60 border border-rose-600/50 text-rose-400 text-xs font-mono font-bold uppercase tracking-wider shadow-[0_0_10px_rgba(225,29,72,0.2)]">
+                    DISINFORMATION
+                  </span>
+                  <span id="verificationBadge" class="px-2 py-0.5 bg-neutral-800 border border-neutral-700 text-neutral-300 text-xs font-mono uppercase">
+                    TERBANTAHKAN
+                  </span>
+                </div>
+              </div>
+
+              <!-- Radial Gauge and Tactical Executive Summary -->
+              <div class="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center bg-neutral-950 p-4 border border-neutral-850 rounded-sm">
+                <!-- SVG Radial Gauge (4 Cols) -->
+                <div class="sm:col-span-4 flex flex-col items-center justify-center">
+                  <div class="relative w-28 h-28 flex items-center justify-center">
+                    <svg class="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                      <circle cx="50" cy="50" r="40" stroke="#262626" stroke-width="8" fill="transparent"/>
+                      <circle id="radialCircle" cx="50" cy="50" r="40" stroke="#f43f5e" stroke-width="8" fill="transparent"
+                              stroke-dasharray="251.2" stroke-dashoffset="180.8" stroke-linecap="round" class="transition-all duration-1000"/>
+                    </svg>
+                    <div class="absolute flex flex-col items-center">
+                      <span id="radialScoreNumber" class="text-2xl font-bold font-mono text-rose-500">28</span>
+                      <span class="text-[8px] font-mono text-neutral-500 uppercase tracking-widest">SKOR / 100</span>
+                    </div>
+                  </div>
+                  <div class="text-[9px] font-mono text-neutral-500 mt-1 uppercase tracking-wider text-center">
+                    Indikator Kredibilitas <br><span class="text-neutral-600 normal-case">(bukan probabilitas benar)</span>
+                  </div>
+                </div>
+
+                <!-- Tactical Executive Summary (8 Cols) -->
+                <div class="sm:col-span-8 space-y-2 border-t sm:border-t-0 sm:border-l border-neutral-800 sm:pl-4">
+                  <div class="text-[10px] uppercase font-mono tracking-widest text-cyan-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-file-contract"></i>
+                    <span>Executive Tactical Summary</span>
+                  </div>
+                  <p id="summaryText" class="text-xs font-sans text-neutral-200 leading-relaxed font-medium">
+                    Klaim penghentian resmi MBG &amp; KDMP bertentangan langsung dengan Siaran Pers resmi Kemenko [E-003]. Ditemukan distorsi redaksi dari rujukan berita media awal yang hanya membahas wacana penyesuaian alokasi.
+                  </p>
+                  <div class="flex items-center gap-4 text-[10px] font-mono text-neutral-400 pt-1">
+                    <span>Tingkat Ancaman: <b class="text-rose-400">KRITIS</b></span>
+                    <span>•</span>
+                    <span>Confidence Model: <b class="text-cyan-400">89%</b></span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Linguistic Breakdown Table -->
+              <div class="space-y-1.5">
+                <div class="text-[10px] uppercase font-mono tracking-wider text-neutral-400">Linguistic &amp; Content Breakdown</div>
+                <div class="bg-neutral-950 border border-neutral-850 rounded-sm overflow-hidden text-xs font-mono">
+                  <table class="w-full text-left">
+                    <tbody class="divide-y divide-neutral-850">
+                      <tr>
+                        <td class="py-2 px-3 text-[10px] text-neutral-500 uppercase w-40">Muatan Emotif</td>
+                        <td class="py-2 px-3 text-rose-400 font-semibold">Tinggi / Provokatif ("resmi dibatalkan", "dialihkan")</td>
+                      </tr>
+                      <tr>
+                        <td class="py-2 px-3 text-[10px] text-neutral-500 uppercase">Logical Fallacy</td>
+                        <td class="py-2 px-3 text-neutral-200">False Dichotomy (membenturkan MBG vs Pendidikan)</td>
+                      </tr>
+                      <tr>
+                        <td class="py-2 px-3 text-[10px] text-neutral-500 uppercase">Verifikasi Sumber</td>
+                        <td class="py-2 px-3 text-neutral-200">Tidak ada tautan ke dokumen regulasi / keputusan resmi</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Claims Extracted (Claim-Level Matching) -->
+              <div class="space-y-1.5">
+                <div class="text-[10px] uppercase font-mono tracking-wider text-neutral-400">Klaim Teridentifikasi (Claim-Level Matching)</div>
+                <div class="space-y-1.5">
+                  <div class="p-2.5 bg-neutral-950 border border-neutral-850 rounded-sm flex items-start justify-between gap-3 text-xs font-mono">
+                    <div>
+                      <span class="text-cyan-400 font-bold mr-1">[C-01]</span>
+                      <span class="text-neutral-200 font-sans">Prabowo resmi menghentikan program Makan Bergizi Gratis (MBG).</span>
+                    </div>
+                    <div class="flex items-center gap-1.5 shrink-0">
+                      <span class="text-[9px] px-1.5 py-0.2 bg-neutral-800 text-neutral-400 border border-neutral-700 uppercase">DUGAAN</span>
+                      <span class="text-[9px] px-1.5 py-0.2 uppercase bg-rose-950 text-rose-400 border border-rose-600/40">TERBANTAHKAN</span>
+                    </div>
+                  </div>
+                  <div class="p-2.5 bg-neutral-950 border border-neutral-850 rounded-sm flex items-start justify-between gap-3 text-xs font-mono">
+                    <div>
+                      <span class="text-cyan-400 font-bold mr-1">[C-02]</span>
+                      <span class="text-neutral-200 font-sans">Anggaran dialihkan seluruhnya untuk pembiayaan sektor pendidikan.</span>
+                    </div>
+                    <div class="flex items-center gap-1.5 shrink-0">
+                      <span class="text-[9px] px-1.5 py-0.2 bg-neutral-800 text-neutral-400 border border-neutral-700 uppercase">DUGAAN</span>
+                      <span class="text-[9px] px-1.5 py-0.2 uppercase bg-neutral-800 text-amber-400 border border-amber-600/40">TIDAK CUKUP BUKTI</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Human Validation Review Panel (Supplemental §13 & Master §7.2) -->
+              <div class="p-3 bg-neutral-950 border border-cyan-500/30 rounded-sm space-y-3">
+                <div class="flex items-center justify-between border-b border-neutral-800 pb-2">
+                  <div class="text-xs font-mono uppercase tracking-wider text-cyan-400 font-semibold flex items-center gap-1.5">
+                    <i class="fa-solid fa-user-check"></i>
+                    <span>Validasi Analis Manusia (Human Validation Review)</span>
+                  </div>
+                  <span id="currentValidationBadge" class="text-[10px] font-mono uppercase px-2 py-0.5 bg-neutral-800 border border-neutral-700 text-amber-400">
+                    STATUS: PENDING REVIEW
+                  </span>
+                </div>
+
+                <div class="space-y-3 text-xs font-mono">
+                  <div class="flex items-center gap-3">
+                    <label class="flex items-center gap-1.5 text-neutral-300 cursor-pointer">
+                      <input type="radio" name="validationDecision" value="VALIDATED" checked class="text-cyan-500">
+                      <span class="text-emerald-400 font-bold">VALIDATE</span> (Setujui Temuan AI)
+                    </label>
+                    <label class="flex items-center gap-1.5 text-neutral-300 cursor-pointer">
+                      <input type="radio" name="validationDecision" value="REJECTED" class="text-rose-500">
+                      <span class="text-rose-400 font-bold">REJECT</span> (Tolak Hasil)
+                    </label>
+                    <label class="flex items-center gap-1.5 text-neutral-300 cursor-pointer">
+                      <input type="radio" name="validationDecision" value="RECLASSIFIED" class="text-amber-500">
+                      <span class="text-amber-400 font-bold">RECLASSIFY</span> (Koreksi)
+                    </label>
+                  </div>
+
+                  <div class="space-y-1">
+                    <label class="text-[10px] uppercase text-neutral-400">Catatan Analisis &amp; Argumen Validasi (Wajib diisi):</label>
+                    <textarea id="validationReasonText" rows="2" placeholder="Tuliskan argumen analitis dan bukti pendukung keputusan..." class="w-full bg-neutral-900 border border-neutral-700 text-neutral-200 px-3 py-2 text-xs font-mono rounded-sm focus:outline-none focus:border-cyan-500 placeholder-neutral-600 resize-none">Hasil evaluasi AI telah diverifikasi silang dengan Siaran Pers Kemenko [E-003]. Terbukti terjadi manipulasi makna dari wacana menjadi keputusan sepihak.</textarea>
+                  </div>
+
+                  <div class="flex items-center justify-between">
+                    <span class="text-[10px] font-mono text-neutral-500 italic">* Menjadi bagian dari audit trail resmi keputusan intelijen.</span>
+                    <button onclick="submitHumanValidation()" class="px-4 py-1.5 bg-cyan-600/20 text-cyan-400 border border-cyan-500/50 hover:bg-cyan-600/40 text-xs font-mono uppercase tracking-wider rounded-sm transition-all">
+                      Catat Keputusan Analis
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUB-TAB 2: AUTHENTICITY COMPARATOR (Supplemental §6) -->
+        <div id="scannerSubTab-compare" class="sub-tab space-y-4">
+          <div class="bg-neutral-900 border border-neutral-800 rounded-sm p-4 space-y-3">
+            <div class="border-b border-neutral-800 pb-2 flex items-center justify-between">
+              <div class="text-xs font-mono uppercase tracking-wider text-neutral-300 font-semibold flex items-center gap-2">
+                <i class="fa-solid fa-scale-balanced text-cyan-400"></i>
+                <span>Komparasi Autentisitas Redaksi Materi Berita vs Konten Beredar</span>
+              </div>
+              <span class="text-[10px] font-mono text-cyan-400">Word-Level Diff &amp; Semantic Shift</span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <!-- Original Reference Pane -->
+              <div class="bg-neutral-950 border border-neutral-800 rounded-sm p-3.5 space-y-2">
+                <div class="flex items-center justify-between border-b border-neutral-800 pb-2">
+                  <div class="text-xs font-mono uppercase tracking-wider text-emerald-400 font-semibold flex items-center gap-1.5">
+                    <i class="fa-solid fa-file-shield"></i>
+                    <span>Materi Referensi Asli [E-001]</span>
+                  </div>
+                  <span class="text-[10px] font-mono text-neutral-500">CNN Indonesia (Simulasi)</span>
+                </div>
+
+                <div class="font-sans text-xs leading-relaxed text-neutral-300 min-h-[120px] bg-neutral-900/60 p-3 rounded-sm border border-neutral-850">
+                  "Pemerintah <span class="bg-yellow-500/20 text-yellow-300 px-1 py-0.5 rounded-xs border-b border-yellow-500/50 font-semibold" title="Bagian ini dihapus/kehilangan konteks">mempertimbangkan evaluasi dan penyesuaian alokasi anggaran</span> pada beberapa program bantuan sosial termasuk MBG guna memastikan ketepatan sasaran fiskal tahun 2026."
+                </div>
+                <div class="text-[9px] font-mono text-neutral-500 select-all">
+                  SHA-256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+                </div>
+              </div>
+
+              <!-- Suspect Compared Content Pane -->
+              <div class="bg-neutral-950 border border-neutral-800 rounded-sm p-3.5 space-y-2">
+                <div class="flex items-center justify-between border-b border-neutral-800 pb-2">
+                  <div class="text-xs font-mono uppercase tracking-wider text-rose-400 font-semibold flex items-center gap-1.5">
+                    <i class="fa-solid fa-file-circle-exclamation"></i>
+                    <span>Konten Pembanding Beredar [E-004]</span>
+                  </div>
+                  <span class="text-[10px] font-mono text-neutral-500">Instagram Meme @meme_nusantara</span>
+                </div>
+
+                <div class="font-sans text-xs leading-relaxed text-neutral-300 min-h-[120px] bg-neutral-900/60 p-3 rounded-sm border border-neutral-850">
+                  "Prabowo <span class="bg-rose-500/20 text-rose-300 px-1 py-0.5 rounded-xs border-b border-rose-600/50 font-bold" title="Bagian ini ditambahkan / berubah makna">resmi menghentikan seluruh program MBG dan KDMP</span> serta mengalihkan seluruh APBN untuk pendidikan mulai bulan depan."
+                </div>
+                <div class="text-[9px] font-mono text-neutral-500 select-all">
+                  SHA-256: 9f8e7d6c5b4a3210fedcba987654321012345678abcdef0123456789abcdef01
+                </div>
+              </div>
+            </div>
+
+            <!-- Legend Bar -->
+            <div class="flex flex-wrap items-center gap-4 px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-sm text-[11px] font-mono">
+              <span class="text-neutral-400 font-semibold text-[10px] uppercase">Penanda Perubahan:</span>
+              <span class="flex items-center gap-1.5 text-neutral-300"><span class="w-3 h-3 bg-neutral-800 border border-neutral-700 inline-block"></span> Teks Sama</span>
+              <span class="flex items-center gap-1.5 text-rose-400"><span class="w-3 h-3 bg-rose-500/30 border border-rose-600 inline-block"></span> Berubah / Ditambahkan (Distorsi)</span>
+              <span class="flex items-center gap-1.5 text-yellow-400"><span class="w-3 h-3 bg-yellow-500/30 border border-yellow-500 inline-block"></span> Dihapus / Hilang Konteks</span>
+              <span class="flex items-center gap-1.5 text-neutral-500"><span class="w-3 h-3 bg-neutral-700/50 inline-block"></span> Belum Dapat Dibandingkan</span>
+            </div>
+
+            <!-- Meaning Impact Table -->
+            <div class="overflow-x-auto pt-2">
+              <table class="w-full text-left font-mono text-xs">
+                <thead>
+                  <tr class="border-b border-neutral-800 text-[10px] uppercase tracking-wider text-neutral-500 bg-neutral-950/60">
+                    <th class="py-2 px-3">Elemen Diperiksa</th>
+                    <th class="py-2 px-3">Materi Asli</th>
+                    <th class="py-2 px-3">Pembanding</th>
+                    <th class="py-2 px-3">Perubahan</th>
+                    <th class="py-2 px-3">Dampak Terhadap Makna</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-neutral-800/60 font-sans text-xs">
+                  <tr class="hover:bg-neutral-850/50">
+                    <td class="py-2.5 px-3 font-mono font-semibold text-neutral-300 uppercase text-[11px]">Status Kebijakan</td>
+                    <td class="py-2.5 px-3 text-emerald-400 font-mono">"mempertimbangkan"</td>
+                    <td class="py-2.5 px-3 text-rose-400 font-mono font-bold">"resmi menghentikan"</td>
+                    <td class="py-2.5 px-3 font-mono text-[10px]"><span class="px-1.5 py-0.2 bg-rose-950 text-rose-400 border border-rose-600/40">ALTERED</span></td>
+                    <td class="py-2.5 px-3 text-neutral-200 leading-relaxed">Mengubah status wacana awal menjadi penetapan keputusan sepihak yang keliru.</td>
+                  </tr>
+                  <tr class="hover:bg-neutral-850/50">
+                    <td class="py-2.5 px-3 font-mono font-semibold text-neutral-300 uppercase text-[11px]">Cakupan Program</td>
+                    <td class="py-2.5 px-3 text-emerald-400 font-mono">"beberapa program"</td>
+                    <td class="py-2.5 px-3 text-rose-400 font-mono font-bold">"seluruh program MBG &amp; KDMP"</td>
+                    <td class="py-2.5 px-3 font-mono text-[10px]"><span class="px-1.5 py-0.2 bg-rose-950 text-rose-400 border border-rose-600/40">ALTERED</span></td>
+                    <td class="py-2.5 px-3 text-neutral-200 leading-relaxed">Generalisasi berlebihan yang memperluas sasaran disinformasi.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- AI Change Assessment -->
+            <div class="p-3 bg-neutral-950 border border-cyan-500/30 rounded-sm space-y-1">
+              <div class="text-[10px] uppercase font-mono tracking-widest text-cyan-400 font-bold">AI Change Assessment:</div>
+              <p class="text-xs font-sans text-neutral-200 leading-relaxed">
+                Perubahan redaksi materi pembanding berpotensi mengubah status hukum kebijakan secara fundamental. Materi pembanding tidak dapat dianggap setara dengan rujukan berita maupun siaran pers resmi. Skor Kemiripan Redaksional: <b class="font-mono text-cyan-400">64%</b> (Hanya indikator kesamaan leksikal, bukan validasi kebenaran).
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================================= -->
+      <!-- VIEW 4: CROSS-SOURCE VERIFICATION WORKSPACE (SUPPLEMENTAL §5 & §12.A)     -->
+      <!-- ========================================================================= -->
+      <section id="view-crosssource" class="view-panel flex-col gap-5 w-full">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-800 pb-3">
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="text-base font-bold font-mono tracking-wide text-neutral-100 uppercase">Cross-Source Verification &amp; Similarity Engine</h1>
+              <span class="text-[9px] font-mono px-2 py-0.5 border border-emerald-500/40 bg-emerald-950/30 text-emerald-400 rounded-sm">5-DIMENSIONAL SIMILARITY</span>
+            </div>
+            <p class="text-xs text-neutral-500 mt-0.5">Analisis independensi hubungan antarsumber, verifikasi rujukan primer, dan pemetaan klaim multi-sumber.</p>
+          </div>
+
+          <button onclick="runCrossSourceSim()" class="px-4 py-2 bg-emerald-600/20 text-emerald-400 border border-emerald-500/50 hover:bg-emerald-600/40 text-xs font-mono uppercase tracking-wider rounded-sm transition-all flex items-center gap-2">
+            <i class="fa-solid fa-rotate text-xs"></i>
+            <span>Jalankan Verifikasi Lintas Sumber</span>
+          </button>
+        </div>
+
+        <!-- Source Independence Alert Banner (Supplemental §5.4) -->
+        <div class="p-4 bg-neutral-900 border border-amber-500/40 rounded-sm flex items-start gap-3.5 text-xs font-mono">
+          <div class="w-7 h-7 rounded-full bg-amber-950 border border-amber-500/60 flex items-center justify-center text-amber-400 shrink-0 mt-0.5">
+            <i class="fa-solid fa-link text-xs"></i>
+          </div>
+          <div class="space-y-1">
+            <div class="text-amber-400 font-bold uppercase text-[11px] tracking-wide">
+              Analisis Independensi Sumber: <span class="text-neutral-200">COMMON PRIMARY SOURCE DETECTED</span>
+            </div>
+            <p class="text-neutral-300 font-sans leading-relaxed text-xs">
+              Terdapat kesesuaian pemberitaan pada portal berita (CNN Indonesia &amp; Tribunnews), namun keduanya diketahui mengutip satu siaran pers yang sama dari instansi kementerian. <b>Jumlah 2 artikel berita tidak dapat diperlakukan sebagai 2 bukti independen yang terpisah.</b>
+            </p>
+            <div class="text-[10px] text-neutral-500 pt-1">
+              * Prinsip Intelijen: Independensi Sumber dihitung berdasarkan unit pelaporan primer nyata, bukan agregasi kuantitas portal rilis ulang.
+            </div>
+          </div>
+        </div>
+
+        <!-- 3 Dimension Status Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5 font-mono text-xs">
+          <div class="p-3.5 bg-neutral-900 border border-neutral-800 rounded-sm space-y-1">
+            <div class="text-[10px] text-neutral-500 uppercase">Status Dukungan Informasi</div>
+            <div class="text-sm font-bold text-cyan-400">STRONG CROSS-SOURCE SUPPORT</div>
+            <div class="text-[10px] text-neutral-500">Kesesuaian di antara rujukan berita terakreditasi</div>
+          </div>
+
+          <div class="p-3.5 bg-neutral-900 border border-neutral-800 rounded-sm space-y-1">
+            <div class="text-[10px] text-neutral-500 uppercase">Unit Rujukan Independen Nyata</div>
+            <div class="text-sm font-bold text-emerald-400">1 Dokumen Primer (Kemenko)</div>
+            <div class="text-[10px] text-neutral-500">Dari total 3 sumber terhubung yang diverifikasi</div>
+          </div>
+
+          <div class="p-3.5 bg-neutral-900 border border-neutral-800 rounded-sm space-y-1">
+            <div class="text-[10px] text-neutral-500 uppercase">Konsistensi Angka &amp; Entitas</div>
+            <div class="text-sm font-bold text-emerald-400">CONSISTENT</div>
+            <div class="text-[10px] text-neutral-500">Tidak ada kontradiksi angka nominal antar-berita</div>
+          </div>
+        </div>
+
+        <!-- 5 Similarity Dimensions Breakdown Table -->
+        <div class="bg-neutral-900 border border-neutral-800 rounded-sm p-4 space-y-3">
+          <div class="flex items-center justify-between border-b border-neutral-800 pb-2">
+            <div class="text-xs font-mono uppercase tracking-wider text-neutral-200 font-semibold flex items-center gap-2">
+              <i class="fa-solid fa-code-compare text-emerald-400"></i>
+              <span>Matriks 5 Jenis Similarity Lintas Sumber (Supplemental §5.2)</span>
+            </div>
+            <span class="text-[10px] font-mono text-neutral-500">MENGHINDARI SKOR GENERIK TUNGGAL</span>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left font-mono text-xs">
+              <thead>
+                <tr class="border-b border-neutral-800 text-[10px] uppercase tracking-wider text-neutral-500 bg-neutral-950/60">
+                  <th class="py-2 px-3">Dimensi Similarity</th>
+                  <th class="py-2 px-3">Metode &amp; Algoritma</th>
+                  <th class="py-2 px-3">Pasangan Sumber</th>
+                  <th class="py-2 px-3">Skor Nilai</th>
+                  <th class="py-2 px-3">Status Pencocokan</th>
+                  <th class="py-2 px-3">Interpretasi Intelijen</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-neutral-800/60 font-sans text-xs">
+                <tr class="hover:bg-neutral-850/50">
+                  <td class="py-2.5 px-3 font-mono font-bold text-cyan-400 text-xs">A. Lexical Similarity</td>
+                  <td class="py-2.5 px-3 font-mono text-[11px] text-neutral-400">Token Overlap / Cosine TF-IDF</td>
+                  <td class="py-2.5 px-3 font-mono text-[11px] text-neutral-300">CNN [S-001] vs Tribun [S-002]</td>
+                  <td class="py-2.5 px-3 font-mono text-cyan-400 font-bold">81.4%</td>
+                  <td class="py-2.5 px-3 font-mono text-[10px]"><span class="px-1.5 py-0.2 bg-emerald-950 text-emerald-400 border border-emerald-600/40">TINGGI</span></td>
+                  <td class="py-2.5 px-3 text-neutral-300 text-xs">Banyak susunan frasa dan kutipan narasumber yang identik.</td>
+                </tr>
+                <tr class="hover:bg-neutral-850/50">
+                  <td class="py-2.5 px-3 font-mono font-bold text-cyan-400 text-xs">B. Semantic Similarity</td>
+                  <td class="py-2.5 px-3 font-mono text-[11px] text-neutral-400">Dense Embedding Vector (IndoBERT)</td>
+                  <td class="py-2.5 px-3 font-mono text-[11px] text-neutral-300">CNN [S-001] vs Kemenko [S-003]</td>
+                  <td class="py-2.5 px-3 font-mono text-cyan-400 font-bold">88.7%</td>
+                  <td class="py-2.5 px-3 font-mono text-[10px]"><span class="px-1.5 py-0.2 bg-emerald-950 text-emerald-400 border border-emerald-600/40">KONSISTEN</span></td>
+                  <td class="py-2.5 px-3 text-neutral-300 text-xs">Substansi makna berita sesuai dengan siaran pers resmi pemerintah.</td>
+                </tr>
+                <tr class="hover:bg-neutral-850/50">
+                  <td class="py-2.5 px-3 font-mono font-bold text-cyan-400 text-xs">C. Claim-Level Matching</td>
+                  <td class="py-2.5 px-3 font-mono text-[11px] text-neutral-400">Tuple Event-Predicate Matcher</td>
+                  <td class="py-2.5 px-3 font-mono text-[11px] text-neutral-300">S-001 vs Konten Viral [E-004]</td>
+                  <td class="py-2.5 px-3 font-mono text-rose-400 font-bold">34.2%</td>
+                  <td class="py-2.5 px-3 font-mono text-[10px]"><span class="px-1.5 py-0.2 bg-rose-950 text-rose-400 border border-rose-600/40">CONFLICT</span></td>
+                  <td class="py-2.5 px-3 text-neutral-300 text-xs">Klaim viral memutarbalikkan predikat dari "evaluasi" menjadi "batal".</td>
+                </tr>
+                <tr class="hover:bg-neutral-850/50">
+                  <td class="py-2.5 px-3 font-mono font-bold text-cyan-400 text-xs">D. Numeric &amp; Entity</td>
+                  <td class="py-2.5 px-3 font-mono text-[11px] text-neutral-400">Regex &amp; NER Consistency Extractor</td>
+                  <td class="py-2.5 px-3 font-mono text-[11px] text-neutral-300">S-001 vs S-002 vs S-003</td>
+                  <td class="py-2.5 px-3 font-mono text-emerald-400 font-bold">100.0%</td>
+                  <td class="py-2.5 px-3 font-mono text-[10px]"><span class="px-1.5 py-0.2 bg-emerald-950 text-emerald-400 border border-emerald-600/40">IDENTIK</span></td>
+                  <td class="py-2.5 px-3 text-neutral-300 text-xs">Tanggal publikasi dan alokasi anggaran APBN 2026 konsisten.</td>
+                </tr>
+                <tr class="hover:bg-neutral-850/50">
+                  <td class="py-2.5 px-3 font-mono font-bold text-cyan-400 text-xs">E. Contextual Similarity</td>
+                  <td class="py-2.5 px-3 font-mono text-[11px] text-neutral-400">Temporal &amp; Policy Scope Matcher</td>
+                  <td class="py-2.5 px-3 font-mono text-[11px] text-neutral-300">Semua Sumber Rujukan</td>
+                  <td class="py-2.5 px-3 font-mono text-emerald-400 font-bold">92.0%</td>
+                  <td class="py-2.5 px-3 font-mono text-[10px]"><span class="px-1.5 py-0.2 bg-emerald-950 text-emerald-400 border border-emerald-600/40">SEPADAN</span></td>
+                  <td class="py-2.5 px-3 text-neutral-300 text-xs">Membahas konteks rapat kerja evaluasi semester pertama tahun anggaran.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Source Relationship Map (Supplemental §5.4) -->
+        <div class="bg-neutral-900 border border-neutral-800 rounded-sm p-4 space-y-3">
+          <div class="text-xs font-mono uppercase tracking-wider text-neutral-200 font-semibold flex items-center gap-2">
+            <i class="fa-solid fa-sitemap text-cyan-400"></i>
+            <span>Peta Relasi Rujukan Primer &amp; Sindikasi Antarsumber</span>
+          </div>
+
+          <div class="p-4 bg-neutral-950 border border-neutral-850 rounded-sm">
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-4 text-xs font-mono">
+              <!-- Node Primary -->
+              <div class="p-3 bg-cyan-950/40 border border-cyan-500/60 rounded-sm text-center">
+                <span class="text-[9px] px-1.5 py-0.2 bg-cyan-950 text-cyan-300 border border-cyan-500/50 uppercase font-bold">PRIMARY EVIDENCE</span>
+                <div class="font-bold text-neutral-100 mt-1">[S-003] Siaran Pers Kemenko</div>
+                <div class="text-[10px] text-neutral-400">Kemenko.go.id (Resmi)</div>
+              </div>
+
+              <!-- Arrows -->
+              <div class="text-neutral-600 text-lg sm:rotate-0 rotate-90 flex sm:flex-col gap-1">
+                <i class="fa-solid fa-arrow-right"></i>
+              </div>
+
+              <!-- Node Secondary Media A -->
+              <div class="p-3 bg-neutral-900 border border-neutral-700 rounded-sm text-center">
+                <span class="text-[9px] px-1.5 py-0.2 bg-neutral-800 text-neutral-400 uppercase">SECONDARY CITATION</span>
+                <div class="font-bold text-neutral-200 mt-1">[S-001] Portal Berita A</div>
+                <div class="text-[10px] text-neutral-500">Mengutip Siaran Pers Kemenko</div>
+              </div>
+
+              <!-- Node Secondary Media B -->
+              <div class="p-3 bg-neutral-900 border border-neutral-700 rounded-sm text-center">
+                <span class="text-[9px] px-1.5 py-0.2 bg-neutral-800 text-neutral-400 uppercase">SECONDARY CITATION</span>
+                <div class="font-bold text-neutral-200 mt-1">[S-002] Portal Berita B</div>
+                <div class="text-[10px] text-neutral-500">Mengutip Siaran Pers Kemenko</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================================= -->
+      <!-- VIEW 5: SPREAD & SNA ANALYSIS (MODUL C & §10.5)                            -->
+      <!-- ========================================================================= -->
+      <section id="view-network" class="view-panel flex-col gap-5 w-full">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-800 pb-3">
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="text-base font-bold font-mono tracking-wide text-neutral-100 uppercase">Threat Actor Network &amp; Spread Analysis</h1>
+              <span class="text-[9px] font-mono px-2 py-0.5 border border-amber-500/40 bg-amber-950/30 text-amber-500 rounded-sm">MODUL C</span>
+            </div>
+            <p class="text-xs text-neutral-500 mt-0.5">Pemetaan jejaring aktor penyebar, indikator otomatisasi bot, dan kronologi amplifikasi lintas platform.</p>
+          </div>
+
+          <div class="p-2 bg-neutral-900 border border-neutral-800 rounded-sm flex items-center gap-2 text-xs font-mono text-neutral-400">
+            <span class="text-cyan-400"><i class="fa-solid fa-clock-rotate-left"></i> Titik Publikasi Awal Dataset:</span>
+            <b class="text-rose-400">Node-A1 (@meme_nusantara)</b>
+            <span class="text-[10px] text-neutral-500">(Bukan klaim pertama di internet)</span>
+          </div>
+        </div>
+
+        <!-- Main SNA Graph & Metrics Grid -->
+        <div class="grid grid-cols-1 xl:grid-cols-12 gap-5">
+          <!-- Left Column: SNA Canvas (7 Cols) -->
+          <div class="xl:col-span-7 bg-neutral-900 border border-neutral-800 rounded-sm p-4 space-y-3">
+            <div class="flex items-center justify-between border-b border-neutral-800 pb-2">
+              <div class="text-xs font-mono uppercase tracking-wider text-neutral-300 font-semibold flex items-center gap-2">
+                <i class="fa-solid fa-diagram-project text-cyan-400"></i>
+                <span>Social Network Analysis (SNA) Graph Canvas</span>
+              </div>
+              <span class="text-[9px] font-mono text-cyan-400">CLUSTER: NC-2026-001</span>
+            </div>
+
+            <!-- Dot Grid Canvas with Central & Satellite Nodes -->
+            <div class="relative w-full h-80 sm:h-96 bg-neutral-950 border border-neutral-850 rounded-sm overflow-hidden select-none">
+              <!-- Dot grid pattern -->
+              <div class="absolute inset-0 bg-[radial-gradient(#262626_1px,transparent_1px)] [background-size:16px_16px] opacity-40"></div>
+
+              <!-- SVG Connecting lines -->
+              <svg class="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg">
+                <line x1="50%" y1="50%" x2="20%" y2="25%" stroke="#404040" stroke-width="1.5" stroke-dasharray="4"/>
+                <line x1="50%" y1="50%" x2="80%" y2="20%" stroke="#e11d48" stroke-width="2"/>
+                <line x1="50%" y1="50%" x2="82%" y2="60%" stroke="#404040" stroke-width="1.5"/>
+                <line x1="50%" y1="50%" x2="70%" y2="82%" stroke="#404040" stroke-width="1.5"/>
+                <line x1="50%" y1="50%" x2="25%" y2="78%" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="4"/>
+                <line x1="50%" y1="50%" x2="16%" y2="52%" stroke="#404040" stroke-width="1.5"/>
+              </svg>
+
+              <!-- Central Node (Patient Zero / Node-A1) -->
+              <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center">
+                <div class="relative flex items-center justify-center">
+                  <span class="animate-ping absolute inline-flex h-14 w-14 rounded-full bg-rose-600 opacity-40"></span>
+                  <div class="w-12 h-12 rounded-full bg-rose-950 border-2 border-rose-500 flex items-center justify-center text-rose-300 font-mono font-bold text-xs shadow-[0_0_20px_rgba(225,29,72,0.6)]">
+                    A1
+                  </div>
+                </div>
+                <div class="mt-1 px-2 py-0.5 bg-neutral-900 border border-rose-600/50 rounded-sm text-[9px] font-mono text-rose-400 font-semibold text-center whitespace-nowrap shadow-lg">
+                  Node-A1 (Titik Awal Dataset)<br>
+                  <span class="text-neutral-400 font-normal">@meme_nusantara (Instagram)</span>
+                </div>
+              </div>
+
+              <!-- Satellite Nodes -->
+              <!-- A2 (TikTok) -->
+              <div class="absolute top-[20%] left-[16%] z-10 flex flex-col items-center">
+                <div class="w-9 h-9 rounded-full bg-neutral-900 border border-neutral-700 flex items-center justify-center text-neutral-300 font-mono text-[11px] font-bold hover:border-cyan-400 cursor-pointer">A2</div>
+                <div class="mt-0.5 px-1.5 py-0.2 bg-neutral-950 border border-neutral-800 rounded-sm text-[8px] font-mono text-neutral-400 whitespace-nowrap">@politik_santuy (TikTok)</div>
+              </div>
+
+              <!-- A3 (X / Twitter) - High bot indicator -->
+              <div class="absolute top-[16%] left-[76%] z-10 flex flex-col items-center">
+                <div class="w-9 h-9 rounded-full bg-rose-950/70 border border-rose-500 flex items-center justify-center text-rose-300 font-mono text-[11px] font-bold cursor-pointer">A3</div>
+                <div class="mt-0.5 px-1.5 py-0.2 bg-neutral-950 border border-rose-600/40 rounded-sm text-[8px] font-mono text-rose-400 whitespace-nowrap font-bold">@info_warga (Auto: TINGGI)</div>
+              </div>
+
+              <!-- A4 (YouTube) -->
+              <div class="absolute top-[56%] left-[78%] z-10 flex flex-col items-center">
+                <div class="w-9 h-9 rounded-full bg-neutral-900 border border-neutral-700 flex items-center justify-center text-neutral-300 font-mono text-[11px] font-bold">A4</div>
+                <div class="mt-0.5 px-1.5 py-0.2 bg-neutral-950 border border-neutral-800 rounded-sm text-[8px] font-mono text-neutral-400 whitespace-nowrap">@berita_viral (YT Shorts)</div>
+              </div>
+
+              <!-- A5 (Facebook) -->
+              <div class="absolute top-[78%] left-[66%] z-10 flex flex-col items-center">
+                <div class="w-9 h-9 rounded-full bg-neutral-900 border border-neutral-700 flex items-center justify-center text-neutral-300 font-mono text-[11px] font-bold">A5</div>
+                <div class="mt-0.5 px-1.5 py-0.2 bg-neutral-950 border border-neutral-800 rounded-sm text-[8px] font-mono text-neutral-400 whitespace-nowrap">@suara_rakyat (FB Group)</div>
+              </div>
+
+              <!-- A6 (Portal Web) -->
+              <div class="absolute top-[74%] left-[22%] z-10 flex flex-col items-center">
+                <div class="w-9 h-9 rounded-full bg-amber-950/60 border border-amber-500 flex items-center justify-center text-amber-300 font-mono text-[11px] font-bold">A6</div>
+                <div class="mt-0.5 px-1.5 py-0.2 bg-neutral-950 border border-amber-600/40 rounded-sm text-[8px] font-mono text-amber-400 whitespace-nowrap">blog-independen.xyz</div>
+              </div>
+            </div>
+
+            <!-- Legend and Principles -->
+            <div class="flex flex-wrap items-center justify-between text-[10px] font-mono text-neutral-500 pt-2 border-t border-neutral-800">
+              <div class="flex items-center gap-3">
+                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span> Titik Publikasi Awal</span>
+                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span> Indikasi Otomatisasi Tinggi</span>
+                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-neutral-600"></span> Akun Amplifikasi</span>
+              </div>
+              <span class="text-neutral-400">* Indikasi otomatisasi ≠ vonis bot mutlak (Master §4.8)</span>
+            </div>
+          </div>
+
+          <!-- Right Column: Spread Stats & Threat Actor Roster (5 Cols) -->
+          <div class="xl:col-span-5 space-y-4">
+            <!-- Platform Distribution -->
+            <div class="bg-neutral-900 border border-neutral-800 rounded-sm p-4 space-y-3">
+              <div class="text-xs font-mono uppercase tracking-wider text-neutral-300 font-semibold flex items-center justify-between border-b border-neutral-800 pb-2">
+                <span>Distribusi Platform dalam Dataset (8 Unggahan)</span>
+                <span class="text-[10px] text-cyan-400 font-mono">SIMULASI</span>
+              </div>
+
+              <div class="space-y-2 text-xs font-mono">
+                <div>
+                  <div class="flex justify-between text-[11px] mb-1">
+                    <span class="text-neutral-400"><i class="fa-brands fa-instagram text-rose-400 w-4"></i> Instagram</span>
+                    <span class="text-neutral-200">3 Unggahan (37.5%)</span>
+                  </div>
+                  <div class="w-full h-1.5 bg-neutral-800 rounded-xs overflow-hidden">
+                    <div class="h-full bg-rose-500" style="width: 37.5%"></div>
+                  </div>
+                </div>
+                <div>
+                  <div class="flex justify-between text-[11px] mb-1">
+                    <span class="text-neutral-400"><i class="fa-brands fa-tiktok text-cyan-400 w-4"></i> TikTok</span>
+                    <span class="text-neutral-200">2 Unggahan (25.0%)</span>
+                  </div>
+                  <div class="w-full h-1.5 bg-neutral-800 rounded-xs overflow-hidden">
+                    <div class="h-full bg-cyan-400" style="width: 25%"></div>
+                  </div>
+                </div>
+                <div>
+                  <div class="flex justify-between text-[11px] mb-1">
+                    <span class="text-neutral-400"><i class="fa-brands fa-x-twitter text-neutral-300 w-4"></i> X (Twitter)</span>
+                    <span class="text-neutral-200">1 Unggahan (12.5%)</span>
+                  </div>
+                  <div class="w-full h-1.5 bg-neutral-800 rounded-xs overflow-hidden">
+                    <div class="h-full bg-neutral-400" style="width: 12.5%"></div>
+                  </div>
+                </div>
+                <div>
+                  <div class="flex justify-between text-[11px] mb-1">
+                    <span class="text-neutral-400"><i class="fa-brands fa-youtube text-red-500 w-4"></i> YouTube / Facebook / Web</span>
+                    <span class="text-neutral-200">2 Unggahan (25.0%)</span>
+                  </div>
+                  <div class="w-full h-1.5 bg-neutral-800 rounded-xs overflow-hidden">
+                    <div class="h-full bg-amber-400" style="width: 25%"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Threat Actor Roster Table -->
+            <div class="bg-neutral-900 border border-neutral-800 rounded-sm p-4 space-y-2">
+              <div class="text-xs font-mono uppercase tracking-wider text-neutral-300 font-semibold flex items-center justify-between border-b border-neutral-800 pb-2">
+                <span>Roster Akun Terpantau (Automation Indicator)</span>
+                <span class="text-[9px] text-neutral-500 font-mono">DATASET</span>
+              </div>
+
+              <div class="overflow-x-auto">
+                <table class="w-full text-left font-mono text-[11px]">
+                  <thead>
+                    <tr class="border-b border-neutral-800 text-[9px] uppercase tracking-wider text-neutral-500">
+                      <th class="py-1.5">ID / Akun</th>
+                      <th class="py-1.5">Post Rate</th>
+                      <th class="py-1.5">Indikator Otomatisasi</th>
+                      <th class="py-1.5">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-neutral-800/60">
+                    <tr class="hover:bg-neutral-850/50">
+                      <td class="py-2 text-rose-400 font-bold">Node-A1<br><span class="text-[10px] text-neutral-400 font-normal">@meme_nusantara</span></td>
+                      <td class="py-2 text-neutral-300">12 post/hari</td>
+                      <td class="py-2"><span class="px-1.5 py-0.2 bg-neutral-800 border border-neutral-700 text-neutral-300 rounded-xs text-[9px]">RENDAH</span></td>
+                      <td class="py-2 text-rose-400 text-[10px]">Titik Awal</td>
+                    </tr>
+                    <tr class="hover:bg-neutral-850/50 bg-rose-950/20">
+                      <td class="py-2 text-rose-400 font-bold">Node-A3<br><span class="text-[10px] text-neutral-400 font-normal">@info_warga_x</span></td>
+                      <td class="py-2 text-rose-400 font-bold">142 post/jam</td>
+                      <td class="py-2"><span class="px-1.5 py-0.2 bg-rose-950 border border-rose-600/50 text-rose-400 rounded-xs text-[9px] font-bold">TINGGI (94%)</span></td>
+                      <td class="py-2 text-amber-400 text-[10px]">Perlu Tinjau</td>
+                    </tr>
+                    <tr class="hover:bg-neutral-850/50">
+                      <td class="py-2 text-neutral-300 font-bold">Node-A2<br><span class="text-[10px] text-neutral-400 font-normal">@politik_santuy</span></td>
+                      <td class="py-2 text-neutral-300">8 post/hari</td>
+                      <td class="py-2"><span class="px-1.5 py-0.2 bg-neutral-800 border border-neutral-700 text-neutral-300 rounded-xs text-[9px]">RENDAH</span></td>
+                      <td class="py-2 text-neutral-500 text-[10px]">Normal</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================================= -->
+      <!-- VIEW 6: NARRATIVE CLUSTER WORKSPACE (SUPPLEMENTAL §7 & §12.C)              -->
+      <!-- ========================================================================= -->
+      <section id="view-narratives" class="view-panel flex-col gap-5 w-full">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-800 pb-3">
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="text-base font-bold font-mono tracking-wide text-neutral-100 uppercase">Narrative Cluster Workspace</h1>
+              <span class="text-[9px] font-mono px-2 py-0.5 border border-cyan-500/40 bg-cyan-950/30 text-cyan-400 rounded-sm">SUPPLEMENTAL §7</span>
+            </div>
+            <p class="text-xs text-neutral-500 mt-0.5">Penghubung unggahan yang memiliki kesamaan substansi narasi meskipun redaksi kalimat berbeda.</p>
+          </div>
+
+          <div class="px-3 py-1 bg-neutral-900 border border-neutral-800 rounded-sm text-xs font-mono text-neutral-400">
+            Klaster Aktif: <b class="text-cyan-400">NC-2026-001 (MBG &amp; KDMP)</b>
+          </div>
+        </div>
+
+        <!-- Narrative Cluster Overview Banner -->
+        <div class="bg-neutral-900 border border-neutral-800 rounded-sm p-4 space-y-3">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-neutral-800 pb-2">
+            <div>
+              <span class="text-[10px] font-mono text-neutral-500 uppercase tracking-widest">Judul Inti Narasi:</span>
+              <h2 class="text-sm font-bold text-neutral-100 font-mono">Disinformasi Penghentian Sepihak Program Prioritas MBG &amp; KDMP</h2>
+            </div>
+            <div class="flex items-center gap-2 font-mono text-xs">
+              <span class="px-2 py-0.5 bg-neutral-800 border border-neutral-700 text-neutral-300">8 Variasi Redaksi</span>
+              <span class="px-2 py-0.5 bg-amber-950 border border-amber-600/40 text-amber-400">KOORDINASI: INSUFFICIENT EVIDENCE</span>
+            </div>
+          </div>
+
+          <div class="text-xs font-mono text-neutral-400">
+            Inti Klaim Bersama: <span class="text-cyan-400">"Pemerintah menghentikan program Makan Bergizi Gratis (MBG) dan mengalihkan APBN."</span>
+          </div>
+        </div>
+
+        <!-- 8 Variations Across Platforms Grid -->
+        <div class="bg-neutral-900 border border-neutral-800 rounded-sm p-4 space-y-3">
+          <div class="text-xs font-mono uppercase tracking-wider text-neutral-200 font-semibold flex items-center justify-between border-b border-neutral-800 pb-2">
+            <span>Daftar Variasi Redaksi dalam Dataset (8 Unggahan Teridentifikasi)</span>
+            <span class="text-[10px] font-mono text-neutral-500">SETIAP BUKTI MEMILIKI ID BERBEDA</span>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 font-mono text-xs">
+            <!-- Var 1 -->
+            <div class="p-3 bg-neutral-950 border border-neutral-850 rounded-sm space-y-1.5">
+              <div class="flex items-center justify-between text-[10px]">
+                <span class="text-rose-400 font-bold">[E-004] Instagram @meme_nusantara</span>
+                <span class="text-neutral-500">03 Nov 08:30 WIB</span>
+              </div>
+              <p class="text-neutral-200 font-sans text-xs">"Prabowo resmi menghentikan MBG dan KDMP, mengalirkan APBN lebih untuk pendidikan."</p>
+              <div class="text-[10px] text-neutral-500 flex justify-between pt-1 border-t border-neutral-900">
+                <span>Similarity thd Inti: <b class="text-cyan-400">96%</b></span>
+                <span class="text-rose-400">Titik Awal Dataset</span>
+              </div>
+            </div>
+
+            <!-- Var 2 -->
+            <div class="p-3 bg-neutral-950 border border-neutral-850 rounded-sm space-y-1.5">
+              <div class="flex items-center justify-between text-[10px]">
+                <span class="text-neutral-300 font-bold">[E-005] TikTok @politik_santuy</span>
+                <span class="text-neutral-500">03 Nov 10:15 WIB</span>
+              </div>
+              <p class="text-neutral-200 font-sans text-xs">"MBG resmi dibatalkan gaes, anggaran dialihkan buat renovasi sekolah."</p>
+              <div class="text-[10px] text-neutral-500 flex justify-between pt-1 border-t border-neutral-900">
+                <span>Similarity thd Inti: <b class="text-cyan-400">88%</b></span>
+                <span class="text-neutral-400">Variasi Bahasa Gaul</span>
+              </div>
+            </div>
+
+            <!-- Var 3 -->
+            <div class="p-3 bg-neutral-950 border border-neutral-850 rounded-sm space-y-1.5">
+              <div class="flex items-center justify-between text-[10px]">
+                <span class="text-rose-400 font-bold">[E-006] X @info_warga_x</span>
+                <span class="text-neutral-500">03 Nov 11:00 WIB</span>
+              </div>
+              <p class="text-neutral-200 font-sans text-xs">"BREAKING: Program makan gratis fix dicoret dari APBN 2026. Pemerintah lempar handuk."</p>
+              <div class="text-[10px] text-neutral-500 flex justify-between pt-1 border-t border-neutral-900">
+                <span>Similarity thd Inti: <b class="text-cyan-400">82%</b></span>
+                <span class="text-amber-400 font-bold">Amplifikasi Cepat</span>
+              </div>
+            </div>
+
+            <!-- Var 4 -->
+            <div class="p-3 bg-neutral-950 border border-neutral-850 rounded-sm space-y-1.5">
+              <div class="flex items-center justify-between text-[10px]">
+                <span class="text-neutral-300 font-bold">[E-007] YouTube @berita_viral</span>
+                <span class="text-neutral-500">03 Nov 13:20 WIB</span>
+              </div>
+              <p class="text-neutral-200 font-sans text-xs">"GEGER!! Alasan Menkeu Hentikan Program MBG Bulan Depan."</p>
+              <div class="text-[10px] text-neutral-500 flex justify-between pt-1 border-t border-neutral-900">
+                <span>Similarity thd Inti: <b class="text-cyan-400">79%</b></span>
+                <span class="text-neutral-400">Clickbait Judul</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="p-3 bg-neutral-950 border border-neutral-850 rounded-sm text-[11px] font-mono text-neutral-500">
+            * Seluruh unggahan memiliki keterkaitan semantik, namun sistem tidak menganggap seluruh klaim identik secara membabi-buta (Supplemental §7).
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================================= -->
+      <!-- VIEW 7: COMMAND REPORTING & EVIDENCE DOSSIER (MODUL D & §14)               -->
+      <!-- ========================================================================= -->
+      <section id="view-reports" class="view-panel flex-col gap-5 w-full">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-800 pb-3">
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="text-base font-bold font-mono tracking-wide text-neutral-100 uppercase">Command Reporting &amp; Dossier (16-Section Brief)</h1>
+              <span class="text-[9px] font-mono px-2 py-0.5 border border-emerald-500/40 bg-emerald-950/30 text-emerald-400 rounded-sm">MODUL D &amp; SUPPLEMENTAL §14</span>
+            </div>
+            <p class="text-xs text-neutral-500 mt-0.5">Format laporan intelijen formal siap cetak dengan pemisahan 5 penanda visual mutlak.</p>
+          </div>
+
+          <button onclick="window.print()" class="px-4 py-2 bg-emerald-600/20 text-emerald-400 border border-emerald-500/50 hover:bg-emerald-600/40 text-xs font-mono uppercase tracking-wider rounded-sm transition-all flex items-center gap-2 shadow-[0_0_12px_rgba(16,185,129,0.2)]">
+            <i class="fa-solid fa-print text-xs"></i>
+            <span>[ EXPORT INTEL BRIEF (PRINT/PDF) ]</span>
+          </button>
+        </div>
+
+        <!-- 16-Section Intelligence Brief Canvas -->
+        <div class="bg-neutral-900 border border-neutral-800 rounded-sm p-6 space-y-6 max-w-5xl mx-auto shadow-2xl">
+          <!-- Tactical Header / Letterhead -->
+          <div class="border-b-2 border-neutral-700 pb-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-sm bg-neutral-950 border border-neutral-700 flex items-center justify-center text-cyan-400 font-mono font-bold text-lg">
+                <i class="fa-solid fa-shield-halved"></i>
+              </div>
+              <div>
+                <div class="text-xs font-mono font-bold uppercase tracking-widest text-neutral-200">PUSAT SIBER TNI ANGKATAN DARAT (PUSSIBERAD)</div>
+                <div class="text-[10px] font-mono uppercase tracking-widest text-neutral-400">SATUAN INTELIJEN SIBER SOSIAL // SUBDIT COGNITIVE DEFENSE</div>
+              </div>
+            </div>
+
+            <div class="text-right font-mono text-xs">
+              <div class="px-2 py-0.5 bg-rose-950 border border-rose-600 text-rose-400 font-bold uppercase text-[11px] inline-block">
+                KLASIFIKASI: SANGAT RAHASIA
+              </div>
+              <div class="text-[10px] text-neutral-500 mt-1">DOKUMEN KASUS: TS-2026-001</div>
+            </div>
+          </div>
+
+          <!-- Section 1 & 2: Identitas & Ringkasan Eksekutif -->
+          <div class="space-y-2">
+            <div class="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-2">
+              <span>BAGIAN 1 &amp; 2: IDENTITAS KASUS &amp; RINGKASAN EKSEKUTIF</span>
+            </div>
+            <div class="p-3 bg-neutral-950 border border-neutral-850 rounded-sm space-y-2 text-xs font-sans text-neutral-200 leading-relaxed">
+              <p>
+                <span class="inline-flex items-center px-1.5 py-0.2 rounded-xs text-[9px] font-mono border border-emerald-500/40 text-emerald-400 bg-emerald-950 mr-1">[FAKTA TERDOKUMENTASI]</span>
+                Telah terdeteksi penyebaran narasi viral di 6 platform sosial (Instagram, TikTok, X, YouTube, FB, Web) mengenai pembatalan sepihak program nasional MBG dan KDMP.
+              </p>
+              <p>
+                <span class="inline-flex items-center px-1.5 py-0.2 rounded-xs text-[9px] font-mono border border-cyan-500/40 text-cyan-400 bg-cyan-950 mr-1">[INTERPRETASI AI]</span>
+                Teridentifikasi pola pergeseran redaksi substansial dari materi referensi berita yang mengulas "wacana evaluasi penyesuaian" diubah menjadi keputusan "resmi dibatalkan".
+              </p>
+              <p>
+                <span class="inline-flex items-center px-1.5 py-0.2 rounded-xs text-[9px] font-mono border border-purple-500/40 text-purple-400 bg-purple-950 mr-1">[TEMUAN ANALIS]</span>
+                Siaran Pers Resmi Kemenko [E-003] membantah seluruh isi unggahan viral. Konten beredar diklasifikasikan sebagai <b>DISINFORMATION / MANIPULATED CONTENT</b>.
+              </p>
+            </div>
+          </div>
+
+          <!-- Visual Legend of 5 Markers (Supplemental §14) -->
+          <div class="flex flex-wrap items-center gap-3 p-2.5 bg-neutral-950 border border-neutral-800 rounded-sm text-[10px] font-mono">
+            <span class="text-neutral-500 uppercase font-semibold">5 Penanda Visual Wajib:</span>
+            <span class="px-1.5 py-0.5 bg-emerald-950 border border-emerald-500/40 text-emerald-400">[FAKTA TERDOKUMENTASI]</span>
+            <span class="px-1.5 py-0.5 bg-amber-950 border border-amber-500/40 text-amber-400">[KLAIM SUMBER]</span>
+            <span class="px-1.5 py-0.5 bg-cyan-950 border border-cyan-500/40 text-cyan-400">[INTERPRETASI AI]</span>
+            <span class="px-1.5 py-0.5 bg-purple-950 border border-purple-500/40 text-purple-400">[TEMUAN ANALIS]</span>
+            <span class="px-1.5 py-0.5 bg-blue-950 border border-blue-500/40 text-blue-400">[REKOMENDASI]</span>
+          </div>
+
+          <!-- Section 6 & 7: Cross-Source & Source Independence -->
+          <div class="space-y-2">
+            <div class="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">
+              BAGIAN 6 &amp; 7: HASIL CROSS-SOURCE VERIFICATION &amp; INDEPENDENSI
+            </div>
+            <div class="p-3 bg-neutral-950 border border-neutral-850 rounded-sm text-xs font-mono space-y-1.5 text-neutral-300">
+              <div class="flex justify-between"><span class="text-neutral-500">Pasangan Rujukan:</span> <span>CNN Indonesia [S-001] vs Tribunnews [S-002]</span></div>
+              <div class="flex justify-between"><span class="text-neutral-500">Hubungan Sumber:</span> <span class="text-amber-400 font-bold">COMMON PRIMARY SOURCE (MENGUTIP SATU SIARAN PERS KEMENKO)</span></div>
+              <div class="flex justify-between"><span class="text-neutral-500">Jumlah Bukti Independen:</span> <span class="text-emerald-400 font-bold">1 Dokumen Primer Nyata</span></div>
+              <div class="text-[10px] text-neutral-500 pt-1 border-t border-neutral-900">
+                Pemberitaan pada kedua media memiliki kesamaan informasi 81.4%, namun tidak dihitung sebagai bukti independen terpisah.
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 14 & 15: Keterbatasan & Rekomendasi -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="space-y-2">
+              <div class="text-xs font-mono font-bold uppercase tracking-wider text-neutral-400">BAGIAN 14: KETERBATASAN PEMERIKSAAN</div>
+              <div class="p-3 bg-neutral-950 border border-neutral-850 rounded-sm text-[11px] font-mono text-neutral-400 space-y-1">
+                <p>1. Analisis terbatas pada 11 berkas bukti dalam dataset simulasi yang berhasil dikumpulkan.</p>
+                <p>2. Tidak mencakup penyadapan komunikasi privat sesuai etika C4ISR (Master Prompt §16).</p>
+                <p>3. Indikator otomatisasi bot Node-A3 belum membuktikan koordinasi aktor secara hukum.</p>
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <div class="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">BAGIAN 15: REKOMENDASI TINDAK LANJUT</div>
+              <div class="p-3 bg-neutral-950 border border-neutral-850 rounded-sm text-[11px] font-mono text-neutral-200 space-y-1">
+                <p><span class="text-blue-400 font-bold">[REKOMENDASI]</span> Penerbitan rilis klarifikasi resmi melalui saluran penerangan militer/pemerintah.</p>
+                <p><span class="text-blue-400 font-bold">[REKOMENDASI]</span> Eskalasi laporan bukti digital ke platform penyedia sesuai jalur legal.</p>
+                <p><span class="text-blue-400 font-bold">[REKOMENDASI]</span> Pemantauan berkelanjutan terhadap amplifikasi akun Node-A3.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 16: Cryptographic Appendix Signatures -->
+          <div class="border-t border-neutral-800 pt-4 flex flex-col sm:flex-row items-center justify-between text-[11px] font-mono text-neutral-500 gap-3">
+            <div>
+              Status Validasi: <b class="text-emerald-400">VALIDATED BY ANALYST</b><br>
+              Pemeriksa: <span class="text-neutral-300">Lettu Chb Aris Munandar (Clearance Level-2)</span>
+            </div>
+            <div class="text-right">
+              Otorisasi Komandan: <b class="text-cyan-400">KOLONEL INF HENDRA WIJAYA</b><br>
+              Integritas Hash Dossier: <span class="text-neutral-400 select-all font-mono text-[9px]">b5d8f2a1c9e47201...</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================================= -->
+      <!-- VIEW 8: AI ANALYST CONSOLE (MODUL E & §10.7)                              -->
+      <!-- ========================================================================= -->
+      <section id="view-console" class="view-panel flex-col gap-4 w-full h-[calc(100vh-6.5rem)]">
+        <div class="flex items-center justify-between border-b border-neutral-800 pb-2.5 shrink-0">
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="text-base font-bold font-mono tracking-wide text-neutral-100 uppercase">AI Analyst Console</h1>
+              <span class="text-[9px] font-mono px-2 py-0.5 border border-cyan-500/40 bg-cyan-950/30 text-cyan-400 rounded-sm">MODUL E</span>
+            </div>
+            <p class="text-xs text-neutral-500 mt-0.5">Asisten interaktif berbasis bukti dengan Strict Backend Tool Allowlist (Anti-Shell &amp; Anti-SQL Mentah).</p>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <span class="text-[10px] font-mono px-2 py-1 bg-emerald-950/40 border border-emerald-500/40 text-emerald-400 rounded-sm">
+              <i class="fa-solid fa-shield-virus mr-1"></i> PROMPTGUARD ISOLATION ACTIVE
+            </span>
+          </div>
+        </div>
+
+        <div class="flex-1 flex flex-col lg:flex-row gap-4 min-h-0">
+          <!-- Left: Chat Terminal (8 Cols) -->
+          <div class="flex-1 bg-neutral-900 border border-neutral-800 rounded-sm flex flex-col min-h-0 p-4">
+            <!-- Messages Container -->
+            <div id="consoleChatMessages" class="flex-1 overflow-y-auto space-y-3 font-mono text-xs pr-1">
+              <!-- System Intro -->
+              <div class="p-3 bg-neutral-950 border border-neutral-850 rounded-sm text-neutral-400 space-y-1">
+                <div class="text-[10px] uppercase text-cyan-400 font-bold flex items-center gap-1.5">
+                  <i class="fa-solid fa-terminal"></i>
+                  <span>TRACE-S TACTICAL COGNITIVE ASSISTANT // SESSION TS-2026-001</span>
+                </div>
+                <p class="text-neutral-300 font-sans text-xs">
+                  Sistem siap membantu analisis mendalam berbasis bukti digital yang tersimpan dalam kasus <b>TS-2026-001</b>. Semua jawaban dibatasi pada tool allowlist backend terverifikasi.
+                </p>
+              </div>
+
+              <!-- Message History (Simulated) -->
+              <div class="flex flex-col gap-1 items-end">
+                <div class="text-[10px] text-neutral-500">OPERATOR // 09:12 WIB</div>
+                <div class="p-2.5 bg-neutral-800 text-neutral-200 rounded-sm max-w-lg border border-neutral-700">
+                  Bandingkan angka alokasi APBN antara berita rujukan E-001 dan siaran pers resmi E-003.
+                </div>
+              </div>
+
+              <div class="flex flex-col gap-1 items-start">
+                <div class="text-[10px] text-cyan-400 flex items-center gap-1">
+                  <i class="fa-solid fa-microchip"></i> TRACE-S AI [Tool: compare_numeric_entities] // 09:12 WIB
+                </div>
+                <div class="p-3 bg-neutral-950 text-neutral-200 rounded-sm max-w-xl border border-neutral-850 space-y-2">
+                  <p class="font-sans text-xs leading-relaxed">
+                    Berdasarkan penelusuran fungsi <code class="text-cyan-400">compare_numeric_entities</code> pada bukti <b>E-001</b> dan <b>E-003</b>:
+                  </p>
+                  <ul class="list-disc pl-4 space-y-1 text-neutral-300 font-sans text-xs">
+                    <li>Tidak ditemukan pemangkasan atau angka penghentian total APBN pada kedua berkas.</li>
+                    <li>Kedua dokumen merujuk pada alokasi semester pertama yang tetap dialokasikan secara proporsional.</li>
+                    <li>Kontradiksi angka hanya muncul pada konten beredar [E-004] yang menyebut pemotongan 100%.</li>
+                  </ul>
+                  <div class="text-[10px] font-mono text-neutral-500 pt-1 border-t border-neutral-850">
+                    Bukti Tertaut: E-001, E-003, E-004 • Status: <span class="text-emerald-400">TERVERIFIKASI KONSISTEN</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Quick Prompt Suggestions Bar -->
+            <div class="pt-3 pb-2 flex flex-wrap gap-1.5 text-[10px] font-mono">
+              <button onclick="sendPresetPrompt('Bandingkan substansi antara rujukan E-001 dan meme E-004')" class="px-2 py-1 bg-neutral-950 border border-neutral-800 hover:border-cyan-500 text-neutral-400 hover:text-cyan-300 rounded-sm transition-colors">
+                • Komparasi E-001 vs E-004
+              </button>
+              <button onclick="sendPresetPrompt('Analisis relasi independensi antara CNN dan Tribun')" class="px-2 py-1 bg-neutral-950 border border-neutral-800 hover:border-cyan-500 text-neutral-400 hover:text-cyan-300 rounded-sm transition-colors">
+                • Analisis Independensi Sumber
+              </button>
+              <button onclick="sendPresetPrompt('Tampilkan daftar variasi klaim narasi MBG')" class="px-2 py-1 bg-neutral-950 border border-neutral-800 hover:border-cyan-500 text-neutral-400 hover:text-cyan-300 rounded-sm transition-colors">
+                • Ekstraksi Variasi Klaim
+              </button>
+            </div>
+
+            <!-- Input Bar -->
+            <div class="pt-2 border-t border-neutral-800 flex gap-2">
+              <input id="consoleInputBox" type="text" placeholder="Ketik perintah analisis taktis berbasis bukti (cth: 'Periksa relasi sumber')..." class="flex-1 bg-neutral-950 border border-neutral-700 text-neutral-200 px-3 py-2 text-xs font-mono rounded-sm focus:outline-none focus:border-cyan-500 placeholder-neutral-600">
+              <button onclick="handleConsoleSend()" class="px-4 py-2 bg-cyan-600/20 text-cyan-400 border border-cyan-500/50 hover:bg-cyan-600/40 text-xs font-mono uppercase tracking-wider rounded-sm transition-all">
+                Kirim
+              </button>
+            </div>
+          </div>
+
+          <!-- Right: Tool Allowlist Inspector (4 Cols) -->
+          <div class="w-full lg:w-80 bg-neutral-900 border border-neutral-800 rounded-sm p-4 space-y-3 shrink-0">
+            <div class="text-xs font-mono uppercase tracking-wider text-neutral-300 font-semibold border-b border-neutral-800 pb-2 flex items-center justify-between">
+              <span>Strict Tool Allowlist</span>
+              <span class="text-[10px] text-emerald-400">10 / 10 AKTIF</span>
+            </div>
+
+            <div class="space-y-1.5 font-mono text-[10px] max-h-80 overflow-y-auto pr-1">
+              <div class="p-1.5 bg-neutral-950 border border-neutral-850 rounded-sm flex justify-between">
+                <span class="text-cyan-400">extract_claims</span> <span class="text-emerald-400">ALLOWED</span>
+              </div>
+              <div class="p-1.5 bg-neutral-950 border border-neutral-850 rounded-sm flex justify-between">
+                <span class="text-cyan-400">calculate_text_similarity</span> <span class="text-emerald-400">ALLOWED</span>
+              </div>
+              <div class="p-1.5 bg-neutral-950 border border-neutral-850 rounded-sm flex justify-between">
+                <span class="text-cyan-400">calculate_semantic_similarity</span> <span class="text-emerald-400">ALLOWED</span>
+              </div>
+              <div class="p-1.5 bg-neutral-950 border border-neutral-850 rounded-sm flex justify-between">
+                <span class="text-cyan-400">compare_claims</span> <span class="text-emerald-400">ALLOWED</span>
+              </div>
+              <div class="p-1.5 bg-neutral-950 border border-neutral-850 rounded-sm flex justify-between">
+                <span class="text-cyan-400">compare_numeric_entities</span> <span class="text-emerald-400">ALLOWED</span>
+              </div>
+              <div class="p-1.5 bg-neutral-950 border border-neutral-850 rounded-sm flex justify-between">
+                <span class="text-cyan-400">analyze_source_relationships</span> <span class="text-emerald-400">ALLOWED</span>
+              </div>
+              <div class="p-1.5 bg-neutral-950 border border-neutral-850 rounded-sm flex justify-between">
+                <span class="text-cyan-400">compare_evidence</span> <span class="text-emerald-400">ALLOWED</span>
+              </div>
+              <div class="p-1.5 bg-neutral-950 border border-neutral-850 rounded-sm flex justify-between">
+                <span class="text-cyan-400">cluster_narratives</span> <span class="text-emerald-400">ALLOWED</span>
+              </div>
+              <div class="p-1.5 bg-neutral-950 border border-neutral-850 rounded-sm flex justify-between">
+                <span class="text-cyan-400">analyze_spread</span> <span class="text-emerald-400">ALLOWED</span>
+              </div>
+              <div class="p-1.5 bg-neutral-950 border border-neutral-850 rounded-sm flex justify-between">
+                <span class="text-cyan-400">generate_case_summary</span> <span class="text-emerald-400">ALLOWED</span>
+              </div>
+            </div>
+
+            <div class="p-2.5 bg-neutral-950 border border-neutral-850 rounded-sm text-[10px] font-mono text-neutral-500 space-y-1">
+              <span class="text-rose-400 font-bold block">KEBIJAKAN KEAMANAN C4ISR:</span>
+              <p>• Dilarang eksekusi Shell mentah.</p>
+              <p>• Dilarang akses SQL arbitrer.</p>
+              <p>• Dilarang tindakan eksternal tanpa otorisasi manusia.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================================= -->
+      <!-- VIEW 9: LOCAL AI MANAGEMENT (MODUL F & §10.8 — ADMIN WORKSPACE)           -->
+      <!-- ========================================================================= -->
+      <section id="view-admin-ai" class="view-panel flex-col gap-5 w-full">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-800 pb-3">
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="text-base font-bold font-mono tracking-wide text-neutral-100 uppercase">Local AI Server Management &amp; Model Registry</h1>
+              <span class="text-[9px] font-mono px-2 py-0.5 border border-cyan-500/40 bg-cyan-950/30 text-cyan-400 rounded-sm">MODUL F (KHUSUS ADMIN)</span>
+            </div>
+            <p class="text-xs text-neutral-500 mt-0.5">Konfigurasi inferensi intranet air-gapped, monitoring latensi server, dan hot-swap model lokal.</p>
+          </div>
+
+          <button onclick="pingLocalAiServer()" class="px-4 py-2 bg-cyan-600/20 text-cyan-400 border border-cyan-500/50 hover:bg-cyan-600/40 text-xs font-mono uppercase tracking-wider rounded-sm transition-all flex items-center gap-2">
+            <i class="fa-solid fa-satellite-dish text-xs"></i>
+            <span>Uji Koneksi (Ping Test)</span>
+          </button>
+        </div>
+
+        <!-- Server Health & Hardware Metrics Cards -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3.5 font-mono">
+          <div class="bg-neutral-900 border border-neutral-800 rounded-sm p-4">
+            <div class="text-[10px] uppercase tracking-widest text-neutral-500">Status Server AI</div>
+            <div class="text-lg font-bold text-emerald-400 mt-1 flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> ONLINE
+            </div>
+            <div class="text-[10px] text-neutral-500 mt-1">Host: 127.0.0.1:11434 (Local)</div>
+          </div>
+
+          <div class="bg-neutral-900 border border-neutral-800 rounded-sm p-4">
+            <div class="text-[10px] uppercase tracking-widest text-neutral-500">Latensi Inferensi</div>
+            <div class="text-lg font-bold text-cyan-400 mt-1" id="aiLatencyDisplay">12 ms</div>
+            <div class="text-[10px] text-neutral-500 mt-1">Air-gapped Intranet Roundtrip</div>
+          </div>
+
+          <div class="bg-neutral-900 border border-neutral-800 rounded-sm p-4">
+            <div class="text-[10px] uppercase tracking-widest text-neutral-500">Beban RAM / VRAM</div>
+            <div class="text-lg font-bold text-neutral-200 mt-1">5.8 GB / 8.0 GB</div>
+            <div class="text-[10px] text-neutral-500 mt-1">Alokasi VRAM Q4_K_M Stabil</div>
+          </div>
+
+          <div class="bg-neutral-900 border border-neutral-800 rounded-sm p-4">
+            <div class="text-[10px] uppercase tracking-widest text-neutral-500">Model Aktif</div>
+            <div class="text-sm font-bold text-amber-400 mt-1 truncate" id="activeModelLabel">MockDriver (Simulasi)</div>
+            <div class="text-[10px] text-neutral-500 mt-1">Hot-Swap Tanpa Restart</div>
+          </div>
+        </div>
+
+        <!-- Model Registry Table -->
+        <div class="bg-neutral-900 border border-neutral-800 rounded-sm p-4 space-y-3">
+          <div class="flex items-center justify-between border-b border-neutral-800 pb-2">
+            <div class="text-xs font-mono uppercase tracking-wider text-neutral-200 font-semibold flex items-center gap-2">
+              <i class="fa-solid fa-layer-group text-cyan-400"></i>
+              <span>Daftar Model Terdaftar (Model Registry)</span>
+            </div>
+            <span class="text-[10px] font-mono text-neutral-500">LOCAL INFERENCE HOST ONLY</span>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left font-mono text-xs">
+              <thead>
+                <tr class="border-b border-neutral-800 text-[10px] uppercase tracking-wider text-neutral-500 bg-neutral-950/60">
+                  <th class="py-2.5 px-3">Nama Model</th>
+                  <th class="py-2.5 px-3">Profil</th>
+                  <th class="py-2.5 px-3">Ukuran Disk</th>
+                  <th class="py-2.5 px-3">Kuantisasi</th>
+                  <th class="py-2.5 px-3">Konteks</th>
+                  <th class="py-2.5 px-3">Status</th>
+                  <th class="py-2.5 px-3 text-right">Opsi</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-neutral-800/60">
+                <tr class="hover:bg-neutral-850/50 bg-cyan-950/20">
+                  <td class="py-2.5 px-3 font-bold text-cyan-400">TraceS-Mock-IndoIntel-8B</td>
+                  <td class="py-2.5 px-3 text-neutral-400 text-[10px]">BASIC</td>
+                  <td class="py-2.5 px-3 text-neutral-300">8.0 GB (Emulated)</td>
+                  <td class="py-2.5 px-3 text-neutral-400">Q4_K_M</td>
+                  <td class="py-2.5 px-3 text-neutral-300">8,192 Tok</td>
+                  <td class="py-2.5 px-3"><span class="px-2 py-0.5 bg-cyan-950 border border-cyan-500/50 text-cyan-400 text-[9px] uppercase font-bold">AKTIF SEKARANG</span></td>
+                  <td class="py-2.5 px-3 text-right text-[11px] text-neutral-500">Sedang Digunakan</td>
+                </tr>
+                <tr class="hover:bg-neutral-850/50">
+                  <td class="py-2.5 px-3 font-bold text-neutral-200">llama3.1:8b-instruct-q4_K_M</td>
+                  <td class="py-2.5 px-3 text-neutral-400 text-[10px]">BASIC</td>
+                  <td class="py-2.5 px-3 text-neutral-300">4.7 GB</td>
+                  <td class="py-2.5 px-3 text-neutral-400">Q4_K_M</td>
+                  <td class="py-2.5 px-3 text-neutral-300">16,384 Tok</td>
+                  <td class="py-2.5 px-3"><span class="px-2 py-0.5 bg-neutral-800 border border-neutral-700 text-neutral-400 text-[9px] uppercase">READY LOCAL</span></td>
+                  <td class="py-2.5 px-3 text-right"><button onclick="switchModelSim('llama3.1:8b-instruct-q4_K_M')" class="text-cyan-400 hover:underline text-[11px]">Aktifkan Model</button></td>
+                </tr>
+                <tr class="hover:bg-neutral-850/50">
+                  <td class="py-2.5 px-3 font-bold text-neutral-400">mistral:7b-instruct-v0.3-q5</td>
+                  <td class="py-2.5 px-3 text-neutral-500 text-[10px]">STANDARD</td>
+                  <td class="py-2.5 px-3 text-neutral-500">5.1 GB</td>
+                  <td class="py-2.5 px-3 text-neutral-500">Q5_K_M</td>
+                  <td class="py-2.5 px-3 text-neutral-500">32,768 Tok</td>
+                  <td class="py-2.5 px-3"><span class="px-2 py-0.5 bg-neutral-850 border border-neutral-700 text-neutral-500 text-[9px] uppercase">NOT INSTALLED</span></td>
+                  <td class="py-2.5 px-3 text-right text-[11px] text-neutral-600">Unduh Dahulu</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Immutable Audit Trail of Model Changes (Supplemental §15 & Master §8) -->
+        <div class="bg-neutral-900 border border-neutral-800 rounded-sm p-4 space-y-2">
+          <div class="text-xs font-mono uppercase tracking-wider text-neutral-300 font-semibold border-b border-neutral-800 pb-2 flex items-center justify-between">
+            <span>Log Audit Pergantian Model (Immutable Append-Only)</span>
+            <span class="text-[9px] font-mono text-emerald-400">TAMPER-PROOF ENFORCED</span>
+          </div>
+
+          <div class="space-y-1.5 font-mono text-xs">
+            <div class="p-2.5 bg-neutral-950 border border-neutral-850 rounded-sm flex items-center justify-between">
+              <div>
+                <span class="text-neutral-500">[03 Nov 08:00 WIB]</span> Model disetel ke <b class="text-cyan-400">TraceS-Mock-IndoIntel-8B</b> oleh <span class="text-neutral-300">Mayor Dimas (Admin)</span>
+              </div>
+              <span class="text-[10px] text-neutral-500">Alasan: Inisialisasi Evaluasi Skenario Hackathon</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+    <!-- END: MAIN DYNAMIC WORKSPACE -->
+  </div>
+</div>
+<!-- END: MASTER LAYOUT -->
+
+<!-- ========================================================================= -->
+<!-- MODALS: MANUAL EVIDENCE IMPORT & URL EVIDENCE FETCH                       -->
+<!-- ========================================================================= -->
+<!-- Modal 1: Manual Evidence Import -->
+<div id="importModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+  <div class="bg-neutral-900 border border-neutral-800 rounded-sm w-full max-w-lg p-5 space-y-4 shadow-2xl font-mono text-xs">
+    <div class="flex items-center justify-between border-b border-neutral-800 pb-3">
+      <div class="flex items-center gap-2 text-cyan-400 font-bold uppercase">
+        <i class="fa-solid fa-file-arrow-up"></i>
+        <span>Manual Evidence Import</span>
+      </div>
+      <button onclick="closeModal('importModal')" class="text-neutral-500 hover:text-neutral-200"><i class="fa-solid fa-xmark text-sm"></i></button>
+    </div>
+
+    <div class="space-y-3 font-sans">
+      <div class="space-y-1 font-mono">
+        <label class="text-[10px] uppercase text-neutral-400">Judul Bukti Dokumen:</label>
+        <input id="modalEvidenceTitle" type="text" placeholder="Contoh: Tangkapan Layar Komentar Akun X..." class="w-full bg-neutral-950 border border-neutral-700 text-neutral-200 px-3 py-2 text-xs font-mono rounded-sm focus:outline-none focus:border-cyan-500">
+      </div>
+
+      <div class="space-y-1 font-mono">
+        <label class="text-[10px] uppercase text-neutral-400">Penerbit / Akun / Platform:</label>
+        <input id="modalEvidencePlatform" type="text" placeholder="Contoh: Instagram @akun_fiktif" class="w-full bg-neutral-950 border border-neutral-700 text-neutral-200 px-3 py-2 text-xs font-mono rounded-sm focus:outline-none focus:border-cyan-500">
+      </div>
+
+      <div class="space-y-1 font-mono">
+        <label class="text-[10px] uppercase text-neutral-400">Peran Bukti:</label>
+        <select id="modalEvidenceRole" class="w-full bg-neutral-950 border border-neutral-700 text-neutral-200 px-3 py-2 text-xs font-mono rounded-sm focus:outline-none focus:border-cyan-500">
+          <option value="COMPARED">COMPARED (Materi Pembanding yang Beredar)</option>
+          <option value="REFERENCE">REFERENCE (Materi Rujukan Pembanding)</option>
+          <option value="PRIMARY">PRIMARY (Dokumen Rujukan Primer Institusi)</option>
+        </select>
+      </div>
+
+      <div class="space-y-1 font-mono">
+        <label class="text-[10px] uppercase text-neutral-400">Isi Teks Bukti Mentah:</label>
+        <textarea id="modalEvidenceText" rows="4" placeholder="Ketik atau tempel teks bukti digital..." class="w-full bg-neutral-950 border border-neutral-700 text-neutral-200 px-3 py-2 text-xs font-mono rounded-sm focus:outline-none focus:border-cyan-500 resize-none"></textarea>
+      </div>
+    </div>
+
+    <div class="flex items-center justify-between border-t border-neutral-800 pt-3">
+      <span class="text-[10px] text-neutral-500">Otomatisasi Hash SHA-256</span>
+      <div class="flex gap-2">
+        <button onclick="closeModal('importModal')" class="px-3 py-1.5 bg-neutral-800 text-neutral-300 rounded-sm">Batal</button>
+        <button onclick="submitManualEvidence()" class="px-4 py-1.5 bg-cyan-600/20 text-cyan-400 border border-cyan-500/50 hover:bg-cyan-600/40 rounded-sm">Simpan Bukti</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal 2: URL Evidence Fetch -->
+<div id="urlFetchModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+  <div class="bg-neutral-900 border border-neutral-800 rounded-sm w-full max-w-lg p-5 space-y-4 shadow-2xl font-mono text-xs">
+    <div class="flex items-center justify-between border-b border-neutral-800 pb-3">
+      <div class="flex items-center gap-2 text-cyan-400 font-bold uppercase">
+        <i class="fa-solid fa-globe"></i>
+        <span>URL Evidence Fetch (Anti-SSRF Protected)</span>
+      </div>
+      <button onclick="closeModal('urlFetchModal')" class="text-neutral-500 hover:text-neutral-200"><i class="fa-solid fa-xmark text-sm"></i></button>
+    </div>
+
+    <div class="space-y-3 font-sans">
+      <div class="space-y-1 font-mono">
+        <label class="text-[10px] uppercase text-neutral-400">Alamat URL Publik:</label>
+        <input id="modalFetchUrl" type="url" placeholder="https://news-portal.co.id/artikel/..." class="w-full bg-neutral-950 border border-neutral-700 text-neutral-200 px-3 py-2 text-xs font-mono rounded-sm focus:outline-none focus:border-cyan-500">
+      </div>
+
+      <div class="p-3 bg-neutral-950 border border-neutral-850 rounded-sm text-[11px] font-mono text-neutral-400 space-y-1">
+        <span class="text-cyan-400 font-bold">Protokol Penarikan Bukti Sah:</span>
+        <p>• URL dipindai oleh pelindung anti-SSRF (memblokir IP lokal/intranet).</p>
+        <p>• Konten disanitasi terhadap instruksi jailbreak prompt injection.</p>
+        <p>• Bila gagal diakses, status ditandai GAGAL DIAKSES tanpa mengarang konten.</p>
+      </div>
+    </div>
+
+    <div class="flex items-center justify-between border-t border-neutral-800 pt-3">
+      <span class="text-[10px] text-neutral-500">Fetch Status: SAFE</span>
+      <div class="flex gap-2">
+        <button onclick="closeModal('urlFetchModal')" class="px-3 py-1.5 bg-neutral-800 text-neutral-300 rounded-sm">Batal</button>
+        <button onclick="submitUrlFetch()" class="px-4 py-1.5 bg-cyan-600/20 text-cyan-400 border border-cyan-500/50 hover:bg-cyan-600/40 rounded-sm">Eksekusi Penarikan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- JAVASCRIPT: VANILLA JS CLIENT ENGINE                                      -->
+<!-- ========================================================================= -->
+<script>
+// START: REAL-TIME UTC CLOCK
+function updateUtcClock() {
+  const clockEl = document.getElementById('topClock');
+  if (!clockEl) return;
+  const now = new Date();
+  const h = String(now.getUTCHours()).padStart(2, '0');
+  const m = String(now.getUTCMinutes()).padStart(2, '0');
+  const s = String(now.getUTCSeconds()).padStart(2, '0');
+  clockEl.textContent = `${h}:${m}:${s} UTC`;
+}
+setInterval(updateUtcClock, 1000);
+updateUtcClock();
+// END: REAL-TIME UTC CLOCK
+
+// START: VIEW ROUTING & NAVIGATION
+const navButtons = document.querySelectorAll('.nav-btn');
+const viewPanels = document.querySelectorAll('.view-panel');
+
+navButtons.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const targetView = btn.dataset.view;
+    if (!targetView) return;
+
+    // Update active nav styling
+    navButtons.forEach(b => {
+      b.classList.remove('border-cyan-500', 'bg-cyan-900/20', 'text-cyan-300');
+      b.classList.add('border-transparent', 'text-neutral-400');
+    });
+    btn.classList.add('border-cyan-500', 'bg-cyan-900/20', 'text-cyan-300');
+    btn.classList.remove('border-transparent', 'text-neutral-400');
+
+    // Switch view
+    viewPanels.forEach(panel => panel.classList.remove('active'));
+    const activePanel = document.getElementById(`view-${targetView}`);
+    if (activePanel) {
+      activePanel.classList.add('active');
+    }
+  });
+});
+// END: VIEW ROUTING & NAVIGATION
+
+// START: SCANNER SUB-TABS
+function switchScannerTab(tab) {
+  document.querySelectorAll('.sub-tab').forEach(el => el.classList.remove('active'));
+  document.getElementById(`scannerSubTab-${tab}`).classList.add('active');
+
+  const btnScan = document.getElementById('tabBtn-scan');
+  const btnCompare = document.getElementById('tabBtn-compare');
+
+  if (tab === 'scan') {
+    btnScan.className = 'px-3 py-1.5 text-xs font-mono uppercase tracking-wide border border-cyan-500/50 bg-cyan-600/20 text-cyan-300 rounded-sm';
+    btnCompare.className = 'px-3 py-1.5 text-xs font-mono uppercase tracking-wide border border-neutral-700 text-neutral-400 hover:text-neutral-200 rounded-sm';
+  } else {
+    btnCompare.className = 'px-3 py-1.5 text-xs font-mono uppercase tracking-wide border border-cyan-500/50 bg-cyan-600/20 text-cyan-300 rounded-sm';
+    btnScan.className = 'px-3 py-1.5 text-xs font-mono uppercase tracking-wide border border-neutral-700 text-neutral-400 hover:text-neutral-200 rounded-sm';
+  }
+}
+// END: SCANNER SUB-TABS
+
+// START: SAMPLE SCAN INPUT POPULATOR
+function loadSampleScanText() {
+  document.getElementById('scanInputText').value = 'Prabowo resmi menghentikan MBG dan KDMP, mengalirkan APBN lebih untuk pendidikan.';
+  document.getElementById('scanInputUrl').value = 'https://instagram.com/p/meme_nusantara_fiktif';
+}
+// END: SAMPLE SCAN INPUT POPULATOR
+
+// START: COGNITIVE SCAN SIMULATION (MockDriver Interactive State)
+function triggerScanSimulation() {
+  const btn = document.getElementById('btnInitiateScan');
+  const btnText = document.getElementById('scanBtnText');
+  const statusMsg = document.getElementById('scanStatusMsg');
+  const textInput = document.getElementById('scanInputText').value.trim();
+
+  if (!textInput) {
+    alert('Mohon masukkan teks narasi atau klaim yang akan diperiksa.');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.classList.add('opacity-60', 'cursor-not-allowed');
+  btnText.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> MEMINDAI BUKTI (MockDriver)...';
+  statusMsg.textContent = 'STATUS: MENGEKSTRAKSI KLAIM & MEMERIKSA PERSENTASE KREDIBILITAS...';
+  statusMsg.className = 'text-[10px] font-mono text-cyan-400 text-center animate-pulse';
+
+  setTimeout(() => {
+    btn.disabled = false;
+    btn.classList.remove('opacity-60', 'cursor-not-allowed');
+    btnText.innerHTML = '<i class="fa-solid fa-radar text-xs"></i> [ INITIATE COGNITIVE SCAN ]';
+    statusMsg.textContent = 'STATUS: PINDAIAN SELESAI — HASIL TERSAJI (DATA SIMULASI, MENUNGGU VALIDASI ANALIS)';
+    statusMsg.className = 'text-[10px] font-mono text-emerald-400 text-center';
+
+    // Update result elements
+    document.getElementById('radialScoreNumber').textContent = '28';
+    document.getElementById('radialCircle').setAttribute('stroke-dashoffset', '180.8');
+    document.getElementById('classificationBadge').textContent = 'DISINFORMATION';
+    document.getElementById('verificationBadge').textContent = 'TERBANTAHKAN';
+    document.getElementById('summaryText').textContent = 'Analisis selesai: klaim bertentangan dengan rujukan primer Siaran Pers Kemenko [E-003]. Ditemukan pergeseran kata dari "wacana evaluasi" menjadi "resmi dibatalkan".';
+  }, 1200);
+}
+// END: COGNITIVE SCAN SIMULATION
+
+// START: HUMAN VALIDATION SUBMISSION
+function submitHumanValidation() {
+  const decisions = document.getElementsByName('validationDecision');
+  let selected = 'VALIDATED';
+  for (let r of decisions) {
+    if (r.checked) { selected = r.value; break; }
+  }
+
+  const reason = document.getElementById('validationReasonText').value.trim();
+  if (!reason) {
+    alert('Peringatan: Alasan analisis manusia wajib diisi sebelum mencatat keputusan!');
+    return;
+  }
+
+  const badge = document.getElementById('currentValidationBadge');
+  if (selected === 'VALIDATED') {
+    badge.textContent = 'STATUS: VALIDATED (SETUJU)';
+    badge.className = 'text-[10px] font-mono uppercase px-2 py-0.5 bg-emerald-950 border border-emerald-500/50 text-emerald-400 font-bold';
+  } else if (selected === 'REJECTED') {
+    badge.textContent = 'STATUS: REJECTED (DITOLAK)';
+    badge.className = 'text-[10px] font-mono uppercase px-2 py-0.5 bg-rose-950 border border-rose-600/50 text-rose-400 font-bold';
+  } else {
+    badge.textContent = 'STATUS: RECLASSIFIED (DIKOREKSI)';
+    badge.className = 'text-[10px] font-mono uppercase px-2 py-0.5 bg-amber-950 border border-amber-600/50 text-amber-400 font-bold';
+  }
+
+  alert(`Keputusan analis [${selected}] berhasil dicatat dalam audit trail append-only.`);
+}
+// END: HUMAN VALIDATION SUBMISSION
+
+// START: CROSS-SOURCE VERIFICATION TRIGGER
+function runCrossSourceSim() {
+  alert('Verifikasi Lintas Sumber Selesai Dieksekusi.\n\nTemuan Utama:\n• 1 Unit Rujukan Primer Nyata (Siaran Pers Kemenko)\n• 2 Rujukan Berita Sekunder (CNN & Tribun) mengutip sumber yang sama (Common Primary Source)\n• Konsistensi Angka & Entitas: IDENTIK (100%)\n• Disinformasi terdeteksi pada konten viral beredar [E-004].');
+}
+// END: CROSS-SOURCE VERIFICATION TRIGGER
+
+// START: AI CONSOLE CHAT HANDLER
+function handleConsoleSend() {
+  const input = document.getElementById('consoleInputBox');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+
+  const container = document.getElementById('consoleChatMessages');
+  const now = new Date();
+  const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')} WIB`;
+
+  // Append user message
+  const userHtml = `
+    <div class="flex flex-col gap-1 items-end">
+      <div class="text-[10px] text-neutral-500">OPERATOR // ${timeStr}</div>
+      <div class="p-2.5 bg-neutral-800 text-neutral-200 rounded-sm max-w-lg border border-neutral-700">
+        ${escapeHtml(text)}
+      </div>
+    </div>
+  `;
+  container.insertAdjacentHTML('beforeend', userHtml);
+  container.scrollTop = container.scrollHeight;
+
+  // Append AI simulated response
+  setTimeout(() => {
+    let reply = `Menjalankan analisis konteks kasus TS-2026-001 berdasarkan bukti terverifikasi: klaim "${escapeHtml(text)}" telah diproses melalui allowlist tools.`;
+    if (text.toLowerCase().includes('angka') || text.toLowerCase().includes('apbn')) {
+      reply = 'Pemeriksaan fungsi [compare_numeric_entities]: Tidak ada pemotongan anggaran 100% pada rujukan resmi. Angka nominal APBN tetap berjalan sesuai pagu definitif semester 1.';
+    } else if (text.toLowerCase().includes('independensi') || text.toLowerCase().includes('sumber')) {
+      reply = 'Pemeriksaan fungsi [analyze_source_relationships]: Portal Berita A dan B terbukti mengutip satu siaran pers yang sama (Common Primary Source). Jumlah artikel tidak mencerminkan bukti independen ganda.';
+    }
+
+    const aiHtml = `
+      <div class="flex flex-col gap-1 items-start">
+        <div class="text-[10px] text-cyan-400 flex items-center gap-1">
+          <i class="fa-solid fa-microchip"></i> TRACE-S AI [Allowlist Engine] // ${timeStr}
+        </div>
+        <div class="p-3 bg-neutral-950 text-neutral-200 rounded-sm max-w-xl border border-neutral-850 space-y-1.5">
+          <p class="font-sans text-xs leading-relaxed">${reply}</p>
+          <div class="text-[10px] font-mono text-neutral-500 pt-1 border-t border-neutral-850">
+            Audit Trail: Tool Terverifikasi • Data Tidak Terpercaya Terisolasi (PromptGuard)
+          </div>
+        </div>
+      </div>
+    `;
+    container.insertAdjacentHTML('beforeend', aiHtml);
+    container.scrollTop = container.scrollHeight;
+  }, 600);
+}
+
+function sendPresetPrompt(promptText) {
+  document.getElementById('consoleInputBox').value = promptText;
+  handleConsoleSend();
+}
+
+function escapeHtml(string) {
+  return String(string).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+// END: AI CONSOLE CHAT HANDLER
+
+// START: LIVE THREAT FEED POLLING SIMULATOR
+const threatFeedFixture = [
+  { t: '11:42:01', lvl: 'ROSE',  msg: 'Kasus TS-2026-001: Lonjakan amplifikasi terdeteksi pada klaster narasi MBG di platform Instagram & TikTok.' },
+  { t: '11:40:18', lvl: 'AMBER', msg: 'Indikator Otomatisasi Tinggi: Akun @info_warga_x terdeteksi memposting 142 tweet/jam.' },
+  { t: '11:38:50', lvl: 'CYAN',  msg: 'Konektor RSS Berita Nasional: Menerima 18 artikel baru dari portal terakreditasi.' },
+  { t: '11:35:12', lvl: 'EMERALD', msg: 'Verifikasi Primer: Siaran Pers Kemenko [E-003] berhasil diakuisisi dan di-hash SHA-256.' },
+  { t: '11:31:05', lvl: 'ROSE',  msg: 'Authenticity Comparator: Distorsi leksikal ditemukan antara rujukan E-001 vs E-004.' }
+];
+
+const feedColorMap = {
+  ROSE: 'text-rose-500',
+  AMBER: 'text-amber-400',
+  CYAN: 'text-cyan-400',
+  EMERALD: 'text-emerald-400'
+};
+
+function renderThreatFeed() {
+  const container = document.getElementById('threatFeedBox');
+  if (!container) return;
+  container.innerHTML = threatFeedFixture.map(item => `
+    <div class="border-b border-neutral-900 pb-1.5">
+      <span class="text-neutral-600">[${item.t}]</span>
+      <span class="font-bold ${feedColorMap[item.lvl] || 'text-neutral-300'} mr-1">${item.lvl}</span>
+      <span class="text-neutral-300 font-sans text-xs">${item.msg}</span>
+    </div>
+  `).join('');
+}
+renderThreatFeed();
+
+function clearAndReloadFeed() {
+  const container = document.getElementById('threatFeedBox');
+  container.innerHTML = '<div class="text-cyan-400 text-center py-4"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Menyinkronkan feed real-time...</div>';
+  setTimeout(renderThreatFeed, 600);
+}
+// END: LIVE THREAT FEED POLLING SIMULATOR
+
+// START: ROLE QUICK-SWITCH & CLEARANCE LOGIC
+const roleDropdownBtn = document.getElementById('roleDropdownBtn');
+const roleDropdownMenu = document.getElementById('roleDropdownMenu');
+
+roleDropdownBtn.addEventListener('click', () => {
+  roleDropdownMenu.classList.toggle('hidden');
+});
+
+document.addEventListener('click', (e) => {
+  if (!roleDropdownBtn.contains(e.target) && !roleDropdownMenu.contains(e.target)) {
+    roleDropdownMenu.classList.add('hidden');
+  }
+});
+
+function setRole(role) {
+  roleDropdownMenu.classList.add('hidden');
+  const avatar = document.getElementById('userAvatarBadge');
+  const name = document.getElementById('currentUserName');
+  const clearance = document.getElementById('currentUserClearance');
+  const adminNav = document.getElementById('adminNavBtn');
+
+  // Reset checks
+  ['operator', 'analis', 'komandan', 'admin'].forEach(r => {
+    const el = document.getElementById(`role-check-${r}`);
+    if (el) el.classList.add('hidden');
+  });
+  document.getElementById(`role-check-${role}`).classList.remove('hidden');
+
+  if (role === 'operator') {
+    avatar.textContent = 'OP';
+    name.textContent = 'SERDA RAMA DANU';
+    clearance.textContent = 'PERAN: OPERATOR // LEVEL-1';
+    adminNav.classList.add('opacity-40', 'cursor-not-allowed');
+    adminNav.title = 'Akses Terbatas: Memerlukan Level Administrator';
+  } else if (role === 'analis') {
+    avatar.textContent = 'AN';
+    name.textContent = 'LETTU ARIS MUNANDAR';
+    clearance.textContent = 'PERAN: ANALIS // LEVEL-2';
+    adminNav.classList.add('opacity-40', 'cursor-not-allowed');
+    adminNav.title = 'Akses Terbatas: Memerlukan Level Administrator';
+  } else if (role === 'komandan') {
+    avatar.textContent = 'KD';
+    name.textContent = 'KOLONEL HENDRA WIJAYA';
+    clearance.textContent = 'PERAN: KOMANDAN // LEVEL-3';
+    adminNav.classList.add('opacity-40', 'cursor-not-allowed');
+    adminNav.title = 'Akses Terbatas: Memerlukan Level Administrator';
+  } else if (role === 'admin') {
+    avatar.textContent = 'AD';
+    name.textContent = 'MAYOR DIMAS PRATAMA';
+    clearance.textContent = 'PERAN: ADMINISTRATOR // LEVEL-4';
+    adminNav.classList.remove('opacity-40', 'cursor-not-allowed');
+    adminNav.title = 'Local AI Server Management & Model Registry';
+  }
+}
+// END: ROLE QUICK-SWITCH & CLEARANCE LOGIC
+
+// START: MODAL CONTROLLERS
+function openModal(id) {
+  document.getElementById(id).classList.remove('hidden');
+}
+function closeModal(id) {
+  document.getElementById(id).classList.add('hidden');
+}
+
+function submitManualEvidence() {
+  const title = document.getElementById('modalEvidenceTitle').value.trim();
+  if (!title) { alert('Mohon masukkan judul bukti.'); return; }
+  closeModal('importModal');
+  alert(`Bukti digital "${title}" berhasil diimpor, dihitung hash SHA-256 kriptografis, dan disimpan ke Brankas Kasus.`);
+}
+
+function submitUrlFetch() {
+  const url = document.getElementById('modalFetchUrl').value.trim();
+  if (!url) { alert('Mohon masukkan alamat URL yang sah.'); return; }
+  closeModal('urlFetchModal');
+  alert(`URL "${url}" berhasil dipindai oleh Anti-SSRF gateway dan teks materi telah diekstraksi ke brankas bukti.`);
+}
+
+function viewEvidenceDetails(id) {
+  alert(`Inspeksi Bukti [${id}]:\n• Status Integritas: VALID SHA-256\n• Akuisisi: Terverifikasi oleh Operator\n• Rantai Bukti: Tersimpan di Digital Evidence Vault.`);
+}
+// END: MODAL CONTROLLERS
+
+// START: ADMIN AI SERVER PING & SWITCH SIMULATORS
+function pingLocalAiServer() {
+  const latency = Math.floor(Math.random() * 8) + 9;
+  document.getElementById('aiLatencyDisplay').textContent = `${latency} ms`;
+  alert(`Ping Test Berhasil!\nServer Lokal Air-Gapped Merespons dalam ${latency} ms.\nStatus: ONLINE (Inference Engine Ready).`);
+}
+
+function switchModelSim(modelName) {
+  document.getElementById('activeModelLabel').textContent = modelName;
+  alert(`Model Aktif Berhasil Diganti ke: ${modelName}\nHot-swap selesai tanpa downtime sistem. Tercatat di Log Audit Administrator.`);
+}
+// END: ADMIN AI SERVER PING & SWITCH SIMULATORS
+</script>
+</body>
+</html>

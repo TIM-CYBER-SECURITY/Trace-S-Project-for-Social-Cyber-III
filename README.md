@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # TRACE-S // PUSSIBERAD TNI AD
 ### Social Cyber Intelligence Platform (Platform Intelijen Siber Sosial)
 **Kategori 04: Siber Sosial — Kartika Cyber Hackathon 2026**
@@ -10,7 +9,11 @@
 **TRACE-S (Tactical Reconnaissance, Analysis, and Credibility Evaluation for Social cyber)** adalah platform intelijen siber sosial kelas militer yang dirancang khusus untuk Pusat Siber TNI AD (**PUSSIBERAD**). Platform ini mengintegrasikan pemantauan dini (*early warning*), analisis kredibilitas berbasis multi-dimensi, perbandingan keaslian teks (*authenticity comparator*), analisis jaringan aktor dan penyebaran disinformasi (*social network analysis & spread timeline*), verifikasi multi-sumber lintas kanal (*cross-source verification*), serta konsol interaktif berbantuan AI lokal dengan pengamanan ketat (*air-gapped local AI inference*).
 
 Sistem ini diimplementasikan dengan kepatuhan penuh terhadap **MASTER PROMPT v2** dan **SUPPLEMENTAL MASTER PROMPT v1.0**, dengan prinsip etika, integritas, dan hukum operasional militer:
-1. **Human-in-the-Loop & Akuntabilitas**: Rekomendasi AI dan skor probabilitas tidak pernah menjadi vonis mutlak. Keputusan operasional, penetapan status, dan penerbitan laporan berada di tangan personel manusia (Operator, Analis, dan Komandan).
+1. **Human-in-the-Loop & Akuntabilitas**: Rekomendasi AI dan skor probabilitas tidak pernah menjadi vonis mutlak. Keputusan operasional, penetapan status, dan penerbitan laporan berada di tangan perso
+\
+
+?"
+nel manusia (Operator, Analis, dan Komandan).
 2. **Kemandirian & Keamanan Data (Air-Gapped)**: AI inferensi beroperasi secara lokal di intranet militer (Ollama / vLLM / OpenAI-compatible / MockDriver) tanpa ketergantungan API pihak ketiga publik. `LocalGuard` memblokir akses ke domain internet eksternal saat mode intranet aktif.
 3. **Anti Prompt-Injection**: Seluruh materi eksternal (web scraping, unggahan dokumen, konten media sosial) diperlakukan sebagai **DATA TIDAK TERPERCAYA** melalui `PromptGuard` sanitization dan isolasi pembatas tag khusus.
 4. **Audit Trail Mutlak (Append-Only)**: Setiap aksi operator, perubahan model, otentikasi, dan eksekusi AI dicatat secara kriptografis pada model `SystemLog` yang dilarang diubah atau dihapus (*append-only enforcement* di tingkat Eloquent ORM).
@@ -233,7 +236,4 @@ trace-s/
 
 ---
 **PUSSIBERAD TNI AD // TANGGUH, CERMAT, AKUNTABEL**
-=======
-# Trace-S-Project-for-Social-Cyber-II
-We participated into "Hackathon Kartika SATSIBER TNIAD 2026", we'll sacrifice everything for ts competition
->>>>>>> 5835446b6be58a5c96d1617ca4f0b68e260f94c8
+*Kategori 04: Siber Sosial — Kartika Cyber Hackathon 2026*

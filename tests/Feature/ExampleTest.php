@@ -26,4 +26,16 @@ class ExampleTest extends TestCase
         $response->assertSee('PUSSIBERAD');
         $response->assertSee('TRACE-S');
     }
+
+    /**
+     * Interactive tactical prototype renders successfully.
+     */
+    public function test_prototype_page_renders_successfully(): void
+    {
+        $response = $this->get('/prototype');
+        $response->assertStatus(200);
+        $response->assertSee('TRACE-S // Social Cyber Intelligence Platform');
+        $response->assertSee('EARLY WARNING DASHBOARD');
+        $response->assertSee('5-DIMENSIONAL SIMILARITY');
+    }
 }

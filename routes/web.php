@@ -20,6 +20,7 @@ Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->name('login.post');
 Route::post('/login/quick', [AuthController::class, 'quickLogin'])->name('login.quick');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+Route::get('/prototype', fn () => response(file_get_contents(public_path('prototype.html')))->header('Content-Type', 'text/html'))->name('prototype');
 
 // -------------------------------------------------------------
 // Area Terlindungi (Memerlukan Sesi Otentikasi)
