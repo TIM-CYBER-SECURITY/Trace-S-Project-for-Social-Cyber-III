@@ -16,6 +16,13 @@ use Illuminate\Support\Facades\Route;
 // -------------------------------------------------------------
 // Autentikasi Taktis (Command Center Gate)
 // -------------------------------------------------------------
+Route::get('/lang/{locale}', function (string $locale) {
+    if (in_array($locale, ['en', 'id'], true)) {
+        session(['locale' => $locale]);
+    }
+    return back();
+})->name('lang.switch');
+
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->name('login.post');
 Route::post('/login/quick', [AuthController::class, 'quickLogin'])->name('login.quick');
@@ -30,9 +37,12 @@ Route::middleware([AuthenticateTrace::class])->group(function () {
     // Root redirect ke dashboard
     Route::get('/', fn () => redirect()->route('dashboard'));
 
-    // Modul A: Early Warning Dashboard
+    // Modul A1: Early Warning Dashboard & Exposure Grid
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/api/threat-feed', [DashboardController::class, 'threatFeed'])->name('api.threat-feed');
+
+    // Modul A2: Sentiment Analysis Dashboard
+    Route::get('/sentiment', [DashboardController::class, 'sentiment'])->name('sentiment.index');
 
     // Modul B: Credibility Scanner, Authenticity Comparator, Cross-Source
     Route::get('/scanner', [ScannerController::class, 'index'])->name('scanner.index');

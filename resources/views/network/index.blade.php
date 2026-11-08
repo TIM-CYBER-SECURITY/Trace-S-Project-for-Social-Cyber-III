@@ -1,261 +1,295 @@
 @extends('layouts.tactical')
 
-@section('title', 'Threat Actor Network & Spread Analysis // TRACE-S')
+@php
+  $isId = app()->getLocale() === 'id';
+@endphp
+
+@section('title', ($isId ? 'Jaringan Penyebaran & Pola Akun' : 'Spread Network & Account Pattern Analysis') . ' // TRACE-S')
 
 @section('content')
 
-<!-- Header Bar -->
+<!-- [ModuleCHeader] START -->
 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-800 pb-3">
   <div>
-    <div class="flex items-center gap-2">
-      <h1 class="text-lg font-bold font-mono tracking-wide text-neutral-100 uppercase">Threat Actor Network &amp; Spread Analysis</h1>
-      <span class="text-[10px] font-mono px-2 py-0.5 border border-amber-500/40 bg-amber-950/30 text-amber-500 rounded-sm">MODUL C</span>
+    <div class="flex items-center gap-2.5">
+      <h1 class="text-sm font-semibold font-mono tracking-wide text-neutral-300 uppercase">
+        {{ $isId ? 'Analisis Jaringan Penyebaran & Pola Akun' : 'Spread Network & Account Pattern Analysis' }}
+      </h1>
+      <span class="text-[10px] font-mono px-2 py-0.5 text-cyan-500 bg-cyan-500/10 border border-cyan-500/50 rounded-sm">
+        MODULE C (§5.5)
+      </span>
     </div>
-    <p class="text-xs text-neutral-500 mt-0.5">Pemetaan jejaring aktor penyebar, indikator otomatisasi, dan kronologi amplifikasi lintas platform.</p>
+    <p class="text-xs text-neutral-500 mt-0.5">
+      {{ $isId
+        ? 'Memetakan hubungan penyebaran konten dalam dataset terkumpul dan menampilkan indikator otomatisasi akun (bukan identitas orang).'
+        : 'Maps content spread relationships within the collected dataset and displays account automation indicators (never personal identities).' }}
+    </p>
   </div>
 
   <!-- Case Filter -->
   <form action="{{ route('network.index') }}" method="GET" class="flex items-center gap-2 text-xs font-mono">
-    <label class="text-[10px] uppercase text-neutral-400">Kasus:</label>
-    <select name="case_id" onchange="this.form.submit()" class="bg-neutral-900 border border-neutral-700 text-neutral-200 px-3 py-1.5 rounded-sm focus:outline-none focus:border-cyan-500 text-xs font-mono">
+    <label class="text-[10px] uppercase tracking-widest text-neutral-500">{{ $isId ? 'KASUS:' : 'CASE:' }}</label>
+    <select name="case_id" onchange="this.form.submit()" aria-label="Select case for spread network" class="bg-neutral-900 border border-neutral-800 text-neutral-300 px-3 py-1.5 rounded-sm focus:outline-none focus:border-cyan-500 text-xs font-mono">
       @foreach($cases as $c)
         <option value="{{ $c->id }}" {{ $selectedCase && $selectedCase->id === $c->id ? 'selected' : '' }}>
-          {{ $c->case_code }} - {{ Str::limit($c->title, 35) }}
+          {{ $c->case_code }} — {{ Str::limit($c->title, 35) }}
         </option>
       @endforeach
     </select>
   </form>
 </div>
+<!-- [ModuleCHeader] END -->
 
-<!-- START: DATA SCOPE DISCLAIMER BANNER (Master §7.4 / Supplemental §8) -->
-<div class="p-3 bg-neutral-900 border border-neutral-800 rounded-sm flex items-center justify-between text-xs font-mono text-neutral-400">
-  <div class="flex items-center gap-2">
-    <i class="fa-solid fa-clock-rotate-left text-cyan-400"></i>
-    <span>Titik Publikasi Terawal: <b class="text-neutral-200">{{ $earliestPost?->publisher ?? 'N/A' }}</b> ({{ $earliestPost?->published_at ? $earliestPost->published_at->format('d M Y H:i') . ' WIB' : '-' }} pada platform {{ $earliestPost?->platform ?? '-' }})</span>
+<!-- [DatasetScopeDisclaimerBanner] START -->
+<div class="p-3 bg-neutral-900 border border-neutral-800 rounded-sm flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-mono">
+  <div class="flex items-center gap-2 text-neutral-300">
+    <i class="fa-solid fa-clock-rotate-left text-cyan-500"></i>
+    <span>
+      {{ $isId ? 'Titik Publikasi Paling Awal dalam Dataset Terkumpul:' : 'Earliest Publication Point in Collected Dataset:' }}
+      <b class="text-cyan-500">{{ $earliestPost?->publisher ?? '@meme_nusantara_fiktif' }}</b>
+      ({{ $earliestPost?->published_at ? $earliestPost->published_at->format('d M Y H:i') . ' UTC' : '2026-11-01 08:12 UTC' }} &middot; {{ $earliestPost?->platform ?? 'INSTAGRAM' }})
+    </span>
   </div>
-  <div class="text-[10px] text-amber-500 font-semibold px-2 py-0.5 border border-amber-500/30 bg-amber-950/20 rounded-sm">
-    * Paling awal dalam dataset terkumpul, bukan publikasi pertama di internet
-  </div>
+  <span class="text-[10px] px-2 py-0.5 text-amber-500 bg-amber-500/10 border border-amber-500/30 rounded-sm">
+    {{ $isId ? '* Bukan klaim sumber pertama di seluruh internet (§5.5)' : '* Not a claim of first publication on the entire internet (§5.5)' }}
+  </span>
 </div>
-<!-- END: DATA SCOPE DISCLAIMER BANNER -->
+<!-- [DatasetScopeDisclaimerBanner] END -->
 
-<!-- START: SNA GRAPH & SPREAD METRICS -->
-<div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+<!-- [SpreadNetworkGraphAndMetrics] START -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
 
-  <!-- Left Column: Tactical Dot-Grid SNA Canvas (7 Cols) -->
+  <!-- Left Column: Interactive Dot-Grid SVG Canvas (7 Cols — §5.5) -->
   <div class="lg:col-span-7 bg-neutral-900 border border-neutral-800 rounded-sm p-4 space-y-3">
-    <div class="flex items-center justify-between border-b border-neutral-800 pb-2">
-      <div class="text-xs font-mono uppercase tracking-wider text-neutral-300 font-semibold flex items-center gap-2">
-        <i class="fa-solid fa-diagram-project text-cyan-400"></i>
-        <span>Social Network Analysis (SNA) Graph</span>
+    <div class="flex items-center justify-between border-b border-neutral-800 pb-2.5">
+      <div class="text-xs font-mono uppercase tracking-wide text-neutral-300 font-semibold flex items-center gap-2">
+        <i class="fa-solid fa-diagram-project text-cyan-500"></i>
+        <span>{{ $isId ? 'Graf Relasi Penyebaran dalam Dataset' : 'Dataset Spread Relationship Graph' }}</span>
       </div>
-      <span class="text-[9px] font-mono text-cyan-400">CLUSTER: NC-2026-001</span>
+      <span class="text-[10px] font-mono px-1.5 py-0.5 text-amber-500 bg-amber-500/10 border border-amber-500/30 rounded-sm" title="is_simulation: true">
+        {{ $isId ? 'SIMULASI (is_simulation: true)' : 'SIMULATION (is_simulation: true)' }}
+      </span>
     </div>
 
-    <!-- Dot-Grid Canvas with Connected HTML/SVG Nodes -->
-    <div class="relative w-full h-80 sm:h-96 bg-neutral-950 border border-neutral-850 rounded-sm overflow-hidden select-none">
-      <!-- Dot grid texture -->
-      <div class="absolute inset-0 bg-[radial-gradient(#262626_1px,transparent_1px)] [background-size:16px_16px] opacity-40"></div>
+    @php
+      $satelliteNodes = [
+        ['x' => 20, 'y' => 22, 'id' => 'N-02', 'handle' => '@politik_santuy_fiktif', 'ind' => 'MODERATE', 'rate' => '18/h', 'age' => '142d'],
+        ['x' => 78, 'y' => 20, 'id' => 'N-03', 'handle' => '@info_warga_fiktif', 'ind' => 'HIGH', 'rate' => '42/h', 'age' => '14d'],
+        ['x' => 84, 'y' => 60, 'id' => 'N-04', 'handle' => '@berita_viral_fiktif', 'ind' => 'LOW', 'rate' => '4/h', 'age' => '620d'],
+        ['x' => 70, 'y' => 82, 'id' => 'N-05', 'handle' => '@suara_rakyat_fiktif', 'ind' => 'LOW', 'rate' => '3/h', 'age' => '410d'],
+        ['x' => 28, 'y' => 82, 'id' => 'N-06', 'handle' => '@opini_terkini_fiktif', 'ind' => 'HIGH', 'rate' => '39/h', 'age' => '19d'],
+        ['x' => 16, 'y' => 58, 'id' => 'N-07', 'handle' => '@wacana_kita_fiktif', 'ind' => 'LOW', 'rate' => '5/h', 'age' => '890d'],
+      ];
+    @endphp
 
-      <!-- Center Node (Patient Zero / Node-A1) -->
-      <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center">
-        <div class="relative flex items-center justify-center">
-          <span class="animate-ping absolute inline-flex h-14 w-14 rounded-full bg-rose-600 opacity-40"></span>
-          <div class="w-12 h-12 rounded-full bg-rose-950 border-2 border-rose-500 flex items-center justify-center text-rose-300 font-mono font-bold text-xs shadow-[0_0_20px_rgba(225,29,72,0.6)]">
-            A1
-          </div>
-        </div>
-        <div class="mt-1 px-2 py-0.5 bg-neutral-900 border border-rose-600/50 rounded-sm text-[9px] font-mono text-rose-400 font-semibold text-center whitespace-nowrap shadow-lg">
-          Node-A1 (Titik Awal Dataset)<br>
-          <span class="text-neutral-400 font-normal">@meme_nusantara_fiktif</span>
-        </div>
-      </div>
+    <!-- Custom Dot-Grid Interactive Canvas (Zero External Graph Library — §5.5) -->
+    <div class="relative w-full h-80 bg-neutral-950 border border-neutral-800 rounded-sm overflow-hidden select-none">
+      <!-- Monochrome Dot Grid Background -->
+      <div class="absolute inset-0 bg-[radial-gradient(#262626_1px,transparent_1px)] [background-size:16px_16px]"></div>
 
-      <!-- Orbiting Satellite Nodes -->
-      @php
-        $satelliteCoords = [
-          ['x' => 20, 'y' => 22, 'label' => 'A2', 'user' => '@politik_santuy', 'ind' => 'SEDANG'],
-          ['x' => 78, 'y' => 20, 'label' => 'A3', 'user' => '@info_warga', 'ind' => 'TINGGI'],
-          ['x' => 84, 'y' => 60, 'label' => 'A4', 'user' => '@berita_viral', 'ind' => 'RENDAH'],
-          ['x' => 70, 'y' => 82, 'label' => 'A5', 'user' => '@suara_rakyat', 'ind' => 'RENDAH'],
-          ['x' => 30, 'y' => 84, 'label' => 'A6', 'user' => '@opini_terkini', 'ind' => 'TINGGI'],
-          ['x' => 14, 'y' => 58, 'label' => 'A7', 'user' => '@wacana_kita', 'ind' => 'RENDAH'],
-        ];
-      @endphp
-
-      <!-- SVG Connection Lines -->
-      <svg class="absolute inset-0 w-full h-full pointer-events-none z-10">
-        @foreach($satelliteCoords as $sc)
-        <line x1="50%" y1="50%" x2="{{ $sc['x'] }}%" y2="{{ $sc['y'] }}%"
-              stroke="{{ $sc['ind'] === 'TINGGI' ? '#f43f5e' : ($sc['ind'] === 'SEDANG' ? '#fbbf24' : '#06b6d4') }}"
-              stroke-width="1.5" stroke-dasharray="3 3" opacity="0.6"/>
+      <!-- Custom SVG Relationship Edges -->
+      <svg class="absolute inset-0 w-full h-full pointer-events-none z-10" aria-label="Network spread connections">
+        @foreach($satelliteNodes as $node)
+        <line x1="50%" y1="50%" x2="{{ $node['x'] }}%" y2="{{ $node['y'] }}%"
+              stroke="{{ $node['ind'] === 'HIGH' ? '#e11d48' : ($node['ind'] === 'MODERATE' ? '#f59e0b' : '#06b6d4') }}"
+              stroke-width="1.5" stroke-dasharray="3 3"/>
         @endforeach
       </svg>
 
-      @foreach($satelliteCoords as $sc)
-      <div class="absolute -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center group cursor-pointer"
-           style="left: {{ $sc['x'] }}%; top: {{ $sc['y'] }}%;">
-        <div class="w-8 h-8 rounded-full bg-neutral-900 border flex items-center justify-center font-mono text-[10px] font-bold transition-transform group-hover:scale-110 {{ $sc['ind'] === 'TINGGI' ? 'border-rose-500 text-rose-400' : ($sc['ind'] === 'SEDANG' ? 'border-amber-400 text-amber-400' : 'border-cyan-500 text-cyan-400') }}">
-          {{ $sc['label'] }}
+      <!-- Center Node: Mandatory Label (§5.5) -->
+      <button type="button"
+              onclick="selectGraphNode('N-01', '@meme_nusantara_fiktif', 'HIGH', '36/h', '21d', '{{ $isId ? 'Titik Publikasi Paling Awal dalam Dataset Terkumpul' : 'Earliest Publication Point in Collected Dataset' }}')"
+              aria-label="Inspect earliest node in dataset"
+              class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center group focus:outline-none">
+        <div class="w-11 h-11 rounded-full bg-neutral-900 border-2 border-cyan-500 flex items-center justify-center text-cyan-500 font-mono font-semibold text-xs">
+          N-01
         </div>
-        <div class="mt-1 px-1.5 py-0.2 bg-neutral-900/90 border border-neutral-800 rounded-sm text-[8px] font-mono text-neutral-400 whitespace-nowrap">
-          {{ $sc['user'] }}
+        <div class="mt-1 px-2 py-0.5 bg-neutral-900 border border-cyan-500/50 rounded-sm text-[10px] font-mono text-cyan-500 text-center">
+          {{ $isId ? 'Titik Publikasi Paling Awal dalam Dataset Terkumpul' : 'Earliest Publication Point in Collected Dataset' }}<br>
+          <span class="text-neutral-300">@meme_nusantara_fiktif</span>
         </div>
-      </div>
-      @endforeach
+      </button>
 
-      <div class="absolute bottom-2 left-2 text-[9px] font-mono text-neutral-600">
-        ALGORITMA: FORCE-DIRECTED SIMULATION (TOLERANSI WAKTU 18j)
-      </div>
+      <!-- Satellite Account Nodes -->
+      @foreach($satelliteNodes as $node)
+      <button type="button"
+              onclick="selectGraphNode('{{ $node['id'] }}', '{{ $node['handle'] }}', '{{ $node['ind'] }}', '{{ $node['rate'] }}', '{{ $node['age'] }}', 'Amplification Relay Node')"
+              aria-label="Inspect node {{ $node['handle'] }}"
+              style="left: {{ $node['x'] }}%; top: {{ $node['y'] }}%;"
+              class="absolute -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center focus:outline-none">
+        <div class="w-8 h-8 rounded-full bg-neutral-900 border flex items-center justify-center font-mono text-[10px] font-semibold hover:bg-neutral-800/50 {{ $node['ind'] === 'HIGH' ? 'border-rose-600/50 text-rose-600' : ($node['ind'] === 'MODERATE' ? 'border-amber-500/30 text-amber-500' : 'border-cyan-500/50 text-cyan-500') }}">
+          {{ $node['id'] }}
+        </div>
+        <div class="mt-1 px-1.5 py-0.5 bg-neutral-900 border border-neutral-800 rounded-sm text-[10px] font-mono text-neutral-300 whitespace-nowrap">
+          {{ $node['handle'] }}
+        </div>
+      </button>
+      @endforeach
     </div>
 
-    <!-- Canvas Legend -->
-    <div class="flex items-center justify-between text-[10px] font-mono text-neutral-500 pt-1">
-      <div class="flex items-center gap-3">
-        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-600 inline-block"></span> Indikator Otomatisasi Tinggi</span>
-        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span> Sedang</span>
-        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-cyan-500 inline-block"></span> Rendah</span>
+    <!-- Interactive Node Inspector Bar -->
+    <div id="nodeInspectorBar" class="p-2.5 bg-neutral-950 border border-neutral-800 rounded-sm flex flex-wrap items-center justify-between gap-2 font-mono text-xs">
+      <div>
+        <span class="text-[10px] text-neutral-500 uppercase tracking-widest">{{ $isId ? 'NODE TERPILIH:' : 'SELECTED NODE:' }}</span>
+        <span id="inspNodeHandle" class="text-cyan-500 font-semibold ml-1">@meme_nusantara_fiktif (N-01)</span>
       </div>
-      <span class="text-amber-500">SIMULASI SNA</span>
+      <div class="flex items-center gap-3 text-[11px]">
+        <span>{{ $isId ? 'Frekuensi:' : 'Post Rate:' }} <b id="inspNodeRate" class="text-neutral-300">36/h</b></span>
+        <span>{{ $isId ? 'Umur Akun:' : 'Account Age:' }} <b id="inspNodeAge" class="text-neutral-300">21d</b></span>
+        <span>Automation Indicator: <b id="inspNodeInd" class="text-amber-500">HIGH</b></span>
+      </div>
     </div>
   </div>
 
-  <!-- Right Column: Platform Breakdown & Metrics (5 Cols) -->
+  <!-- Right Column: Platform Distribution & Cluster Summary (5 Cols) -->
   <div class="lg:col-span-5 space-y-4">
 
-    <!-- Platform Distribution Card -->
     <div class="bg-neutral-900 border border-neutral-800 rounded-sm p-4 space-y-3">
-      <div class="text-xs font-mono uppercase tracking-wider text-cyan-400 font-semibold flex items-center justify-between border-b border-neutral-800 pb-2">
-        <span>Distribusi Platform dalam Dataset</span>
-        <i class="fa-solid fa-share-nodes"></i>
+      <div class="text-xs font-mono uppercase tracking-wide text-neutral-300 font-semibold flex items-center justify-between border-b border-neutral-800 pb-2.5">
+        <span>{{ $isId ? 'Sebaran Platform dalam Dataset' : 'Platform Distribution in Dataset' }}</span>
+        <i class="fa-solid fa-share-nodes text-cyan-500"></i>
       </div>
 
-      <div class="space-y-2 font-mono text-xs">
-        @foreach($platformDistribution as $plat => $cnt)
+      <div class="space-y-2.5 font-mono text-xs">
+        @forelse($platformDistribution as $plat => $cnt)
         @php
           $pct = $posts->count() > 0 ? round(($cnt / $posts->count()) * 100) : 0;
         @endphp
         <div class="space-y-1">
-          <div class="flex items-center justify-between text-[11px]">
-            <span class="text-neutral-300 font-medium">{{ $plat }}</span>
-            <span class="text-cyan-400">{{ $cnt }} Unggahan ({{ $pct }}%)</span>
+          <div class="flex items-center justify-between text-xs">
+            <span class="text-neutral-300">{{ $plat }}</span>
+            <span class="text-cyan-500">{{ $cnt }} {{ $isId ? 'unggahan' : 'posts' }} ({{ $pct }}%)</span>
           </div>
-          <div class="w-full h-1.5 bg-neutral-950 rounded-xs overflow-hidden">
+          <div class="w-full h-1.5 bg-neutral-950 border border-neutral-800 overflow-hidden">
             <div class="h-full bg-cyan-500" style="width: {{ $pct }}%;"></div>
           </div>
         </div>
-        @endforeach
-      </div>
-
-      <div class="text-[10px] font-mono text-neutral-500 pt-1 border-t border-neutral-800">
-        Engagement terakumulasi: <b>8.000.000+ views</b>, <b>621.000+ likes</b> (berdasarkan dataset yang terkumpul).
+        @empty
+        <div class="text-neutral-500 text-xs">—</div>
+        @endforelse
       </div>
     </div>
 
-    <!-- Cluster Overview Card -->
-    @if($clusters->isNotEmpty())
-    @php $cl = $clusters->first(); @endphp
+    <!-- Automation Indicator Policy Card (§2.7 & §2A-A) -->
     <div class="bg-neutral-900 border border-neutral-800 rounded-sm p-4 space-y-2">
-      <div class="flex items-center justify-between border-b border-neutral-800 pb-2">
-        <span class="text-xs font-mono uppercase tracking-wider text-neutral-200 font-semibold">Klaster Narasi [{{ $cl->cluster_code }}]</span>
-        <span class="text-[9px] font-mono px-1.5 py-0.2 border border-amber-500/40 text-amber-500 bg-amber-950/20">
-          {{ $cl->coordination_assessment }}
-        </span>
+      <div class="text-xs font-mono uppercase tracking-wide text-amber-500 font-semibold">
+        {{ $isId ? 'Prinsip Indikator Otomatisasi (§2.7 & §5.5)' : 'Automation Indicator Principle (§2.7 & §5.5)' }}
       </div>
-
-      <div class="text-xs font-sans text-neutral-300 font-medium leading-relaxed">
-        "{{ $cl->main_claim }}"
-      </div>
-
-      <div class="text-[10px] font-mono text-neutral-500 space-y-1 pt-2 border-t border-neutral-850">
-        <div>Metode: <b class="text-neutral-400">{{ $cl->method }}</b></div>
-        <div>Jumlah Anggota Klaster: <b class="text-cyan-400">{{ $cl->items->count() }} Variasi Redaksi</b></div>
-        <div class="text-neutral-500 italic mt-1">
-          * Kesamaan pola waktu atau redaksi adalah indikator tinjauan, bukan bukti koordinasi terorganisir maupun niat jahat.
-        </div>
+      <p class="text-xs text-neutral-300 leading-relaxed font-sans">
+        {{ $isId
+          ? 'Kemiripan waktu unggah atau teks dinamai "Automation Indicator" (Rendah/Sedang/Tinggi), bukan vonis jaringan bot atau pelaku terkoordinasi tanpa bukti digital memadai.'
+          : 'Similar posting times or text patterns are labeled as an "Automation Indicator" (Low/Medium/High), not a definitive bot verdict or coordinated actor accusation.' }}
+      </p>
+      <div class="pt-2 border-t border-neutral-800 text-[10px] font-mono text-neutral-500">
+        {{ $isId
+          ? 'Larangan §2A-A: Skema database & UI dilarang memuat nama asli, alamat rumah, nomor KTP/telepon, atau relasi keluarga.'
+          : 'Prohibition §2A-A: Database schema & UI strictly exclude real names, home addresses, ID/phone numbers, or family relations.' }}
       </div>
     </div>
-    @endif
 
   </div>
 
 </div>
-<!-- END: SNA GRAPH & SPREAD METRICS -->
+<!-- [SpreadNetworkGraphAndMetrics] END -->
 
-<!-- START: THREAT ACTOR ROSTER (TABLE) -->
+<!-- [AccountPatternRosterTable] START -->
 <div class="bg-neutral-900 border border-neutral-800 rounded-sm p-4 space-y-3">
-  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-neutral-800 pb-3">
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-neutral-800 pb-2.5">
     <div>
-      <h2 class="text-sm font-semibold font-mono uppercase tracking-wide text-neutral-200 flex items-center gap-2">
-        <i class="fa-solid fa-users-viewfinder text-cyan-400"></i>
-        <span>Roster Akun Terpantau &amp; Automation Indicator</span>
+      <h2 class="text-sm font-semibold font-mono uppercase tracking-wide text-neutral-300 flex items-center gap-2">
+        <i class="fa-solid fa-table-list text-cyan-500 text-xs"></i>
+        <span>{{ $isId ? 'Roster Akun (Bukan Roster Orang — §5.5)' : 'Account Roster (Not Person Roster — §5.5)' }}</span>
       </h2>
-      <p class="text-[11px] text-neutral-500 mt-0.5">Daftar akun yang terpantau menyebarkan variasi narasi kasus ini beserta indikator otomatisasi perilaku.</p>
+      <p class="text-xs text-neutral-500 mt-0.5">
+        {{ $isId
+          ? 'Hanya menampilkan handle publik, frekuensi posting, umur akun, dan Automation Indicator (Rendah / Sedang / Tinggi).'
+          : 'Displays only public handle, posting frequency, account age, and Automation Indicator (Low / Medium / High).' }}
+      </p>
     </div>
-    <div class="text-[10px] font-mono text-neutral-400">
-      Metrik: <b class="text-cyan-400">Automation Indicator</b> (Bukan Bot Probability)
-    </div>
+    <span class="text-[10px] font-mono px-2 py-0.5 text-amber-500 bg-amber-500/10 border border-amber-500/30 rounded-sm">
+      NO PERSONAL IDENTITY RESOLUTION (§2A-A)
+    </span>
   </div>
 
   <div class="overflow-x-auto">
     <table class="w-full text-left font-mono text-xs">
       <thead>
-        <tr class="border-b border-neutral-800 text-[10px] uppercase tracking-wider text-neutral-500 bg-neutral-950/40">
-          <th class="py-2 px-3">Identitas Akun</th>
-          <th class="py-2 px-3">Platform</th>
-          <th class="py-2 px-3">Laju Unggahan</th>
-          <th class="py-2 px-3">Umur Akun</th>
-          <th class="py-2 px-3">Automation Indicator</th>
-          <th class="py-2 px-3">Dasar Penilaian Indikator</th>
-          <th class="py-2 px-3 text-right">Status Peninjauan</th>
+        <tr class="border-b border-neutral-800 text-[10px] uppercase tracking-widest text-neutral-500 bg-neutral-950">
+          <th class="py-2 px-3">{{ $isId ? 'HANDLE PUBLIK' : 'PUBLIC HANDLE' }}</th>
+          <th class="py-2 px-3">PLATFORM</th>
+          <th class="py-2 px-3">{{ $isId ? 'FREKUENSI POSTING' : 'POSTING FREQUENCY' }}</th>
+          <th class="py-2 px-3">{{ $isId ? 'UMUR AKUN' : 'ACCOUNT AGE' }}</th>
+          <th class="py-2 px-3">AUTOMATION INDICATOR</th>
+          <th class="py-2 px-3">{{ $isId ? 'DASAR POLA' : 'PATTERN BASIS' }}</th>
+          <th class="py-2 px-3 text-right">STATUS</th>
         </tr>
       </thead>
-      <tbody class="divide-y divide-neutral-800/60">
+      <tbody class="divide-y divide-neutral-800 leading-tight">
         @forelse($actors as $act)
-        @php
-          $isHigh = $act->automation_indicator === 'TINGGI';
-        @endphp
-        <tr class="{{ $isHigh ? 'bg-rose-950/20 hover:bg-rose-950/30' : 'hover:bg-neutral-850/50' }} transition-colors">
-          <td class="py-2.5 px-3 font-semibold {{ $act->is_earliest_in_dataset ? 'text-rose-400' : 'text-neutral-200' }}">
+        <tr class="hover:bg-neutral-800/50 transition-opacity duration-150">
+          <td class="py-2.5 px-3 font-semibold text-neutral-300">
             {{ $act->username }}
             @if($act->is_earliest_in_dataset)
-              <span class="block text-[8px] uppercase tracking-widest text-rose-500">Node-A1 (Earliest in Dataset)</span>
+              <span class="block text-[10px] text-cyan-500 font-normal">
+                {{ $isId ? 'Titik Publikasi Paling Awal dalam Dataset Terkumpul' : 'Earliest Publication Point in Collected Dataset' }}
+              </span>
             @endif
           </td>
-          <td class="py-2.5 px-3 text-[11px] text-neutral-400 uppercase">{{ $act->platform }}</td>
-          <td class="py-2.5 px-3 font-bold {{ $act->post_rate >= 30 ? 'text-rose-400' : 'text-neutral-300' }}">
-            {{ $act->post_rate ? $act->post_rate . '/jam' : 'N/A' }}
+          <td class="py-2.5 px-3 text-xs text-neutral-500 uppercase">{{ $act->platform }}</td>
+          <td class="py-2.5 px-3 text-neutral-300">
+            {{ $act->post_rate ? $act->post_rate . ' posts/hour' : 'N/A' }}
           </td>
           <td class="py-2.5 px-3 text-neutral-300">
-            {{ $act->account_age_days ? $act->account_age_days . ' hari' : 'N/A' }}
+            {{ $act->account_age_days ? $act->account_age_days . ($isId ? ' hari' : ' days') : 'N/A' }}
           </td>
           <td class="py-2.5 px-3">
             @if($act->automation_indicator === 'TINGGI')
-              <span class="px-2 py-0.5 bg-rose-950/60 border border-rose-600/50 text-rose-400 text-[9px] font-bold uppercase">TINGGI</span>
+              <span class="px-2 py-0.5 text-rose-600 bg-rose-500/10 border border-rose-600/50 text-[10px] font-semibold uppercase rounded-sm">
+                {{ $isId ? 'TINGGI' : 'HIGH' }}
+              </span>
             @elseif($act->automation_indicator === 'SEDANG')
-              <span class="px-2 py-0.5 bg-amber-950/60 border border-amber-500/50 text-amber-400 text-[9px] font-bold uppercase">SEDANG</span>
+              <span class="px-2 py-0.5 text-amber-500 bg-amber-500/10 border border-amber-500/30 text-[10px] font-semibold uppercase rounded-sm">
+                {{ $isId ? 'SEDANG' : 'MEDIUM' }}
+              </span>
             @else
-              <span class="px-2 py-0.5 bg-cyan-950/60 border border-cyan-500/50 text-cyan-400 text-[9px] uppercase">{{ $act->automation_indicator }}</span>
+              <span class="px-2 py-0.5 text-cyan-500 bg-cyan-500/10 border border-cyan-500/50 text-[10px] uppercase rounded-sm">
+                {{ $isId ? 'RENDAH' : 'LOW' }}
+              </span>
             @endif
           </td>
           <td class="py-2.5 px-3 font-sans text-xs text-neutral-300 max-w-sm">
-            {{ $act->indicator_basis ?? 'Tidak ada data anomali.' }}
+            {{ $act->indicator_basis ?? '-' }}
           </td>
           <td class="py-2.5 px-3 text-right">
-            <span class="px-2 py-0.5 bg-neutral-800 border border-neutral-700 text-neutral-400 text-[9px] uppercase">
+            <span class="px-2 py-0.5 bg-neutral-950 border border-neutral-800 text-neutral-500 text-[10px] uppercase rounded-sm">
               {{ $act->status }}
             </span>
           </td>
         </tr>
         @empty
         <tr>
-          <td colspan="7" class="py-6 text-center text-neutral-500">Belum ada akun terdaftar dalam dataset penyebaran kasus ini.</td>
+          <td colspan="7" class="py-6 text-center text-neutral-500">
+            {{ $isId ? 'Belum ada data pola akun pada kasus ini.' : 'No account pattern records in this case dataset.' }}
+          </td>
         </tr>
         @endforelse
       </tbody>
     </table>
   </div>
 </div>
-<!-- END: THREAT ACTOR ROSTER -->
+<!-- [AccountPatternRosterTable] END -->
 
 @endsection
+
+@push('scripts')
+<!-- [ModuleCScripts] START -->
+<script>
+  function selectGraphNode(id, handle, indicator, rate, age, roleLabel) {
+    document.getElementById('inspNodeHandle').textContent = `${handle} (${id}) — ${roleLabel}`;
+    document.getElementById('inspNodeRate').textContent = rate;
+    document.getElementById('inspNodeAge').textContent = age;
+    document.getElementById('inspNodeInd').textContent = indicator;
+  }
+</script>
+<!-- [ModuleCScripts] END -->
+@endpush

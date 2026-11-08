@@ -17,12 +17,19 @@ class ReportController extends Controller
     ) {
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        $reports = Report::with(['case', 'author'])->latest()->paginate(15);
-        $cases = InvestigationCase::latest()->get();
+        $statusFilter = $request->query('validation_status');
+        $query = Report::with(['case.analyses', 'case.evidence', 'author'])->latest();
 
-        return view('reports.index', compact('reports', 'cases'));
+        if ($statusFilter && in_array($statusFilter, ['VALIDATED', 'PENDING REVIEW', 'REJECTED', 'RECLASSIFIED'], true)) {
+            $query->whereHas('case.analyses', fn ($q) => $q->where('validation_status', $statusFilter));
+        }
+
+        $reports = $query->paginate(15);
+        $cases = InvestigationCase::with(['evidence', 'analyses'])->latest()->get();
+
+        return view('reports.index', compact('reports', 'cases', 'statusFilter'));
     }
 
     public function generate(Request $request)

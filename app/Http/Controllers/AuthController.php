@@ -15,6 +15,11 @@ class AuthController extends Controller
 
     public function showLogin()
     {
+        $locale = session('locale', 'en');
+        if (in_array($locale, ['en', 'id'], true)) {
+            app()->setLocale($locale);
+        }
+
         if (Auth::check()) {
             return redirect()->route('dashboard');
         }

@@ -1,0 +1,1124 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>TRACE-S // PRODUCT REQUIREMENTS DOCUMENT v2.0</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+  @page {
+    size: A4;
+    margin: 16mm 14mm 16mm 14mm;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    color: #1e293b;
+    background-color: #ffffff;
+    font-size: 9.5pt;
+    line-height: 1.55;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Header & Banner */
+  .security-banner {
+    background: #0f172a;
+    color: #38bdf8;
+    padding: 6px 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8pt;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid #0284c7;
+    margin-bottom: 18px;
+  }
+
+  .cover-header {
+    border-bottom: 3px solid #0f172a;
+    padding-bottom: 16px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .cover-title-group h1 {
+    font-size: 20pt;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0 0 4px 0;
+    letter-spacing: -0.5px;
+  }
+
+  .cover-title-group .sub-title {
+    font-size: 11pt;
+    font-weight: 600;
+    color: #0284c7;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 0 0 4px 0;
+  }
+
+  .cover-title-group .context-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8pt;
+    color: #475569;
+    background: #f1f5f9;
+    padding: 3px 8px;
+    border-left: 3px solid #0284c7;
+    display: inline-block;
+  }
+
+  .cover-logo {
+    max-height: 68px;
+    max-width: 140px;
+    object-fit: contain;
+  }
+
+  /* Headings */
+  h2 {
+    font-size: 12.5pt;
+    font-weight: 700;
+    color: #0f172a;
+    border-bottom: 1.5px solid #0f172a;
+    padding-bottom: 4px;
+    margin-top: 24px;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    page-break-after: avoid;
+  }
+
+  h3 {
+    font-size: 10.5pt;
+    font-weight: 700;
+    color: #0369a1;
+    margin-top: 16px;
+    margin-bottom: 6px;
+    page-break-after: avoid;
+  }
+
+  h4 {
+    font-size: 9.5pt;
+    font-weight: 600;
+    color: #334155;
+    margin-top: 12px;
+    margin-bottom: 4px;
+    page-break-after: avoid;
+  }
+
+  p {
+    margin-top: 0;
+    margin-bottom: 8px;
+    text-align: justify;
+  }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8px 0 14px 0;
+    font-size: 8.5pt;
+  }
+
+  tr {
+    page-break-inside: avoid;
+  }
+
+  th {
+    background-color: #0f172a;
+    color: #f8fafc;
+    font-weight: 600;
+    text-align: left;
+    padding: 6px 8px;
+    border: 1px solid #1e293b;
+    font-family: 'Inter', sans-serif;
+    font-size: 8pt;
+    letter-spacing: 0.3px;
+  }
+
+  td {
+    padding: 5px 8px;
+    border: 1px solid #cbd5e1;
+    vertical-align: top;
+  }
+
+  tr:nth-child(even) td {
+    background-color: #f8fafc;
+  }
+
+  /* Alerts / Callouts */
+  .callout {
+    padding: 8px 12px;
+    margin: 10px 0;
+    border-left: 4px solid #0284c7;
+    background-color: #f0f9ff;
+    font-size: 8.8pt;
+    border-radius: 0 4px 4px 0;
+  }
+
+  .callout.danger {
+    border-left-color: #e11d48;
+    background-color: #fff1f2;
+    color: #9f1239;
+  }
+
+  .callout.warning {
+    border-left-color: #d97706;
+    background-color: #fffbeb;
+    color: #92400e;
+  }
+
+  .callout.success {
+    border-left-color: #059669;
+    background-color: #ecfdf5;
+    color: #065f46;
+  }
+
+  .callout-title {
+    font-weight: 700;
+    font-size: 8.8pt;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* Code / Pre */
+  pre, code {
+    font-family: 'JetBrains Mono', Consolas, Monaco, monospace;
+    font-size: 7.8pt;
+  }
+
+  code {
+    background: #f1f5f9;
+    padding: 1px 4px;
+    border-radius: 2px;
+    color: #0f172a;
+    border: 1px solid #e2e8f0;
+  }
+
+  pre {
+    background-color: #090d16;
+    color: #e2e8f0;
+    padding: 10px;
+    border-radius: 3px;
+    border: 1px solid #1e293b;
+    margin: 8px 0 12px 0;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  /* Badges */
+  .badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 7pt;
+    font-weight: 600;
+    padding: 1px 5px;
+    border-radius: 2px;
+    display: inline-block;
+    text-transform: uppercase;
+  }
+
+  .badge-p0 { background: #fee2e2; color: #991b1b; border: 1px solid #f87171; }
+  .badge-p1 { background: #fef3c7; color: #92400e; border: 1px solid #fbbf24; }
+  .badge-p2 { background: #e0f2fe; color: #075985; border: 1px solid #38bdf8; }
+  .badge-tag { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; }
+
+  /* Page Break Helpers */
+  .page-break { page-break-before: always; }
+  .no-break { page-break-inside: avoid; }
+
+  /* Table of Contents */
+  .toc-grid {
+    column-count: 2;
+    column-gap: 20px;
+    margin: 10px 0 16px 0;
+    font-size: 8.5pt;
+  }
+
+  .toc-item {
+    break-inside: avoid;
+    margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px dotted #cbd5e1;
+    padding-bottom: 1px;
+  }
+
+  .toc-num {
+    font-weight: 700;
+    color: #0369a1;
+    margin-right: 6px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .toc-title {
+    color: #1e293b;
+  }
+
+  .master-prompt-box {
+    background: #f8fafc;
+    border: 1.5px solid #0f172a;
+    padding: 14px;
+    margin-top: 12px;
+  }
+</style>
+</head>
+<body>
+
+<!-- TOP SECURITY BANNER -->
+<div class="security-banner">
+  <span>CONFIDENTIAL // TRACE-S COMMAND CENTER PURWARUPA</span>
+  <span>PUSSIBERAD TNI AD // KARTIKA CYBER HACKATHON 2026</span>
+  <span>STANDAR: C4ISR SOCINT</span>
+</div>
+
+<!-- COVER HEADER -->
+<div class="cover-header">
+  <div class="cover-title-group">
+    <div class="sub-title">Product Requirements Document (PRD) v2.0 — Final</div>
+    <h1>TRACE-S // PLATFORM SIBER SOSIAL</h1>
+    <div class="context-badge">
+      FOKUS OPERASIONAL: 6 KAPABILITAS INTI • ARSITEKTUR KASUS • DANDY, KEY & BEJO
+    </div>
+  </div>
+  <img src="Logo Trace-S.png" class="cover-logo" alt="Trace-S Logo" onerror="this.style.display='none'">
+</div>
+
+<!-- INFORMASI DOKUMEN -->
+<table>
+  <tr>
+    <th style="width: 25%;">INFORMASI PROYEK</th>
+    <th style="width: 75%;">KETERANGAN RESMI</th>
+  </tr>
+  <tr>
+    <td><strong>Nama Produk</strong></td>
+    <td><strong>Trace-S</strong> (Social Cyber Intelligence Platform)</td>
+  </tr>
+  <tr>
+    <td><strong>Versi Dokumen</strong></td>
+    <td>PRD v2.0 Final Draft — Pemutakhiran Komprehensif Berdasarkan Master Prompt v2.0 Final</td>
+  </tr>
+  <tr>
+    <td><strong>Acuan Spesifikasi</strong></td>
+    <td>MASTER PROMPT v2.0 FINAL (Single Source of Truth)</td>
+  </tr>
+  <tr>
+    <td><strong>Institusi & Acara</strong></td>
+    <td>Kartika Cyber Hackathon 2026 | PUSSIBERAD TNI AD | Kategori 04: Siber Sosial</td>
+  </tr>
+  <tr>
+    <td><strong>Tim Pengembang</strong></td>
+    <td><strong>Dandy</strong> (Lead Frontend / UI-UX) • <strong>Key & Bejo</strong> (Lead Backend, Database, AI Engine & Security)</td>
+  </tr>
+  <tr>
+    <td><strong>Status Dokumen</strong></td>
+    <td>Spesifikasi Kebutuhan Produk & Kontrak Rekayasa Purwarupa Command Center Tertutup</td>
+  </tr>
+  <tr>
+    <td><strong>Prinsip Arsitektur</strong></td>
+    <td><strong>LOCAL-FIRST • MODEL-AGNOSTIC • EVIDENCE-BASED • CROSS-SOURCE VERIFIED • HUMAN-IN-THE-LOOP • SECURE-BY-DESIGN • NO INDIVIDUAL IDENTITY RESOLUTION</strong></td>
+  </tr>
+</table>
+
+<!-- DAFTAR ISI -->
+<h3>DAFTAR ISI SPESIFIKASI PRODUK</h3>
+<div class="toc-grid">
+  <div class="toc-item"><span class="toc-num">1.</span><span class="toc-title">Ringkasan Eksekutif & 6 Kapabilitas Inti</span></div>
+  <div class="toc-item"><span class="toc-num">2.</span><span class="toc-title">Latar Belakang & Batasan Etika Operasional</span></div>
+  <div class="toc-item"><span class="toc-num">3.</span><span class="toc-title">Visi, Misi, dan Prinsip Desain Produk</span></div>
+  <div class="toc-item"><span class="toc-num">4.</span><span class="toc-title">Pembagian Peran Tim (Dandy, Key, & Bejo)</span></div>
+  <div class="toc-item"><span class="toc-num">5.</span><span class="toc-title">Sasaran, Non-Sasaran, dan Batas Ruang Lingkup</span></div>
+  <div class="toc-item"><span class="toc-num">6.</span><span class="toc-title">Ruang Lingkup Produk & Prioritas Rilis</span></div>
+  <div class="toc-item"><span class="toc-num">7.</span><span class="toc-title">Alur Operasional Pengguna (End-to-End Case)</span></div>
+  <div class="toc-item"><span class="toc-num">8.</span><span class="toc-title">Kebutuhan Fungsional Rinci (FR) per Modul</span></div>
+  <div class="toc-item"><span class="toc-num">9.</span><span class="toc-title">Aturan Analisis AI & Kontrak JSON Terpadu</span></div>
+  <div class="toc-item"><span class="toc-num">10.</span><span class="toc-title">Kebutuhan Data & Manajemen Bukti Mentah</span></div>
+  <div class="toc-item"><span class="toc-num">11.</span><span class="toc-title">Arsitektur Sistem & Kontrak Driver AI</span></div>
+  <div class="toc-item"><span class="toc-num">12.</span><span class="toc-title">Kebutuhan Nonfungsional (NFR)</span></div>
+  <div class="toc-item"><span class="toc-num">13.</span><span class="toc-title">Keamanan, Privasi & Batasan Intervensi</span></div>
+  <div class="toc-item"><span class="toc-num">14.</span><span class="toc-title">Design System Taktis (Panduan Khusus Dandy)</span></div>
+  <div class="toc-item"><span class="toc-num">15.</span><span class="toc-title">Model Data & Migrasi DB (Key & Bejo)</span></div>
+  <div class="toc-item"><span class="toc-num">16.</span><span class="toc-title">Kriteria Penerimaan (Acceptance Criteria)</span></div>
+  <div class="toc-item"><span class="toc-num">17.</span><span class="toc-title">Strategi Pengujian & Skenario Wajib</span></div>
+  <div class="toc-item"><span class="toc-num">18.</span><span class="toc-title">Matriks Risiko, Ketergantungan & Mitigasi</span></div>
+  <div class="toc-item"><span class="toc-num">19.</span><span class="toc-title">Roadmap Bertahap (Fase UI vs Laravel)</span></div>
+  <div class="toc-item"><span class="toc-num">20.</span><span class="toc-title">Glosarium & Ketertelusuran Sumber</span></div>
+  <div class="toc-item"><span class="toc-num">21.</span><span class="toc-title">Salinan Lengkap Master Prompt v2.0 Final</span></div>
+</div>
+
+<div class="page-break"></div>
+
+<!-- SECTION 1 -->
+<h2>1. RINGKASAN EKSEKUTIF & 6 KAPABILITAS INTI</h2>
+<p>
+  <strong>Trace-S</strong> adalah platform <em>Social Cyber Intelligence</em> komando tertutup yang dirancang untuk mendukung operator dan analis intelijen siber militer dalam memverifikasi integritas informasi, mendeteksi manipulasi materi digital, menganalisis jaringan sebaran narasi, memantau sentimen publik, dan menerbitkan laporan intelijen berbasis bukti.
+</p>
+<p>
+  Sistem menggabungkan aplikasi web taktis, ingestion data modular, penyimpanan bukti mentah terlindungi hash kriptografis, serta engine inferensi AI yang berkarakter <em>local-first</em> dan <em>model-agnostic</em>. Seluruh proses operasional bermuara pada satu berkas investigasi terpadu (<strong>Case ID</strong>).
+</p>
+
+<table>
+  <tr>
+    <th style="width: 5%;">#</th>
+    <th style="width: 25%;">KAPABILITAS INTI</th>
+    <th style="width: 45%;">PERTANYAAN OPERASIONAL YANG DIJAWAB</th>
+    <th style="width: 25%;">MODUL TARGET</th>
+  </tr>
+  <tr>
+    <td><strong>1</strong></td>
+    <td><strong>Content Intelligence</strong></td>
+    <td>Apakah materi ini asli, diedit, dipotong konteksnya, atau memuat kontradiksi angka/tanggal/fakta dibanding rujukan resmi?</td>
+    <td>Modul B (Scanner + Comparator) & Cross-Source Workspace</td>
+  </tr>
+  <tr>
+    <td><strong>2</strong></td>
+    <td><strong>Account Behavior Analysis</strong></td>
+    <td>Akun-akun mana yang memperlihatkan pola repetisi redaksional dan indikator otomatisasi tinggi (tanpa mencari identitas orang)?</td>
+    <td>Modul C (Threat Actor Network — Roster Akun)</td>
+  </tr>
+  <tr>
+    <td><strong>3</strong></td>
+    <td><strong>AI Classification</strong></td>
+    <td>Berdasarkan bukti yang terkumpul, narasi ini masuk kategori apa, apa dasar buktinya, dan seberapa yakin estimasi model?</td>
+    <td>Modul B & Skema Kontrak JSON Terpadu (§9)</td>
+  </tr>
+  <tr>
+    <td><strong>4</strong></td>
+    <td><strong>Sentiment Dashboard</strong></td>
+    <td>Bagaimana reaksi emosi publik terhadap isu ini, ke mana arah pergerakannya, dan apa bahasa emosi dominannya?</td>
+    <td>Modul A2 (Sentiment Analysis Dashboard — Palet Violet)</td>
+  </tr>
+  <tr>
+    <td><strong>5</strong></td>
+    <td><strong>Network Analysis</strong></td>
+    <td>Bagaimana hubungan antarakun dan antarsumber dalam memperkuat atau mengamplifikasi narasi ini dalam dataset?</td>
+    <td>Modul C + Cross-Source Relationship Map</td>
+  </tr>
+  <tr>
+    <td><strong>6</strong></td>
+    <td><strong>Early Warning System</strong></td>
+    <td>Isu mana yang mengalami lonjakan interaksi (velocity alert) drastis dan berpotensi memicu krisis opini publik?</td>
+    <td>Modul A1 (Early Warning Dashboard + Exposure Grid)</td>
+  </tr>
+</table>
+
+<!-- SECTION 2 -->
+<h2>2. LATAR BELAKANG & BATASAN ETIKA OPERASIONAL</h2>
+<p>
+  Penyebaran disinformasi modern tidak lagi sekadar berita bohong mentah, melainkan fabrikasi konteks: tangkapan layar dengan angka dimanipulasi, tanggal diganti, atau kutipan pejabat yang dipotong. Analisis manual yang tersebar di berbagai alat sering kali kehilangan bukti rantai pengawasan (<em>chain of custody</em>).
+</p>
+
+<div class="callout danger">
+  <div class="callout-title">PANTANGAN MUTLAK §4A-A: DILARANG MELAKUKAN RESOLUSI IDENTITAS INDIVIDU</div>
+  Trace-S menganalisis <strong>pola akun dan konten</strong>, bukan <strong>orang</strong>. Sistem <strong>DILARANG KERAS</strong> dirancang untuk mengekstrak, menyimpan, atau menampilkan: nama asli pemilik akun, alamat tempat tinggal presisi, nomor KTP/telepon, data keluarga (orang tua, saudara, anak), atau silsilah kekerabatan apa pun. Unit geospasial terkecil yang boleh ditampilkan adalah <strong>Kecamatan / Subnet IP / ASN ISP</strong>. Upaya doxxing atau deanonimisasi warga berada di luar yurisdiksi sistem Trace-S.
+</div>
+
+<div class="callout warning">
+  <div class="callout-title">PRINSIP MUTLAK §4A-B: ANTI-PENEKANAN BERITA (VERIFIKASI, BUKAN MEMBUNGKAM)</div>
+  Jika narasi viral ternyata <strong>berbasis fakta objektif</strong> (termasuk fakta yang merugikan citra institusi, seperti dugaan pelanggaran oknum), fungsi sistem <strong>BUKAN</strong> menyembunyikan berita atau melabelinya hoaks. Sistem bertugas: (1) memastikan versi yang beredar tidak dipelintir, (2) melacak versi editan vs versi akurat, dan (3) memberi peringatan dini ke bagian penerangan untuk klarifikasi transparan. Label <code>DISINFORMASI</code> hanya untuk konten yang terbukti manipulatif secara forensik.
+</div>
+
+<!-- SECTION 3 -->
+<h2>3. VISI, MISI, DAN PRINSIP DESAIN PRODUK</h2>
+<p><strong>Visi:</strong> Mewujudkan sistem komando siber sosial berstandar militer yang berdaulat, transparan, dan menjunjung tinggi bukti objektif.</p>
+<p><strong>Misi:</strong> Menyatukan verifikasi konten, pembanding keaslian materi, deteksi anomali akun, analisis sentimen, dan pelaporan PDF dalam satu alur kasus yang dapat direkonstruksi penuh.</p>
+
+<p><strong>Delapan Prinsip Desain Wajib:</strong></p>
+<ol style="margin-top: 4px; padding-left: 20px;">
+  <li><strong>Jujur Soal Status:</strong> Fitur yang belum aktif wajib bertuliskan <code>NOT CONFIGURED</code>, <code>NOT AVAILABLE</code>, atau <code>SIMULASI</code>.</li>
+  <li><strong>Pelabelan Simulasi:</strong> Output dari fixture/mock AI wajib membawa atribut <code>is_simulation: true</code> sampai ke antarmuka.</li>
+  <li><strong>Dummy Data Fiktif:</strong> Tidak boleh mencemarkan nama individu, figur publik, atau lembaga nyata dalam data uji.</li>
+  <li><strong>Anti-Halusinasi:</strong> AI dilarang mengarang URL rujukan, tanggal kejadian, atau kutipan dokumen.</li>
+  <li><strong>Bukti Sebelum Kesimpulan:</strong> AI bertindak sebagai asisten pemberi rekomendasi; keputusan akhir ada pada analis manusia (<em>Human-in-the-Loop</em>).</li>
+  <li><strong>Revisi Minimal:</strong> Perubahan kode dilakukan per blok spesifik tanpa merusak fondasi yang berjalan.</li>
+  <li><strong>Indikasi Otomasi, Bukan Vonis Niat:</strong> Pola kesamaan waktu unggah dinamai "indikator otomatisasi", bukan tuduhan "jaringan bot jahat" tanpa bukti digital pasti.</li>
+  <li><strong>Metadata Hilang ≠ Bukti Manipulasi:</strong> Kompresi media sosial tidak boleh serta merta divonis sebagai pemalsuan dokumen.</li>
+</ol>
+
+<div class="page-break"></div>
+
+<!-- SECTION 4 -->
+<h2>4. PEMBAGIAN PERAN TIM (DANDY, KEY, & BEJO)</h2>
+<table>
+  <tr>
+    <th style="width: 25%;">ANGGOTA TIM</th>
+    <th style="width: 35%;">LINGKUP TANGGUNG JAWAB</th>
+    <th style="width: 40%;">BATASAN & KONTRAK KERJA</th>
+  </tr>
+  <tr>
+    <td><strong>DANDY</strong><br><span class="badge badge-tag">Frontend & UI/UX</span></td>
+    <td>
+      • Master Layout & Tactical Shell<br>
+      • Blade Views & Modular Components<br>
+      • Tailwind CSS 3.4 (Extreme Dark)<br>
+      • Vanilla JS (DOM & Async Fetch)<br>
+      • Visualisasi SVG (Radial Score & Graphs)
+    </td>
+    <td>
+      <strong>Batasan Ketat:</strong> Dilarang menggunakan React, Vue, jQuery, atau Alpine.js. Tidak menulis kode PHP/backend kompleks. Wajib menyertakan blok komentar <code>&lt;!-- START --&gt;</code> dan <code>&lt;!-- END --&gt;</code> pada setiap komponen Blade.
+    </td>
+  </tr>
+  <tr>
+    <td><strong>KEY & BEJO</strong><br><span class="badge badge-tag">Backend & Architecture</span></td>
+    <td>
+      • Laravel 12 Architecture & Routing<br>
+      • Database Migrations, Models, Seeders<br>
+      • AiManager & Driver (Mock, Ollama, OpenAI)<br>
+      • JSON Sanitizer & Validator<br>
+      • RBAC, Clearance Level & System Logs<br>
+      • Dompdf Engine & Evidence Vault
+    </td>
+    <td>
+      <strong>Batasan Ketat:</strong> Menyediakan endpoint REST API terstruktur, menjamin sanitasi prompt injection, memastikan kredensial/API key tidak bocor ke frontend, dan menegakkan otorisasi di level middleware/controller.
+    </td>
+  </tr>
+</table>
+
+<!-- SECTION 5 & 6 -->
+<h2>5. BATAS RUANG LINGKUP & PRIORITAS RILIS</h2>
+<table>
+  <tr>
+    <th style="width: 15%;">PRIORITAS</th>
+    <th style="width: 35%;">MODUL / KOMPONEN</th>
+    <th style="width: 50%;">KRITERIA PENYELESAIAN (DEFINITION OF DONE)</th>
+  </tr>
+  <tr>
+    <td><span class="badge badge-p0">P0 (MVP Wajib)</span></td>
+    <td>
+      • Global Shell, Login & RBAC<br>
+      • Case & Evidence Management<br>
+      • Credibility Scanner (Tab 1)<br>
+      • Authenticity Comparator (Tab 2)<br>
+      • Analyst Review Action<br>
+      • Intel Brief PDF Export<br>
+      • System Audit Logs
+    </td>
+    <td>
+      Alur berjalan end-to-end tanpa putus. Analisis input teks/URL menghasilkan skor radial SVG dan breakdown klaim. Diff membandingkan referensi vs materi beredar. Aksi Validate/Reject/Reclassify tercatat di database dan laporan PDF dapat diunduh.
+    </td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-p1">P1 (Operasional)</span></td>
+    <td>
+      • Modul A1: Early Warning Dashboard<br>
+      • Modul A1: Geospatial Exposure Grid (§6B)<br>
+      • Modul A2: Sentiment Dashboard (Violet)<br>
+      • Cross-Source Verification Workspace<br>
+      • Modul C: Threat Actor Network<br>
+      • Modul E: AI Analyst Console<br>
+      • Modul F: Local AI Management<br>
+      • RSS / News Feed Connector
+    </td>
+    <td>
+      Metrik 24 jam dinamis dari database, exposure grid menampilkan hierarki wilayah hingga kecamatan/subnet tanpa membocorkan identitas pribadi, grafik sentimen violet berfungsi, manajemen model AI lokal dapat memilih model dan menguji koneksi.
+    </td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-p2">P2 (Lanjutan)</span></td>
+    <td>
+      • Official API Connectors (X, Meta)<br>
+      • Public Web Search Gateway<br>
+      • Deep Image/OCR Forensics Pipeline<br>
+      • Dynamic Model Failover
+    </td>
+    <td>
+      Diaktifkan jika integrasi resmi dan perangkat keras GPU pendukung telah tersedia. Jika waktu terbatas, fitur P2 dipotong tanpa meninggalkan tombol semu di antarmuka.
+    </td>
+  </tr>
+</table>
+
+<!-- SECTION 7 -->
+<h2>7. ALUR OPERASIONAL PENGGUNA (CASE-CENTRIC FLOW)</h2>
+<div class="no-break">
+<pre>
+[1. EARLY WARNING & SENTIMEN] (Modul A1 & A2)
+  └─ Operator mendeteksi lonjakan narasi (Velocity Alert) atau sentimen negatif tajam.
+[2. PEMBENTUKAN KASUS]
+  └─ Operator membuat berkas kasus baru: Case ID TS-2026-001 (Judul, Prioritas, Kategori).
+[3. AKUISISI & VALIDASI BUKTI MENTAH]
+  └─ Impor bukti teks/file/URL -> Backend menghitung SHA-256 -> Disimpan di Evidence Vault (e1, e2).
+[4. KREDIBILITAS & PEMBANDING KONTEN] (Modul B & Cross-Source Workspace)
+  └─ B1 Scanner: Ekstraksi klaim, skor kredibilitas, fallacy linguistik, indikator manipulasi.
+  └─ B2 Comparator: Komparasi dokumen referensi resmi vs materi beredar (Diff Teks/Angka/Konteks).
+[5. ANALISIS JARINGAN & SENTIMEN] (Modul C & A2)
+  └─ Peta hubungan narasi, titik publikasi awal dalam dataset, roster akun & Automation Indicator.
+[6. VALIDASI RESMI ANALIS MANUSIA] (Analyst Workspace)
+  └─ Analis meninjau rekomendasi AI: [VALIDATE] / [REJECT] / [RECLASSIFY] + Catatan Alasan.
+[7. PELAPORAN INTELIJEN KOMANDO] (Modul D)
+  └─ Kompilasi otomatis dokumen Intel Brief (PDF) berstempel klasifikasi resmi untuk Komandan.
+</pre>
+</div>
+
+<div class="page-break"></div>
+
+<!-- SECTION 8 -->
+<h2>8. KEBUTUHAN FUNGSIONAL RINCI (FR) PER MODUL</h2>
+
+<h3>8.1 Global Shell, Autentikasi & Otorisasi</h3>
+<ul>
+  <li><strong>FR-001 [P0]:</strong> Login multi-role (<code>operator</code>, <code>analis</code>, <code>komandan</code>, <code>admin</code>) dengan penegakan <em>clearance_level</em> (1: Rendah, 2: Terbatas, 3: Rahasia/Komando) pada setiap request endpoint.</li>
+  <li><strong>FR-002 [P0]:</strong> Top Bar menampilkan identitas <code>TRACE-S // COGNITIVE DEFENSE INITIATIVE</code>, jam UTC real-time, koordinat stasiun, status enkripsi (<code>SECURE LINK // TLS 1.3</code>), indikator AI aktif, dan profil pengguna aktif.</li>
+  <li><strong>FR-003 [P0]:</strong> Sidebar navigasi taktis dengan indikator status konektor data (<code>ACTIVE</code>, <code>SIMULASI</code>, <code>NOT CONFIGURED</code>).</li>
+  <li><strong>FR-004 [P0]:</strong> Pencatatan audit komprehensif pada tabel <code>system_logs</code> untuk setiap aksi sensitif.</li>
+</ul>
+
+<h3>8.2 Modul A1 — Early Warning Dashboard & Exposure Grid</h3>
+<ul>
+  <li><strong>FR-010 [P1]:</strong> Menampilkan 4 metrik taktis 24 jam: Total Narasi Dianalisis, Hoaks Kritis Terdeteksi, Sentimen Publik Global, dan Klaster Narasi Aktif.</li>
+  <li><strong>FR-011 [P1]:</strong> <strong>Geospatial & Network Exposure Grid (§6B):</strong>
+    <p>Menggantikan peta pulau statis dengan grid teks monospaced berdensitas tinggi: <code>[PULAU] → [KOTA/KABUPATEN] → [KECAMATAN] → [LOG JARINGAN / SUBNET]</code>. Menampilkan Subnet IP (/24), ASN ISP, konsistensi EXIF foto (jika ada), dan agregat jumlah akun berpola serupa. <strong>Dilarang menampilkan profil nama/identitas individu.</strong> Seluruh data demonstrasi membawa badge <code>SIMULASI DATASET</code>.</p>
+  </li>
+  <li><strong>FR-012 [P1]:</strong> Velocity Alert: Penandaan narasi dengan percepatan sebaran di atas ambang batas normal.</li>
+  <li><strong>FR-013 [P1]:</strong> Live Threat Feed: Aliran log deteksi teks monospaced bergaya terminal C4ISR.</li>
+</ul>
+
+<h3>8.3 Modul A2 — Sentiment Analysis Dashboard (Modul Baru)</h3>
+<ul>
+  <li><strong>FR-015 [P1]:</strong> Visualisasi riwayat polaritas sentimen (Positif, Netral, Negatif) menggunakan **palet warna Violet** khusus (<code>text-violet-400</code>, <code>border-violet-500/30</code>) agar tidak rancu dengan warna ancaman (*Rose*) atau anomali (*Amber*).</li>
+  <li><strong>FR-016 [P1]:</strong> Breakdown emosi linguistik dominan pada korpus: Marah, Takut/Cemas, Sinis, Simpati, Optimis.</li>
+  <li><strong>FR-017 [P1]:</strong> Penafian metodologis wajib: <code>CAKUPAN TERBATAS: Skor mencerminkan korpus data terkumpul, bukan opini seluruh warga</code>.</li>
+  <li><strong>FR-018 [P1]:</strong> Integrasi peringatan dini: kombinasi lonjakan sebaran (velocity) + sentimen negatif tajam memicu alert krisis.</li>
+</ul>
+
+<h3>8.4 Modul B — Credibility Scanner & Authenticity Comparator</h3>
+<ul>
+  <li><strong>FR-020 [P0]:</strong> <strong>Tab 1 — Credibility Scanner:</strong> Input teks/URL -> Pemicu <code>[INITIATE COGNITIVE SCAN]</code> -> Radial Score SVG (Merah &lt;40, Amber 40–79, Hijau &ge;80, label: "Indikator Kredibilitas"), badge klasifikasi resmi, breakdown emosi & logical fallacy, tabel ekstraksi klaim atomik (Fakta/Opini/Dugaan/Kutipan), sumber rujukan, dan panel batasan analisis.</li>
+  <li><strong>FR-021 [P0]:</strong> <strong>Tab 2 — Authenticity Comparator:</strong> Membandingkan Dokumen Referensi vs Materi Beredar. Diff 2-kolom: Hijau (Sama), Merah (Berubah/Ditambah), Kuning (Dihapus/Hilang Konteks), disertai ringkasan dampak semantik terhadap pembaca.</li>
+  <li><strong>FR-022 [P0]:</strong> Degradasi Anggun: Jika AI offline, UI menampilkan notifikasi <code>AI SERVER OFFLINE</code> tanpa memalsukan data.</li>
+</ul>
+
+<h3>8.5 Workspaces Tambahan</h3>
+<ul>
+  <li><strong>FR-025 [P1]:</strong> <strong>Cross-Source Verification:</strong> Evaluasi perbedaan leksikal vs semantik, serta Source Independence Engine (apakah banyak media mengutip 1 sumber yang sama atau melakukan liputan independen).</li>
+  <li><strong>FR-026 [P1]:</strong> <strong>Narrative Clustering:</strong> Pengelompokan variasi redaksional ke dalam satu klaster tema besar.</li>
+  <li><strong>FR-027 [P0]:</strong> <strong>Analyst Validation:</strong> Tombol aksi bagi analis: <code>[VALIDATE]</code>, <code>[REJECT]</code>, <code>[RECLASSIFY]</code> disertai field alasan wajib.</li>
+</ul>
+
+<h3>8.6 Modul C — Threat Actor Network & Spread Analysis</h3>
+<ul>
+  <li><strong>FR-030 [P1]:</strong> Kanvas dot-grid interaktif memetakan relasi penyebaran informasi dalam dataset.</li>
+  <li><strong>FR-031 [P1]:</strong> Node pusat wajib diberi label: <code>Titik Publikasi Paling Awal dalam Dataset Terkumpul</code>.</li>
+  <li><strong>FR-032 [P1]:</strong> Roster Akun (Bukan Profil Orang): Handle publik, frekuensi posting, umur akun, dan <strong>Automation Indicator</strong> (Rendah / Sedang / Tinggi). Kolom nama asli/alamat dilarang keras.</li>
+</ul>
+
+<h3>8.7 Modul D, E, F & Akuisisi Data</h3>
+<ul>
+  <li><strong>FR-040 [P0]:</strong> <strong>Modul D:</strong> Repositori bukti mentah terenkripsi hash SHA-256 dan generator <strong>Intel Brief PDF</strong> resmi.</li>
+  <li><strong>FR-050 [P1]:</strong> <strong>Modul E:</strong> Konsol dialog cerdas analis yang terkunci secara kontekstual hanya pada data kasus aktif.</li>
+  <li><strong>FR-060 [P1]:</strong> <strong>Modul F (Admin):</strong> Pemantauan status server AI lokal, resource VRAM, latensi, dan switch model aktif.</li>
+  <li><strong>FR-070 [P0]:</strong> Manual Import (teks/gambar) & URL Fetcher dengan pencatatan status akses HTTP.</li>
+</ul>
+
+<div class="page-break"></div>
+
+<!-- SECTION 9 -->
+<h2>9. ATURAN ANALISIS AI & KONTRAK JSON TERPADU</h2>
+<p>
+  Seluruh inferensi AI divalidasi backend agar memenuhi struktur JSON tunggal. Data eksternal dibungkus tag isolasi agar aman dari serangan <em>Prompt Injection</em>.
+</p>
+
+<pre>
+{
+  "analysis_id": "uuid-v4-string",
+  "case_id": "TS-2026-001",
+  "module": "credibility_scan",
+  "analyzed_at": "2026-11-06T19:30:00Z",
+  "model_name": "llama-3.3-70b-instruct",
+  "model_version": "q4_k_m",
+  "is_simulation": false,
+  "summary": "Ringkasan komprehensif temuan faktual konten.",
+  "tactical_summary": "2-3 kalimat bergaya militer, ringkas, padat untuk komandan.",
+  "claims": [
+    { "id": "c1", "text": "Klaim spesifik konten", "type": "FAKTA", "check_status": "TERBANTAHKAN" }
+  ],
+  "verification_status": "TERBANTAHKAN",
+  "content_indicator": "HASIL EDIT",
+  "classification": "DISINFORMATION",
+  "credibility_score": 25,
+  "threat_level": "TINGGI",
+  "confidence": 0.88,
+  "linguistic_analysis": {
+    "emotion": "Provokatif dan memicu kemarahan publik",
+    "fallacy": "False Dilemma & Appeal to Emotion",
+    "source_verification": "Tanggal rilis resmi telah dimanipulasi"
+  },
+  "sentiment": {
+    "positive": 0.05, "neutral": 0.20, "negative": 0.75,
+    "dominant_emotion": "KEMARAHAN", "coverage_note": "Berdasarkan 450 komentar sampel."
+  },
+  "findings": [
+    { "statement": "Nominal angka diubah dari 10 juta menjadi 10 miliar.", "type": "FAKTA", "evidence_ids": ["e1"] }
+  ],
+  "evidence": [{ "id": "e1", "source_id": "s1", "excerpt": "Kutipan dokumen resmi asli." }],
+  "sources": [
+    { "id": "s1", "url": "https://tniad.mil.id/rilis", "publisher": "Dispenad", "retrieved_at": "2026-11-06T10:00:00Z", "access_status": "OK" }
+  ],
+  "source_independence": [
+    { "source_a_id": "s1", "source_b_id": "s2", "relationship_type": "MENGUTIP_SUMBER_SAMA", "assessment": "Kedua portal mengutip 1 rilis pers." }
+  ],
+  "network": [
+    { "account_handle": "@pola_sebar_01", "automation_indicator": "TINGGI", "note": "18 posting identik per 2 menit." }
+  ],
+  "recommendations": ["Terbitkan klarifikasi faktual segera.", "Pantau eskalasi klaster wilayah."],
+  "limitations": ["Analisis audio berdasarkan transkripsi teks."],
+  "validation_status": "PENDING REVIEW"
+}
+</pre>
+
+<!-- SECTION 14 & 15 -->
+<h2>14. PANDUAN IMPLEMENTASI DANDY (UI/UX)</h2>
+<p>
+  Tampilan mengusung tema <strong>Extreme Dark Taktis</strong> (Command Center C4ISR). Gunakan token baku Tailwind:
+</p>
+<table>
+  <tr>
+    <th style="width: 25%;">SEMANTIK TOKEN</th>
+    <th style="width: 35%;">KELAS TAILWIND BAKU</th>
+    <th style="width: 40%;">PENERAPAN DESAIN</th>
+  </tr>
+  <tr>
+    <td>Latar Belakang Layar</td>
+    <td><code>bg-neutral-950</code></td>
+    <td>Warna kanvas utama layar penuh (overflow-hidden)</td>
+  </tr>
+  <tr>
+    <td>Panel Kontainer</td>
+    <td><code>bg-neutral-900 border border-neutral-800</code></td>
+    <td>Kotak modular pembungkus widget</td>
+  </tr>
+  <tr>
+    <td>Status Aman (Verified)</td>
+    <td><code>text-emerald-500 bg-emerald-500/10 border-emerald-500/30</code></td>
+    <td>Kredibilitas tinggi, dokumen resmi terverifikasi</td>
+  </tr>
+  <tr>
+    <td>Status Anomali (Warning)</td>
+    <td><code>text-amber-500 bg-amber-500/10 border-amber-500/30</code></td>
+    <td>Perlu investigasi lanjut, keraguan bukti</td>
+  </tr>
+  <tr>
+    <td>Status Ancaman (Threat)</td>
+    <td><code>text-rose-600 bg-rose-500/10 border-rose-600/50</code></td>
+    <td>Disinformasi terkonfirmasi, hoaks manipulasi</td>
+  </tr>
+  <tr>
+    <td>Status Sentimen (Baru)</td>
+    <td><code>text-violet-400 bg-violet-500/10 border-violet-500/30</code></td>
+    <td>Modul A2: Grafik sentimen dan pola reaksi opini publik</td>
+  </tr>
+  <tr>
+    <td>Status Sistem (Secure)</td>
+    <td><code>text-cyan-500 bg-cyan-500/10 border-cyan-500/50</code></td>
+    <td>Indikator enkripsi link, navigasi modul aktif</td>
+  </tr>
+  <tr>
+    <td>Tipografi Data</td>
+    <td><code>font-mono</code> (JetBrains Mono)</td>
+    <td>Angka skor, stempel waktu, koordinat, ID kasus, teks log</td>
+  </tr>
+</table>
+
+<div class="page-break"></div>
+
+<!-- SECTION 15 -->
+<h2>15. PANDUAN IMPLEMENTASI KEY & BEJO (BACKEND & DATABASE)</h2>
+<p>
+  Key & Bejo bertanggung jawab atas arsitektur backend Laravel 12. Berikut adalah dua migrasi database penting yang wajib dieksekusi:
+</p>
+
+<h3>15.1 Migrasi Baru: <code>evidence_network_traces</code> (§6B Master Prompt)</h3>
+<pre>
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration {
+    public function up(): void {
+        Schema::create('evidence_network_traces', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('evidence_item_id')->constrained('evidence_items')->onDelete('cascade');
+            $table->string('island_anchor');      // SUMATERA, JAWA, KALIMANTAN, SULAWESI, PAPUA
+            $table->string('city_kabupaten');
+            $table->string('kecamatan')->nullable();
+            $table->string('ip_subnet')->nullable();   // Subnet /24, bukan IP individu presisi penuh
+            $table->string('isp_asn')->nullable();     // AS17974 Telkom Indonesia
+            $table->decimal('latitude', 10, 7)->nullable();   // EXIF konsistensi konten
+            $table->decimal('longitude', 11, 7)->nullable();
+            $table->unsignedInteger('similar_pattern_account_count')->default(0);
+            $table->boolean('is_simulation')->default(true);
+            $table->timestamps();
+
+            $table->index(['island_anchor', 'city_kabupaten', 'kecamatan']);
+        });
+    }
+
+    public function down(): void { Schema::dropIfExists('evidence_network_traces'); }
+};
+</pre>
+
+<h3>15.2 Migrasi Baru: <code>sentiment_snapshots</code> (Modul A2)</h3>
+<pre>
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration {
+    public function up(): void {
+        Schema::create('sentiment_snapshots', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('case_id')->nullable()->constrained('cases')->onDelete('cascade');
+            $table->string('topic_cluster');
+            $table->timestamp('measured_at');
+            $table->decimal('positive_pct', 5, 2);
+            $table->decimal('neutral_pct', 5, 2);
+            $table->decimal('negative_pct', 5, 2);
+            $table->string('dominant_emotion'); // KEMARAHAN, KECEMASAN, HARAPAN, SINIS, NETRAL
+            $table->unsignedInteger('sample_size')->default(0);
+            $table->text('coverage_note')->nullable();
+            $table->boolean('is_simulation')->default(true);
+            $table->timestamps();
+
+            $table->index(['topic_cluster', 'measured_at']);
+        });
+    }
+
+    public function down(): void { Schema::dropIfExists('sentiment_snapshots'); }
+};
+</pre>
+
+<!-- SECTION 16 & 17 -->
+<h2>16. KRITERIA PENERIMAAN (ACCEPTANCE CRITERIA)</h2>
+<table>
+  <tr>
+    <th style="width: 10%;">ID</th>
+    <th style="width: 40%;">SKENARIO PENGUJIAN</th>
+    <th style="width: 50%;">INDIKATOR KELULUSAN (PASS CRITERIA)</th>
+  </tr>
+  <tr>
+    <td><strong>AC-01</strong></td>
+    <td>Autentikasi & RBAC Level</td>
+    <td>Operator tidak dapat mengakses menu Local AI Management (/admin/ai). Komandan dapat melihat ringkasan tanpa batasan.</td>
+  </tr>
+  <tr>
+    <td><strong>AC-02</strong></td>
+    <td>Credibility Scan End-to-End</td>
+    <td>Input teks/URL berhasil dianalisis hingga menampilkan skor SVG, breakdown linguistik, dan rekomendasi taktis.</td>
+  </tr>
+  <tr>
+    <td><strong>AC-03</strong></td>
+    <td>Integritas Pelabelan Simulasi</td>
+    <td>Saat MockDriver berjalan, seluruh hasil analisis dan metrik menampilkan label SIMULASI dan <code>is_simulation: true</code>.</td>
+  </tr>
+  <tr>
+    <td><strong>AC-04</strong></td>
+    <td>Authenticity Comparator Diff</td>
+    <td>Perubahan tanggal dan manipulasi angka berhasil ditandai merah (diubah) dan kuning (dihapus).</td>
+  </tr>
+  <tr>
+    <td><strong>AC-05</strong></td>
+    <td>Validasi Analis & Audit Log</td>
+    <td>Aksi RECLASSIFY menyimpan riwayat nama analis, catatan alasan, hasil sebelum dan sesudah pada audit trail.</td>
+  </tr>
+  <tr>
+    <td><strong>AC-06</strong></td>
+    <td>Ekspor Dokumen Laporan PDF</td>
+    <td>Berkas PDF berhasil digenerate via Dompdf dengan stempel klasifikasi resmi, kutipan bukti, dan hash SHA-256.</td>
+  </tr>
+  <tr>
+    <td><strong>AC-07</strong></td>
+    <td>Perlindungan Data Pribadi (§4A-A)</td>
+    <td>Tidak ada tampilan atau respons JSON yang membocorkan nama asli, alamat rumah, atau relasi keluarga akun sasaran.</td>
+  </tr>
+</table>
+
+<div class="page-break"></div>
+
+<!-- SECTION 21: MASTER PROMPT SALINAN LENGKAP -->
+<h2>21. SALINAN LENGKAP MASTER PROMPT v2.0 FINAL</h2>
+<div class="callout success">
+  <div class="callout-title">BAGIAN WAJIB: DOKUMEN ACUAN TUNGGAL (SINGLE SOURCE OF TRUTH)</div>
+  Berikut adalah salinan otentik, lengkap, dan tanpa ringkasan dari <strong>MASTER PROMPT v2.0 FINAL: TRACE-S</strong> yang menjadi pedoman operasional seluruh tim pengembang:
+</div>
+
+<div class="master-prompt-box">
+<pre>
+# MASTER PROMPT v2.0 FINAL: TRACE-S (Social Cyber Intelligence Platform)
+## Kartika Cyber Hackathon 2026 | PUSSIBERAD TNI AD | Kategori 04: Siber Sosial
+
+> Satu-satunya spesifikasi (single source of truth). Menggabungkan Master Prompt v2 + Supplemental v1.0 (cross-source verification) + Supplemental v1.1 (geospatial/network grid, direvisi — lihat §6B) + penataan ulang di sekitar 6 kapabilitas inti wajib. Prioritas jika konflik: §4 (Prinsip Wajib) > §4A (Batasan Identitas & Anti-Penekanan Berita) > §16 (Batasan Etika) > bagian lain.
+
+---
+
+## 1. PERAN ASISTEN AI
+
+Anda adalah "Trace-S Chief Architect": Senior Software Architect, Lead Full-Stack Engineer (Laravel 12), AI Engineer, Analis Intelijen Siber Sosial (OSINT/C4ISR), dan Application Security Engineer sekaligus. Gaya komunikasi: ringkas, faktual, berbasis bukti, tanpa sensasionalisme.
+
+Trace-S bukan aplikasi pendeteksi hoaks sederhana, dan bukan alat investigasi/penyadapan terhadap individu. Trace-S adalah platform analisis intelijen siber sosial berbasis bukti — untuk Command Center tertutup — yang membantu operator memahami bagaimana sebuah narasi bergerak di ruang publik digital (isi, akun pembawa pola, jaringan sebaran, sentimen, kecepatan viralitas), bukan siapa manusia di baliknya.
+
+## 2. ENAM KAPABILITAS INTI (WAJIB ADA, SEMUA TERHUBUNG DALAM SATU ALUR KASUS)
+
+| # | Kapabilitas | Pertanyaan yang dijawab | Modul |
+|---|---|---|---|
+| 1 | Content Intelligence | Apakah konten ini asli, diedit, atau menyesatkan dibanding sumber referensi? | Modul B — Credibility Scanner + Authenticity Comparator |
+| 2 | Account Behavior Analysis | Akun mana yang menunjukkan pola posting otomatis/terkoordinasi (bukan siapa orangnya)? | Modul C — Threat Actor Network |
+| 3 | AI Classification | Berdasarkan bukti yang ada, klaim ini termasuk kategori apa, dan seberapa yakin sistem? | Modul B (skema JSON §13) |
+| 4 | Sentiment Dashboard | Bagaimana reaksi publik terhadap narasi ini — dan ke arah mana bergerak? | Modul A2 — Sentiment Analysis (baru, §10.2B) |
+| 5 | Network Analysis | Bagaimana pola hubungan antarsumber/antarakun dalam menyebarkan narasi ini? | Modul C + Cross-Source Verification Workspace |
+| 6 | Early Warning System | Isu mana yang sedang naik cepat dan berisiko jadi krisis opini publik? | Modul A1 — Early Warning Dashboard |
+
+Sepuluh pertanyaan operasional dari Master Prompt v1 (narasi apa, dari mana, sesuai sumber atau tidak, dst.) tetap berlaku sebagai detail turunan dari keenam kapabilitas di atas — lihat §8.
+
+## 3. TIM & PEMBAGIAN KERJA
+
+- Dandy — Frontend, UI/UX. Hanya HTML + Tailwind murni (+Vanilla JS seperlunya). Tidak menulis PHP.
+- Key & Bejo — Backend & database: routing, controller, middleware, Eloquent, queue, integrasi AI, keamanan.
+- Setiap respons fase berisi bagian terpisah untuk Dandy dan untuk Key & Bejo.
+
+## 4. PRINSIP WAJIB (TIDAK BOLEH DILANGGAR)
+
+1. Jujur soal status fitur — NOT CONFIGURED / NOT AVAILABLE / DEMO/SIMULASI untuk yang belum berfungsi.
+2. Data simulasi berlabel SIMULASI end-to-end (is_simulation: true), tidak pernah ditampilkan seolah hasil nyata.
+3. Dummy data FIKTIF — tidak pernah menuding entitas/individu nyata.
+4. Jangan mengarang fakta, sumber, URL, tanggal, kutipan, spesifikasi.
+5. Bukti dulu, kesimpulan kemudian — AI merekomendasikan, manusia memutuskan (human-in-the-loop).
+6. Periksa sebelum mengubah struktur/DB/konfigurasi/UI yang ada.
+7. Revisi minimal — kirim hanya blok yang berubah.
+8. Jangan simpulkan niat/koordinasi hanya dari kemiripan teks/waktu — pakai "indikasi otomatisasi", bukan "bot/pelaku/terkoordinasi" tanpa bukti memadai.
+9. Metadata hilang != bukti manipulasi; akun anonim != pelaku.
+
+## 4A. BATASAN IDENTITAS & ANTI-PENEKANAN BERITA (BAGIAN BARU — PRIORITAS TINGGI)
+
+A. Tidak ada resolusi identitas individu. Trace-S menganalisis pola akun dan konten, bukan manusia. Sistem dilarang dirancang untuk mengeluarkan atau menyimpan: nama asli di balik akun, alamat tempat tinggal presisi, data keluarga/kerabat (orang tua, saudara), atau pemetaan kekerabatan apa pun. Unit geospasial terkecil yang boleh ditampilkan adalah kecamatan/subnet IP/ASN (lihat §6B) — bukan rumah, bukan orang. Fitur apa pun yang mengarah ke deanonimisasi individu berada di luar cakupan Trace-S dan harus diteruskan ke jalur hukum/lembaga berwenang sesuai prosedur resmi, bukan dibangun ke dalam aplikasi ini.
+
+B. Trace-S memverifikasi, bukan membungkam. Jika sebuah narasi yang viral ternyata berbasis fakta (termasuk ketika faktanya merugikan citra institusi, mis. dugaan pelanggaran oleh oknum personel), tugas sistem bukan mencegah informasi itu sampai ke publik. Tugas sistem adalah: (1) memastikan versi yang beredar tidak dipelintir/dimanipulasi dari fakta aslinya, (2) melacak akun yang menyebarkan versi editan vs versi akurat, (3) memberi early warning ke tim komunikasi publik agar klarifikasi/akurasi bisa disampaikan cepat. Label DISINFORMASI/HOAKS hanya untuk konten yang terbukti salah/dimanipulasi berdasarkan bukti — bukan untuk berita benar yang tidak menguntungkan institusi. Menandai liputan/akun media kredibel yang melaporkan dugaan pelanggaran nyata sebagai "ancaman" tanpa dasar bukti adalah pelanggaran terhadap prinsip ini.
+
+## 5. BATASAN TEKNOLOGI
+
+- Backend: Laravel 12, PHP 8.2+, MySQL, Eloquent, Laravel HTTP Client, Laravel Queue (database untuk MVP).
+- Frontend: Blade + Tailwind CSS + Vanilla JS. DILARANG React, Vue, jQuery, Alpine.js.
+- Ikon: FontAwesome. Font: JetBrains Mono (angka/ID/skor/log/koordinat), Inter (teks).
+- Grafik: SVG/Vanilla JS buatan sendiri.
+- Ekspor PDF: dompdf/sejenis atau halaman cetak.
+- Tidak ada API key di frontend/HTML/JS/browser storage/Git.
+
+## 6. SISTEM DESAIN TAKTIS
+
+Filosofi: extreme dark mode, nol dekorasi tak berguna, informasi kritis terbaca < 2 detik, tabel padat, identitas formal-institusional.
+
+Warna = makna: Neutral (struktur/data pasif) · Cyan (sistem/navigasi) · Emerald (terverifikasi/aman) · Amber (anomali/perlu diselidiki) · Rose (hanya ancaman kritis/disinformasi terkonfirmasi/error sistem) · Violet (baru) — sentimen/opini publik, dipakai khusus di Modul A2 agar tidak tertukar makna dengan Rose (ancaman) atau Amber (anomali).
+
+Token Tailwind baku:
+- Root bg-neutral-950; panel bg-neutral-900 border border-neutral-800; hover/row bg-neutral-800/50; overlay bg-black/60 backdrop-blur-md; pemisah divide-y divide-neutral-800.
+- Sudut: rounded-none/rounded-sm; rounded-full hanya status & foto.
+- Teks: utama text-neutral-300; metadata text-neutral-500; label taktis text-[10px] uppercase tracking-widest text-neutral-500; judul panel text-sm font-semibold tracking-wide. Angka/ID/skor/koordinat/log -> font-mono.
+- Aman: text-emerald-500 bg-emerald-500/10 border border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.2)]
+- Ancaman: text-rose-600 bg-rose-500/10 border border-rose-600/50 shadow-[0_0_15px_rgba(225,29,72,0.3)]
+- Sistem: text-cyan-500 bg-cyan-500/10 border border-cyan-500/50
+- Sentimen: text-violet-400 bg-violet-500/10 border border-violet-500/30
+
+Aturan kode: blok diawali/diakhiri komentar <!-- START --> <!-- END -->; responsif; ARIA pada tombol ikon; layout utama h-screen w-screen overflow-hidden flex.
+
+## 6B. GEOSPATIAL & NETWORK EXPOSURE GRID (REVISI dari Supplemental v1.1)
+
+Menggantikan peta gambar statis di Modul A1. Disetujui dengan batasan, menambal Supplemental v1.1:
+
+- Dipertahankan dari v1.1: peta pulau statis dihapus, diganti grid teks berdensitas tinggi font-mono, hierarki [PULAU] -> [KOTA/KABUPATEN] -> [KECAMATAN] -> [LOG JARINGAN], badge SIMULASI DATASET, tabel migration evidence_network_traces dengan flag is_simulation.
+- Direvisi: level terdalam grid berhenti di Kecamatan + Subnet IP/ASN + jumlah akun beraktivitas serupa ("12 akun pola amplifikasi di subnet X"). Dihapus dari desain: klik-tembus ke daftar akun berisi nama asli/alamat/data pribadi individu. Kolom EXIF koordinat tetap boleh (metadata teknis file, bukan identitas orang), tapi hanya ditampilkan sebagai indikator konsistensi lokasi konten (mis. "klaim lokasi di teks vs EXIF foto cocok/tidak cocok") — bukan alat pelacak orang.
+- Kode Blade/Tailwind dari Supplemental v1.1 (komponen grid 3-panel) tetap valid dipakai Dandy, dengan menghapus baris yang mengarah ke resolusi akun individual di panel aksi interaktif — diganti ke "tampilkan ringkasan pola subnet", bukan "daftar akun" per-orang.
+
+## 7. PERAN PENGGUNA & TANGGUNG JAWAB
+
+| Peran | Tanggung Jawab Utama |
+|---|---|
+| Operator Intelijen | Pantau dashboard & early warning; input bukti; jalankan Credibility Scan, Verification, Comparator, Spread Analysis, Sentiment; susun temuan awal. Tidak menjadikan hasil AI sebagai kesimpulan final. |
+| Analis | Periksa similarity, keaslian sumber, indikasi perubahan konten; Validate / Reject / Reclassify + alasan + bukti. |
+| Komandan | Lihat ringkasan kasus, tingkat ancaman, sentimen publik, rekomendasi; beri arahan sesuai kewenangan. |
+| Administrator | Kelola akun/peran, konektor data, AI Server & model, retensi, audit log. Tidak mengubah/menghapus bukti & validasi diam-diam. |
+
+## 8. ALUR OPERASIONAL UTAMA
+
+MONITORING & EARLY WARNING -> IDENTIFIKASI -> PENGUMPULAN BUKTI -> PEMBENTUKAN KASUS
+-> EKSTRAKSI INFORMASI -> CROSS-SOURCE VERIFICATION -> AUTHENTICITY COMPARISON
+-> ACCOUNT BEHAVIOR & NETWORK ANALYSIS -> SENTIMENT ANALYSIS -> AI CLASSIFICATION
+-> HUMAN VALIDATION -> INTELLIGENCE REPORTING
+
+Tahap 1 — Monitoring & Early Warning. Narasi dipantau, kasus aktif, indikator kenaikan aktivitas (kecepatan viralitas: views/likes/comments/shares per jam), distribusi platform nyata. Dummy wajib SIMULASI.
+
+Tahap 2 — Identifikasi & Pembentukan Kasus. Operator pilih jenis analisis -> Create New Case (judul, klaim diperiksa, kategori, prioritas, bukti awal) -> Case ID (TS-2026-001) + Evidence ID per bukti. Masuk kasus tidak otomatis berarti hoaks.
+
+Tahap 3 — Evidence Acquisition. Prioritas: Manual Import (P0) -> URL Fetch (P0) -> RSS/News Feed (P1) -> Official API (P2) -> Public Web Search (P2). Simpan: Evidence ID, Case ID, URL, judul, penerbit, platform, waktu, status akses, teks ekstraksi, hash. Status: BERHASIL DIPEROLEH / GAGAL DIAKSES / TIDAK TERSEDIA / BELUM DIPERIKSA.
+
+Tahap 4 — Content Extraction & Claim Identification. Klaim individual, tipe FAKTA/OPINI/DUGAAN/KUTIPAN.
+
+## 9. CROSS-SOURCE VERIFICATION & SIMILARITY ENGINE
+
+- Lexical Similarity, Semantic Similarity, Claim-Level Matching — wajib dibedakan, tidak dicampur jadi satu skor.
+- Source Independence Analysis — banyak sumber mendukung != banyak sumber mengutip satu dokumen primer yang sama.
+- Primary Source Verification — telusuri dokumen/pernyataan primer di balik klaim turunan.
+- Output: klaim sama/beda, sumber independen/tidak, sumber primer ada/tidak, kontradiksi angka/fakta, rekomendasi lanjutan.
+
+## 10. MODUL ANTARMUKA
+
+### 10.1 Global
+- Top Bar: fa-shield-halved + "TRACE-S // COGNITIVE DEFENSE INITIATIVE"; tengah jam UTC; kanan status SECURE LINK, indikator AI, operator + level otorisasi.
+- Left Sidebar: Early Warning Dashboard · Credibility Scanner · Cross-Source Verification Workspace · Threat Actor Network · Sentiment Analysis · Intelligence Reports · AI Analyst Console · (admin) Local AI Management.
+
+### 10.2A Modul A1 — Early Warning Dashboard
+4 metrik (Narasi Dianalisis 24j · Hoaks Kritis Terdeteksi · Sentimen Publik + arah panah · Klaster Narasi Aktif) · Geospatial & Network Exposure Grid (§6B) menggantikan peta statis · Live Threat Feed log terminal · Velocity Alert (narasi dengan lonjakan interaksi > ambang batas dalam N jam, badge Amber/Rose sesuai rubrik §13) · panel cakupan data.
+
+### 10.2B Modul A2 — Sentiment Analysis Dashboard (BARU)
+- Grafik tren sentimen (positif/netral/negatif, warna violet-skala) per narasi/kasus sepanjang waktu, font-mono untuk sumbu.
+- Breakdown per platform (jika konektor terhubung) dan per klaster narasi.
+- Emotion tags (marah, takut, benci, simpati) berbasis linguistic analysis — bukan klaim "emosi asli pengguna", melainkan indikator pola bahasa pada korpus yang dikumpulkan.
+- Peringatan eksplisit: skor sentimen mencerminkan korpus yang berhasil dikumpulkan, bukan opini publik keseluruhan — label CAKUPAN TERBATAS saat dataset kecil.
+- Dihubungkan ke Modul A1: lonjakan sentimen negatif + lonjakan velocity = sinyal gabungan untuk Early Warning.
+
+### 10.3 Modul B — Credibility Scanner (fitur utama)
+- Tab 1 Credibility Scan: textarea/URL input -> [INITIATE COGNITIVE SCAN] -> radial score (merah<40, amber 40–79, hijau>=80, label "Indikator Kredibilitas"), badge klasifikasi, Linguistic Breakdown, klaim utama, Bukti & Sumber, Executive Summary, Keterbatasan, panel Validasi Analis.
+- Tab 2 Authenticity Comparator: Referensi vs Pembanding, diff warna (merah berubah/ditambah, kuning dihapus/kehilangan konteks, hijau sama), ringkasan dampak makna.
+- State AI OFFLINE jelas, tanpa hasil palsu.
+
+### 10.4 Workspace Tambahan
+- Cross-Source Verification Workspace: Source List · Source Authenticity · Claim Matching · Similarity Comparison · Source Relationship Map · Primary Evidence · Verification Findings.
+- Narrative Cluster Workspace: Cluster Overview · Main Narrative · Claim Variations · Related Evidence · Platform Distribution · Timeline · Similarity Matrix.
+- Analyst Validation Workspace: Hasil AI · Bukti mendukung/bertentangan · Bagian belum terverifikasi · Keterbatasan · Keputusan analis + alasan.
+
+### 10.5 Modul C — Threat Actor Network & Spread Analysis (Account Behavior + Network Analysis)
+Kanvas dot-grid, node pusat = "Titik Publikasi Awal dalam Dataset (Node-A1)" (bukan klaim pertama di internet). Timeline, cluster narasi, distribusi platform. Roster akun (bukan roster orang): ID akun/handle publik, post rate, umur akun, Automation Indicator (bukan "bot probability"), status "perlu ditinjau"; baris anomali rose redup. Tidak ada kolom nama asli/alamat/relasi keluarga (lihat §4A-A).
+
+### 10.6 Modul D — Command Reporting & Evidence
+Tabel arsip kasus, filter, status validasi, [EXPORT INTEL BRIEF (PDF)]. Bukti mentah (hash+timestamp) dipisah dari ringkasan AI.
+
+### 10.7 Modul E — AI Analyst Console
+Konsol analis kontekstual per kasus, jawab berbasis bukti terkumpul, tampilkan sumber tiap jawaban. AI hanya pakai tool allowlist backend.
+
+### 10.8 Modul F — Local AI Management (admin)
+Status AI Server, endpoint internal, runtime+versi, daftar model, RAM/VRAM/CPU/GPU, latensi, antrean, uji koneksi/refresh/pilih model, riwayat pergantian model.
+
+Semua panel wajib SIMULASI bila MockDriver/dummy, dan tidak menampilkan visualisasi seolah aktif jika data belum tersedia.
+
+## 11. ARSITEKTUR AI: LOCAL-FIRST, MODEL-AGNOSTIC
+
+AI utama di AI Server lokal/intranet; model/penyedia diganti via konfigurasi. Browser tidak pernah langsung ke AI Server — selalu lewat backend.
+
+Komponen: (A) Trace-S App Server, (B) Local AI Inference Server, (C) Data Acquisition & Retrieval Service, (D) Evidence & Case Management.
+
+Driver (checkHealth(), listModels(), getModelInfo(), chat(), analyze(), validateConnection()):
+1. MockDriver — wajib dari awal, fixture simulasi.
+2. OllamaDriver — prioritas lokal.
+3. OpenAICompatibleDriver — vLLM/llama.cpp/sejenis.
+4. ExternalDriver (opsional) — nonaktif default, hanya admin aktifkan, data terklasifikasi tidak dikirim tanpa kebijakan institusi. Tidak ada fallback otomatis lokal->cloud.
+
+Model registry: profil ENTRY/BASIC/STANDARD/ADVANCED/MULTIMODAL. Mode: Manual/Recommended/Workload-based. Pergantian model -> audit log.
+
+AI = mekanisme pengolahan (memanggil tool backend dari allowlist), bukan chatbot bebas.
+
+## 12. DATA ACQUISITION & EVIDENCE
+
+Konektor modular sesuai prioritas §8. Dilarang: menerobos login/CAPTCHA, mengambil konten privat tanpa kewenangan, membuat sumber data palsu, dan mengidentifikasi individu di balik akun (§4A-A). Bukti mentah dipisah dari ringkasan AI.
+
+## 13. ATURAN ANALISIS & OUTPUT TERSTRUKTUR
+
+- Dilarang menyatakan benar/palsu hanya dari gaya tulisan/jumlah interaksi/reputasi visual akun.
+- Pisahkan FAKTA / KLAIM SUMBER / INTERPRETASI AI / REKOMENDASI.
+- Bukti tidak cukup -> BELUM TERVERIFIKASI / TIDAK CUKUP BUKTI.
+- confidence = estimasi model; threat_level = rubrik dampak x jangkauan x kepastian bukti.
+- Anti prompt-injection: semua teks eksternal = data tidak tepercaya.
+
+Skema JSON terpadu: (lihat §9)
+
+Authenticity Comparator: bandingkan judul, tanggal/waktu, angka, kutipan, kalimat, konteks, nama/lokasi, klaim (+media bila pipeline mendukung).
+Spread Analysis: cluster narasi, timeline, distribusi platform, variasi redaksi, indikator amplifikasi + batasan cakupan.
+
+## 14. DATABASE (Laravel Migrations)
+
+Inti: users(role, clearance_level) · ai_servers · ai_models · ai_model_changes · cases · evidence_items · sources · threat_analyses · analyst_reviews · comparisons · narrative_clusters · narratives · threat_actors(akun, bukan orang) · actor_links · reports · console_sessions+console_messages · ai_jobs · system_logs.
+
+Cross-source & authenticity: source_relationships · claim_comparisons · similarity_analyses · narrative_cluster_items · evidence_comparisons.
+
+Sentiment (baru): sentiment_snapshots(narrative_id, measured_at, positive_pct, neutral_pct, negative_pct, dominant_emotion, sample_size, is_simulation).
+
+Geospatial & Network (revisi §6B): evidence_network_traces (island_anchor, city_kabupaten, kecamatan, ip_subnet, isp_asn, latitude, longitude, similar_pattern_account_count, is_simulation).
+Dilarang menambah kolom real_name, home_address, family_member, parent_name, sibling_name di tabel mana pun.
+
+Audit database yang ada sebelum migrasi baru; hindari duplikasi tabel.
+
+## 15. KEAMANAN & KETERSEDIAAN
+
+RBAC & otorisasi tiap request; autentikasi Trace-S <-> AI Server; enkripsi komunikasi internal; AI Server tidak diakses publik; rate limit & batas input; validasi upload; CSRF; secret di .env/secret manager; audit log; backup; retensi/klasifikasi; timeout/retry/queue/circuit breaker.
+
+Tambahan: data unggahan = data tidak tepercaya + proteksi prompt-injection; tanpa akses otomatis akun privat; tanpa bypass CAPTCHA/autentikasi; tanpa klaim integrasi belum dibangun; tanpa counter-narrative otomatis; tanpa mass-report/serangan akun; tanpa modul/endpoint apa pun yang mengembalikan identitas pribadi/kekerabatan dari akun (§4A-A).
+
+Degradasi anggun: AI Server offline -> aplikasi tetap terbuka, AI OFFLINE tampil, antrean, tanpa hasil palsu.
+
+## 16. BATASAN ETIKA: "MENETRALKAN" KONTEN
+
+Diperbolehkan: menandai konten untuk diperiksa; klarifikasi/koreksi berbasis bukti; rekomendasi komunikasi publik proporsional; counter-narrative faktual non-manipulatif; saran eskalasi ke pihak berwenang; draf laporan ke platform untuk ditinjau manusia.
+
+Dilarang dibangun: penghapusan/serangan akun otomatis, mass-report, bot manipulasi interaksi, penyamaran pengguna lain, penyebaran info tandingan belum terverifikasi, tindakan ke individu/akun tanpa dasar & kewenangan sah, resolusi identitas/kekerabatan individu (§4A-A), penekanan/penundaan penyampaian informasi yang terbukti benar demi melindungi citra institusi (§4A-B). Semua tindakan eksternal wajib persetujuan manusia.
+
+## 17. INSTALASI & KONFIGURASI
+
+Skrip cek dependensi (OS/CPU/GPU/RAM/VRAM/storage/port), panduan instal runtime, unduh/impor model, jalankan sebagai service, konfigurasi endpoint, firewall, health-check, uninstall/pemulihan.
+
+AI_DRIVER=mock            # mock | ollama | openai_compatible | external
+AI_BASE_URL=http://IP_AI_SERVER:PORT
+AI_MODEL=NAMA_MODEL
+AI_TIMEOUT=180
+AI_REQUIRE_LOCAL=true
+AI_ALLOW_EXTERNAL=false
+AI_EXTERNAL_API_KEY=      # hanya jika admin aktifkan ExternalDriver
+
+## 18. PENGUJIAN & KRITERIA PENERIMAAN
+
+Uji: MockDriver -> koneksi AI Server -> ganti model tanpa ubah frontend -> Credibility Scan -> Comparator -> Spread Analysis -> Sentiment Analysis -> URL berhasil/gagal -> prompt injection -> JSON invalid/timeout/offline -> multi-operator -> RBAC/audit log.
+
+Skenario cross-source: 3 sumber redaksi beda-klaim sama · sumber mirip kata beda makna · banyak sumber kutip 1 dokumen primer · 2 sumber angka bertentangan · wacana vs keputusan resmi · screenshot vs artikel asli · 8 unggahan narasi inti sama · waktu publikasi berdekatan tanpa bukti koordinasi · analis menolak/reklasifikasi hasil AI.
+
+Kriteria sukses: tidak ada bukti dikarang; similarity tertelusuri metodenya; Source Independence dibedakan dari jumlah sumber; perubahan substansi spesifik; validasi manusia tercatat; seluruh proses direkonstruksi via evidence+audit log; tidak ada field/panel yang membocorkan identitas individu; Jangan klaim akurat/siap operasional dari satu-dua contoh.
+
+## 19. PRIORITAS PENGEMBANGAN (MVP)
+
+P0: Master Layout, Login+RBAC, pembentukan kasus, Manual/URL Evidence Import, Content Extraction, Lexical+Semantic Similarity, Claim-Level Matching, Credibility Scan (Mock->1 driver nyata), Authenticity Comparator, validasi analis, laporan PDF, audit log.
+
+P1: Early Warning Dashboard (data nyata) + Geospatial/Network Grid (§6B) · Sentiment Dashboard (§10.2B) · Source Independence · Narrative Clustering · Threat Actor Network + Spread Analysis · Local AI Management · AI Analyst Console · konektor RSS.
+
+P2: Official API/Web Search connector, Image Forensics/OCR, audio-video analysis, failover model selection, benchmark otomatis.
+
+Konektor belum ada -> impor manual + keterbatasan eksplisit. Potong P2+ bila waktu terbatas; jangan sisakan fitur setengah jadi yang tampak aktif.
+
+## 20. PROTOKOL EKSEKUSI
+
+Langkah 1 — Konfirmasi. Balasan pertama hanya: "Otorisasi Diterima. Trace-S Chief Architect siap bertugas." + konfirmasi §5, §3, §4, §4A. Tanpa kode.
+
+Langkah 2 — Roadmap.
+Fase UI (dummy SIMULASI): 1 Master Layout+Top Bar+Sidebar -> 2 Modul A1 (Early Warning + Geospatial Grid) -> 3 Modul A2 (Sentiment) -> 4 Modul B (Scan+Comparator) -> 5 Cross-Source Verification Workspace -> 6 Modul C (Threat Actor Network) -> 7 Modul D (Reporting) -> 8 Modul E (Console) -> 9 Modul F (Local AI Mgmt) -> 10 Login+halaman error taktis.
+Fase Laravel: audit/setup/migrasi/seeder -> pecah HTML ke Blade -> Auth+RBAC+audit log -> AiManager+MockDriver+queue -> Scanner+Comparator end-to-end -> Similarity Engine -> driver nyata -> Evidence+Spread Analysis+Sentiment -> Dashboard+feed -> Console -> Reporting+PDF -> hardening+pengujian+dokumentasi.
+
+Langkah 3 — Iterasi. Tiap fase dibalas 4 bagian: [PENJELASAN DESAIN] · [KODE FRONTEND — DANDY] · [CATATAN BACKEND — KEY & BEJO] · [ALUR PENGGUNAAN] · [STATUS FITUR] (IMPLEMENTED|SIMULATION|NOT CONFIGURED|NOT AVAILABLE|PENDING REVIEW).
+
+Langkah 4 — Revisi. Hanya blok bermasalah.
+Langkah 5 — Kualitas. Responsif, ARIA, komentar blok, tanpa framework JS terlarang.
+
+## 21. PRINSIP AKHIR
+
+Trace-S menghubungkan enam kapabilitas dalam satu alur kasus: (1) Content Intelligence — asli/diedit/menyesatkan; (2) Account Behavior Analysis — pola akun, bukan identitas orang; (3) AI Classification — kategori klaim berbasis bukti; (4) Sentiment Dashboard — arah reaksi publik; (5) Network Analysis — pola hubungan antarsumber/akun; (6) Early Warning — isu naik cepat sebelum jadi krisis.
+
+Trace-S tidak sekadar melabeli "HOAKS"/"ASLI", dan tidak pernah menjadi alat menutupi kebenaran yang merugikan citra institusi — sistem memperlihatkan bukti, proses, sumber, pola narasi, dan keterbatasan analisis.
+
+LOCAL-FIRST · MODEL-AGNOSTIC · EVIDENCE-BASED · CROSS-SOURCE VERIFIED · HUMAN-IN-THE-LOOP · SECURE-BY-DESIGN · NO INDIVIDUAL IDENTITY RESOLUTION · OPERATIONALLY RELIABLE.
+
+Juri adalah perwira siber: mereka harus melihat platform C4ISR profesional, jujur tentang batasannya, siap dikembangkan — bukan proyek tugas kuliah, dan bukan alat yang berisiko disalahgunakan.
+
+MENUNGGU KONFIRMASI OTORISASI...
+</pre>
+</div>
+
+</body>
+</html>

@@ -11,11 +11,16 @@ class AuthenticateTrace
 {
     public function handle(Request $request, Closure $next): Response
     {
+        $locale = session('locale', 'en');
+        if (in_array($locale, ['en', 'id'], true)) {
+            app()->setLocale($locale);
+        }
+
         if (!Auth::check()) {
             if ($request->expectsJson()) {
-                return response()->json(['error' => 'Akses ditolak: sesi tidak terotentikasi.'], 401);
+                return response()->json(['error' => 'Access denied: session is not authenticated.'], 401);
             }
-            return redirect()->route('login')->with('warning', 'Akses Command Center tertutup. Silakan otentikasi identitas Anda.');
+            return redirect()->route('login')->with('warning', 'Restricted access. Please sign in with your official credentials.');
         }
 
         return $next($request);

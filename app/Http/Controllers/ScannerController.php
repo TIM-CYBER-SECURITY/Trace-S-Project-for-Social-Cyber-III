@@ -171,7 +171,7 @@ class ScannerController extends Controller
         $validated = $request->validate([
             'analysis_id' => 'required|exists:threat_analyses,id',
             'decision' => 'required|in:VALIDATED,REJECTED,RECLASSIFIED',
-            'reason' => 'required_if:decision,REJECTED,RECLASSIFIED|nullable|string',
+            'reason' => 'required|string|min:3',
             'reclassified_status' => 'nullable|string',
         ]);
 

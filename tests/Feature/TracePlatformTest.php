@@ -20,6 +20,23 @@ use Tests\TestCase;
 class TracePlatformTest extends TestCase
 {
     /**
+     * Dashboard menampilkan Geospatial & Network Exposure Grid (§6B PRD),
+     * dan menegaskan batas privasi tanpa resolusi identitas individu (§2A-A).
+     */
+    public function test_dashboard_shows_regional_impact_map_without_actor_tracking(): void
+    {
+        $operator = User::where('role', 'operator')->first();
+        $this->assertNotNull($operator);
+
+        $response = $this->actingAs($operator)->get('/dashboard');
+        $response->assertStatus(200);
+        $response->assertSee('Geospatial & Network Exposure Grid (§6B PRD)', false);
+        $response->assertSee('Kab. Subang');
+        $response->assertSee('36.88.42.0/24');
+        $response->assertSee('Privacy Guardrail (§2A-A)');
+    }
+
+    /**
      * Test Role-Based Access Control (RBAC) boundaries.
      */
     public function test_rbac_boundaries_for_operator_vs_admin(): void
@@ -62,8 +79,8 @@ class TracePlatformTest extends TestCase
 
         $response = $this->actingAs($komandan)->get('/reports');
         $response->assertStatus(200);
-        $response->assertSee('Command Reporting');
-        $response->assertSee('PUSSIBERAD 16-SECTION');
+        $response->assertSee('Intelligence Reports & Raw Evidence Repository');
+        $response->assertSee('EXPORT INTEL BRIEF (PDF)');
     }
 
     /**
@@ -288,11 +305,45 @@ class TracePlatformTest extends TestCase
         $viewResponse = $this->actingAs($komandan)->get('/reports/' . $report->id);
         $viewResponse->assertStatus(200);
         $viewResponse->assertSee($report->report_code);
-        $viewResponse->assertSee('RINGKASAN EKSEKUTIF');
+        $viewResponse->assertSee('EXECUTIVE SUMMARY');
 
         // 3. Export PDF
         $pdfResponse = $this->actingAs($komandan)->get('/reports/' . $report->id . '/pdf');
         $pdfResponse->assertStatus(200);
         $pdfResponse->assertHeader('content-type', 'application/pdf');
+    }
+
+    /**
+     * Test Modul A2: Sentiment Analysis Dashboard (PRD v2.0 §8.3 & §4.2 Violet Palette).
+     */
+    public function test_modul_a2_sentiment_analysis_dashboard_renders_with_violet_palette_and_disclaimer(): void
+    {
+        $operator = User::where('role', 'operator')->first();
+        $this->assertNotNull($operator);
+
+        $response = $this->actingAs($operator)->get('/sentiment');
+        $response->assertStatus(200);
+        $response->assertSee('MODULE A2');
+        $response->assertSee('LIMITED SCOPE: Scores reflect the collected data corpus, not the opinion of all citizens.');
+        $response->assertSee('text-violet-400');
+        $response->assertSee('border-violet-500/30');
+        $response->assertSee('NOT CONFIGURED');
+    }
+
+    /**
+     * Test Standalone Prototype contains Modul A2 and Monospaced Exposure Grid (§6B).
+     */
+    public function test_prototype_contains_modul_a2_and_monospaced_exposure_grid(): void
+    {
+        $operator = User::where('role', 'operator')->first();
+        $this->assertNotNull($operator);
+
+        $response = $this->actingAs($operator)->get('/prototype');
+        $response->assertStatus(200);
+        $response->assertSee('data-view="sentiment"', false);
+        $response->assertSee('id="view-sentiment"', false);
+        $response->assertSee('EXPOSURE GRID MONOSPACE (§6B)', false);
+        $response->assertSee('SUBNET /24', false);
+        $response->assertSee('CAKUPAN TERBATAS', false);
     }
 }
