@@ -4,6 +4,7 @@ namespace App\Services\Ai\Drivers;
 
 use App\Services\Ai\Contracts\AiDriver;
 use App\Services\Ai\Exceptions\AiUnavailableException;
+use App\Services\Ai\Support\JsonExtractor;
 use App\Services\Ai\Support\LocalGuard;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
@@ -11,8 +12,8 @@ use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 
 /**
- * OllamaDriver: prioritas untuk prototipe dan deployment lokal sederhana.
- * Endpoint: /api/tags, /api/version, /api/chat, /api/show, /api/embed.
+ * OllamaDriver: engine inferensi lokal/intranet melalui Ollama REST API.
+ * Endpoint: /api/tags, /api/ps, /api/version, /api/chat, /api/show, /api/embed.
  */
 class OllamaDriver implements AiDriver
 {
@@ -57,31 +58,71 @@ class OllamaDriver implements AiDriver
     {
         $t0 = microtime(true);
         try {
-            $r = $this->http(5)->get($this->baseUrl . '/api/version');
+            $r = $this->http(3)->get($this->baseUrl . '/api/version');
             $r->throw();
+            $latency = (int) round((microtime(true) - $t0) * 1000);
+            $ps = $this->runningProcesses();
+
             return [
-                'status' => 'ONLINE', 'latency_ms' => (int) round((microtime(true) - $t0) * 1000),
-                'runtime' => 'Ollama', 'runtime_version' => $r->json('version'), 'error' => null,
+                'status' => 'ONLINE',
+                'latency_ms' => $latency,
+                'runtime' => 'Ollama',
+                'runtime_version' => $r->json('version'),
+                'loaded_models' => $ps,
+                'error' => null,
             ];
         } catch (AiUnavailableException $e) {
-            return ['status' => $e->state, 'latency_ms' => null, 'runtime' => 'Ollama', 'runtime_version' => null, 'error' => $e->getMessage()];
+            return ['status' => $e->state, 'latency_ms' => null, 'runtime' => 'Ollama', 'runtime_version' => null, 'loaded_models' => [], 'error' => $e->getMessage()];
         } catch (\Throwable $e) {
-            return ['status' => 'OFFLINE', 'latency_ms' => null, 'runtime' => 'Ollama', 'runtime_version' => null, 'error' => $e->getMessage()];
+            return ['status' => 'OFFLINE', 'latency_ms' => null, 'runtime' => 'Ollama', 'runtime_version' => null, 'loaded_models' => [], 'error' => $e->getMessage()];
+        }
+    }
+
+    /** Ambil proses model yang sedang ter-load di memori/VRAM dari Ollama /api/ps. */
+    public function runningProcesses(): array
+    {
+        try {
+            $r = $this->http(2)->get($this->baseUrl . '/api/ps');
+            if (!$r->successful()) {
+                return [];
+            }
+            $out = [];
+            foreach ($r->json('models', []) as $p) {
+                $vram = (int) ($p['size_vram'] ?? 0);
+                $ram = (int) ($p['size'] ?? 0);
+                $out[] = [
+                    'name' => $p['name'] ?? $p['model'] ?? '?',
+                    'size_gb' => $ram > 0 ? round($ram / 1073741824, 2) : null,
+                    'vram_gb' => $vram > 0 ? round($vram / 1073741824, 2) : 0.0,
+                    'context_length' => $p['context_length'] ?? null,
+                    'expires_at' => $p['expires_at'] ?? null,
+                ];
+            }
+            return $out;
+        } catch (\Throwable) {
+            return [];
         }
     }
 
     public function listModels(): array
     {
-        $r = $this->call(fn () => $this->http(10)->get($this->baseUrl . '/api/tags')->throw());
+        $r = $this->call(fn () => $this->http(5)->get($this->baseUrl . '/api/tags')->throw());
+        $running = collect($this->runningProcesses())->keyBy('name');
         $out = [];
         foreach ($r->json('models', []) as $m) {
+            $name = $m['name'] ?? $m['model'] ?? '?';
             $bytes = $m['size'] ?? null;
+            $details = $m['details'] ?? [];
+            $isLoaded = $running->has($name);
             $out[] = [
-                'name' => $m['name'] ?? $m['model'] ?? '?',
+                'name' => $name,
+                'parameters' => $details['parameter_size'] ?? null,
                 'size' => $bytes ? round($bytes / 1073741824, 2) . ' GB' : null,
-                'quantization' => $m['details']['quantization_level'] ?? null,
-                'context_length' => null,
-                'status' => 'READY',
+                'quantization' => $details['quantization_level'] ?? null,
+                'context_length' => $details['context_length'] ?? ($running->get($name)['context_length'] ?? null),
+                'family' => $details['family'] ?? null,
+                'loaded' => $isLoaded,
+                'status' => $isLoaded ? 'LOADED' : 'READY',
             ];
         }
         return $out;
@@ -97,26 +138,42 @@ class OllamaDriver implements AiDriver
     {
         $h = $this->checkHealth();
         if ($h['status'] !== 'ONLINE') {
-            return ['ok' => false, 'message' => 'AI Server tidak online: ' . ($h['error'] ?? $h['status']), 'details' => $h];
+            return [
+                'ok' => false,
+                'status' => $h['status'],
+                'latency_ms' => $h['latency_ms'],
+                'message' => 'AI Server tidak online: ' . ($h['error'] ?? $h['status']),
+                'details' => $h,
+            ];
         }
         try {
             $models = $this->listModels();
         } catch (\Throwable $e) {
-            return ['ok' => false, 'message' => 'Daftar model gagal diambil: ' . $e->getMessage(), 'details' => $h];
+            return [
+                'ok' => false,
+                'status' => 'ERROR',
+                'latency_ms' => $h['latency_ms'],
+                'message' => 'Daftar model gagal diambil: ' . $e->getMessage(),
+                'details' => $h,
+            ];
         }
         $names = array_column($models, 'name');
         $hasModel = $this->model && in_array($this->model, $names, true);
         return [
             'ok' => $hasModel,
-            'message' => $hasModel ? 'Koneksi dan model aktif terverifikasi.' : 'Server online, tetapi model aktif tidak terpasang: ' . ($this->model ?: '(belum dipilih)'),
+            'status' => $h['status'],
+            'latency_ms' => $h['latency_ms'],
+            'message' => $hasModel
+                ? "Terhubung ke Ollama v{$h['runtime_version']} ({$h['latency_ms']} ms). Model aktif '{$this->model}' siap digunakan."
+                : 'Server online, tetapi model aktif belum dipilih atau tidak terpasang: ' . ($this->model ?: '(belum dipilih)'),
             'details' => $h + ['models' => $names],
         ];
     }
 
-    private function requireModel(): string
+    protected function requireModel(): string
     {
         if (!$this->model) {
-            throw new AiUnavailableException('AI_MODEL belum dikonfigurasi (NOT CONFIGURED).', 'OFFLINE');
+            throw new AiUnavailableException('Model AI aktif belum dipilih. Buka menu Server AI Lokal untuk memilih model.', 'OFFLINE');
         }
         return $this->model;
     }
@@ -125,17 +182,31 @@ class OllamaDriver implements AiDriver
     {
         $model = $this->requireModel();
         $r = $this->call(fn () => $this->http()->post($this->baseUrl . '/api/chat', [
-            'model' => $model, 'messages' => $messages, 'stream' => false,
+            'model' => $model,
+            'messages' => $messages,
+            'stream' => false,
             'options' => ['temperature' => $options['temperature'] ?? 0.2],
         ])->throw());
-        return ['content' => (string) $r->json('message.content', ''), 'model' => $model, 'is_simulation' => false];
+
+        $raw = (string) $r->json('message.content', '');
+        $thinking = $r->json('message.thinking') ?: JsonExtractor::extractThinking($raw);
+
+        return [
+            'content' => JsonExtractor::stripThinking($raw),
+            'thinking' => $thinking,
+            'model' => $model,
+            'is_simulation' => false,
+        ];
     }
 
     public function analyze(array $request): string
     {
         $model = $this->requireModel();
         $r = $this->call(fn () => $this->http()->post($this->baseUrl . '/api/chat', [
-            'model' => $model, 'messages' => $request['messages'], 'stream' => false, 'format' => 'json',
+            'model' => $model,
+            'messages' => $request['messages'],
+            'stream' => false,
+            'format' => 'json',
             'options' => ['temperature' => 0],
         ])->throw());
         return (string) $r->json('message.content', '');
@@ -147,7 +218,8 @@ class OllamaDriver implements AiDriver
             throw new AiUnavailableException('AI_EMBEDDING_MODEL belum dikonfigurasi (NOT CONFIGURED).', 'OFFLINE');
         }
         $r = $this->call(fn () => $this->http(60)->post($this->baseUrl . '/api/embed', [
-            'model' => $this->embeddingModel, 'input' => array_values($texts),
+            'model' => $this->embeddingModel,
+            'input' => array_values($texts),
         ])->throw());
         $vectors = $r->json('embeddings');
         if (!is_array($vectors) || count($vectors) !== count($texts)) {

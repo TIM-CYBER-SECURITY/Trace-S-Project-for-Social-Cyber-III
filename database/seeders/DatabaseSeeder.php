@@ -68,6 +68,7 @@ class DatabaseSeeder extends Seeder
         $analis = $komandan = $admin = $operator;
 
         // 2. AI Server & Model Registry
+        $configuredDriver = (string) config('trace.ai.driver', 'mock');
         $mockServer = AiServer::create([
             'name' => 'Internal AI Inference Engine (MockDriver)',
             'driver' => 'mock',
@@ -75,20 +76,20 @@ class DatabaseSeeder extends Seeder
             'status' => 'SIMULASI',
             'runtime' => 'Trace-S Local Inference Host',
             'runtime_version' => '1.0-sim',
-            'latency_ms' => 12,
-            'is_active' => true,
+            'latency_ms' => 1,
+            'is_active' => $configuredDriver === 'mock',
             'last_checked_at' => now(),
         ]);
 
         $ollamaServer = AiServer::create([
-            'name' => 'Local Ollama Node (Air-Gapped Intranet)',
+            'name' => 'Local Ollama Node (' . (config('trace.ai.base_url') ?: 'http://127.0.0.1:11434') . ')',
             'driver' => 'ollama',
-            'base_url' => 'http://127.0.0.1:11434',
-            'status' => 'NOT CONFIGURED',
-            'runtime' => 'Ollama Container',
-            'runtime_version' => '0.5.1',
+            'base_url' => config('trace.ai.base_url') ?: 'http://127.0.0.1:11434',
+            'status' => 'OFFLINE',
+            'runtime' => 'Ollama',
+            'runtime_version' => null,
             'latency_ms' => null,
-            'is_active' => false,
+            'is_active' => $configuredDriver === 'ollama',
             'last_checked_at' => null,
         ]);
 
@@ -100,27 +101,29 @@ class DatabaseSeeder extends Seeder
             'quantization' => 'Q4_K_M',
             'context_length' => 8192,
             'status' => 'READY',
-            'is_active' => true,
+            'is_active' => $configuredDriver === 'mock',
             'is_simulation' => true,
         ]);
 
-        AiModel::create([
-            'server_id' => $ollamaServer->id,
-            'name' => 'llama3.1:8b-instruct-q4_K_M',
-            'profile' => 'BASIC',
-            'size' => '4.7 GB',
-            'quantization' => 'Q4_K_M',
-            'context_length' => 16384,
-            'status' => 'NOT INSTALLED',
-            'is_active' => false,
-            'is_simulation' => false,
-        ]);
+        if ($configuredDriver === 'ollama' && config('trace.ai.model')) {
+            AiModel::create([
+                'server_id' => $ollamaServer->id,
+                'name' => (string) config('trace.ai.model'),
+                'profile' => 'BASIC',
+                'size' => null,
+                'quantization' => null,
+                'context_length' => null,
+                'status' => 'READY',
+                'is_active' => true,
+                'is_simulation' => false,
+            ]);
+        }
 
         // 3. Connectors (Jujur sesuai Master §4, §9)
         Connector::create(['key' => 'manual', 'name' => 'Manual Evidence Import', 'priority' => 'P0', 'status' => 'ACTIVE', 'description' => 'Impor teks, dokumen PDF/Word, dan berkas bukti digital langsung oleh operator.']);
         Connector::create(['key' => 'url_fetch', 'name' => 'URL Evidence Fetch', 'priority' => 'P0', 'status' => 'ACTIVE', 'description' => 'Pengambilan konten web terbuka secara sah dengan parsing teks dan sanitasi anti-injection.']);
         Connector::create(['key' => 'rss', 'name' => 'News RSS Feed Connector', 'priority' => 'P1', 'status' => 'ACTIVE', 'description' => 'Pemantau berkala sindikasi berita terpercaya nasional.']);
-        Connector::create(['key' => 'platform_api', 'name' => 'Social Platform Official API', 'priority' => 'P2', 'status' => 'SIMULASI', 'description' => 'Konektor API Instagram/TikTok/X resmi (Saat ini berjalan dalam mode simulasi dataset).']);
+        Connector::create(['key' => 'platform_api', 'name' => 'Social Platform Official API', 'priority' => 'P2', 'status' => 'NOT CONFIGURED', 'description' => 'Konektor API Instagram/TikTok/X resmi (memerlukan API key institusional terotorisasi).']);
         Connector::create(['key' => 'web_search', 'name' => 'Public Web Search Gateway', 'priority' => 'P2', 'status' => 'NOT CONFIGURED', 'description' => 'Gateway pencarian publik intranet PUSSIBERAD (memerlukan konfigurasi proxy internal).']);
 
         // RSS Feeds

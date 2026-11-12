@@ -9,6 +9,7 @@ use App\Services\Support\AppSettings;
 use App\Services\Support\AuditLogger;
 use App\Services\Support\SystemHealth;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 
@@ -42,5 +43,11 @@ class SystemController extends Controller
         }
 
         return back()->with('success', 'Konfigurasi sistem disimpan dan dicatat pada audit log.');
+    }
+
+    public function purgeSimulation()
+    {
+        Artisan::call('trace:purge-simulation', ['--force' => true]);
+        return back()->with('success', 'Seluruh data uji simulasi awal berhasil dibersihkan. Akun Trace-ID, RBAC, dan Audit Log tetap utuh.');
     }
 }

@@ -46,7 +46,25 @@
       </p>
     </div>
 
-    <div class="flex items-center gap-2 self-start sm:self-auto">
+    <div class="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+      @if(Auth::user()->hasPermission('case.write'))
+        <button type="button" onclick="document.getElementById('logNarrativeModal')?.classList.remove('hidden')"
+                class="btn-primary py-1.5 px-3 text-xs">
+          <i class="fa-solid fa-plus"></i>
+          <span>{{ $isId ? 'Catat Narasi' : 'Log Narrative' }}</span>
+        </button>
+      @endif
+
+      @if(Auth::user()->hasPermission('connector.use'))
+        <form method="POST" action="{{ route('early-warning.sync-rss') }}" class="inline">
+          @csrf
+          <button type="submit" class="btn-secondary py-1.5 px-3 text-xs">
+            <i class="fa-solid fa-rss"></i>
+            <span>{{ $isId ? 'Sinkron RSS Berita' : 'Sync News RSS' }}</span>
+          </button>
+        </form>
+      @endif
+
       <div class="relative" id="timeRangeDropdownWrapper">
         <button type="button" id="timeRangeBtn" onclick="toggleTimeRangeDropdown()"
                 class="btn-secondary py-1.5 px-3 text-xs">
@@ -580,6 +598,74 @@
     </div>
   </div>
 </div>
+
+@if(Auth::user()->hasPermission('case.write'))
+<!-- Log Operational Narrative Modal -->
+<div id="logNarrativeModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+  <div class="panel max-w-lg w-full shadow-2xl">
+    <div class="panel-header">
+      <h3 class="font-mono text-xs font-semibold uppercase tracking-wider">
+        {{ $isId ? 'Catat Narasi Operasional Baru (Non-Simulasi)' : 'Log New Operational Narrative' }}
+      </h3>
+      <button type="button" onclick="document.getElementById('logNarrativeModal')?.classList.add('hidden')" class="btn-secondary py-1 px-2 text-xs" aria-label="Close modal">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <form method="POST" action="{{ route('early-warning.narratives.store') }}" class="p-4 space-y-3 text-xs">
+      @csrf
+      <div>
+        <label class="label-meta block mb-1">{{ $isId ? 'Ringkasan Narasi / Isu Terpantau' : 'Narrative Summary' }}</label>
+        <textarea name="title" rows="3" required minlength="5" maxlength="250"
+                  placeholder="{{ $isId ? 'Contoh: Beredar unggahan klaim penutupan akses pelabuhan di Surabaya...' : 'Observed narrative summary...' }}"
+                  class="input-mil text-xs"></textarea>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="label-meta block mb-1">{{ $isId ? 'Wilayah' : 'Region' }}</label>
+          <select name="region" class="input-mil font-mono text-xs">
+            <option value="Jakarta">Jakarta</option>
+            <option value="Surabaya">Surabaya</option>
+            <option value="Medan">Medan</option>
+            <option value="Balikpapan">Balikpapan</option>
+            <option value="Makassar">Makassar</option>
+            <option value="Jayapura">Jayapura</option>
+            <option value="Nasional">Nasional</option>
+          </select>
+        </div>
+        <div>
+          <label class="label-meta block mb-1">{{ $isId ? 'Kategori' : 'Category' }}</label>
+          <input type="text" name="category" value="MONITORING_LAPANGAN" required class="input-mil font-mono text-xs">
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="label-meta block mb-1">{{ $isId ? 'Tingkat Risiko' : 'Severity' }}</label>
+          <select name="severity" class="input-mil font-mono text-xs">
+            <option value="AUTO">AUTO (Leksikon)</option>
+            <option value="RENDAH">RENDAH</option>
+            <option value="SEDANG">SEDANG</option>
+            <option value="TINGGI">TINGGI</option>
+            <option value="KRITIS">KRITIS</option>
+          </select>
+        </div>
+        <div>
+          <label class="label-meta block mb-1">{{ $isId ? 'Sentimen' : 'Sentiment' }}</label>
+          <select name="sentiment" class="input-mil font-mono text-xs">
+            <option value="AUTO">AUTO (Leksikon)</option>
+            <option value="NEGATIF">NEGATIF</option>
+            <option value="NETRAL">NETRAL</option>
+            <option value="POSITIF">POSITIF</option>
+          </select>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 pt-2 border-t border-[var(--border-color)]">
+        <button type="button" onclick="document.getElementById('logNarrativeModal')?.classList.add('hidden')" class="btn-secondary">{{ $isId ? 'Batal' : 'Cancel' }}</button>
+        <button type="submit" class="btn-primary">{{ $isId ? 'Simpan ke Database' : 'Save Record' }}</button>
+      </div>
+    </form>
+  </div>
+</div>
+@endif
 @endsection
 
 @push('scripts')

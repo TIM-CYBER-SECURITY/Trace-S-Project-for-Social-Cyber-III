@@ -52,6 +52,7 @@ class ReportGeneratorService
 
         // Reviews
         $latestReview = $credAnalysis?->reviews()->latest()->first();
+        $classificationLabel = mb_substr((string) (app(\App\Services\Support\AppSettings::class)->get('classification_label') ?: config('trace.classification_label')), 0, 40);
 
         // 16 Bagian Laporan
         $content = [
@@ -62,7 +63,7 @@ class ReportGeneratorService
                 'priority' => $case->priority,
                 'status' => $case->status,
                 'created_at' => $case->created_at->toIso8601String(),
-                'classification_label' => config('trace.classification_label'),
+                'classification_label' => $classificationLabel,
                 'is_simulation' => $case->is_simulation,
             ],
             'section_2_executive_summary' => [
@@ -179,7 +180,7 @@ class ReportGeneratorService
             'case_id' => $case->id,
             'report_code' => $reportCode,
             'title' => 'INTEL BRIEF: ' . $case->title,
-            'classification_label' => config('trace.classification_label'),
+            'classification_label' => $classificationLabel,
             'content' => $content,
             'status' => 'FINAL',
             'is_simulation' => $case->is_simulation,

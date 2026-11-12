@@ -112,6 +112,15 @@ Route::middleware(['auth.trace'])->group(function () {
     Route::get('/early-warning', [DashboardController::class, 'index'])
         ->middleware('permission:dashboard.view')
         ->name('early-warning');
+    Route::post('/early-warning/narratives', [DashboardController::class, 'storeNarrative'])
+        ->middleware('permission:case.write')
+        ->name('early-warning.narratives.store');
+    Route::post('/early-warning/sync-rss', [DashboardController::class, 'syncRss'])
+        ->middleware('permission:connector.use')
+        ->name('early-warning.sync-rss');
+    Route::post('/early-warning/rss-feeds', [DashboardController::class, 'storeRssFeed'])
+        ->middleware('permission:connector.manage')
+        ->name('early-warning.rss-feeds.store');
     Route::get('/api/threat-feed', [DashboardController::class, 'threatFeed'])
         ->middleware('permission:dashboard.view')
         ->name('api.threat-feed');
@@ -207,10 +216,22 @@ Route::middleware(['auth.trace'])->group(function () {
         Route::post('/system', [SystemController::class, 'update'])
             ->middleware('permission:system.configure')
             ->name('system.update');
+        Route::post('/system/purge-simulation', [SystemController::class, 'purgeSimulation'])
+            ->middleware('permission:system.configure')
+            ->name('system.purge-simulation');
 
         Route::get('/ai', [AiManagementController::class, 'index'])
             ->middleware('permission:ai.manage')
             ->name('ai.index');
+        Route::post('/ai/configure', [AiManagementController::class, 'configure'])
+            ->middleware('permission:ai.manage')
+            ->name('ai.configure');
+        Route::post('/ai/sync-models', [AiManagementController::class, 'syncModels'])
+            ->middleware('permission:ai.manage')
+            ->name('ai.sync');
+        Route::post('/ai/detect-local', [AiManagementController::class, 'detectLocal'])
+            ->middleware('permission:ai.manage')
+            ->name('ai.detect');
         Route::post('/ai/test-connection', [AiManagementController::class, 'testConnection'])
             ->middleware('permission:ai.manage')
             ->name('ai.test');

@@ -33,28 +33,43 @@
       </div>
     @endforeach
     @if(Auth::user()->hasPermission('system.configure'))
-      <button type="submit" class="btn-primary">{{ $isId ? 'Simpan Pengaturan' : 'Save Settings' }}</button>
+      <div class="flex flex-wrap items-center justify-between gap-2 pt-2">
+        <button type="submit" class="btn-primary">{{ $isId ? 'Simpan Pengaturan' : 'Save Settings' }}</button>
+      </div>
     @endif
   </form>
 
-  <div class="panel overflow-hidden">
-    <div class="panel-header"><span class="font-mono text-xs font-bold uppercase">{{ $isId ? 'Status Konektor Data' : 'Data Source Connectors' }}</span></div>
-    <div class="overflow-x-auto">
-      <table class="table-mil">
-        <thead><tr><th>KEY</th><th>NAME</th><th>STATUS</th></tr></thead>
-        <tbody>
-          @forelse($connectors as $conn)
-            <tr>
-              <td class="font-mono text-xs">{{ $conn->key }}</td>
-              <td class="text-xs">{{ $conn->name }}</td>
-              <td><span class="badge badge-sand">{{ $conn->status }}</span></td>
-            </tr>
-          @empty
-            <tr><td colspan="3" class="text-center text-xs text-[var(--text-muted)] py-4">-</td></tr>
-          @endforelse
-        </tbody>
-      </table>
+  <div class="panel overflow-hidden flex flex-col justify-between">
+    <div>
+      <div class="panel-header"><span class="font-mono text-xs font-bold uppercase">{{ $isId ? 'Status Konektor Data' : 'Data Source Connectors' }}</span></div>
+      <div class="overflow-x-auto">
+        <table class="table-mil">
+          <thead><tr><th>KEY</th><th>NAME</th><th>STATUS</th></tr></thead>
+          <tbody>
+            @forelse($connectors as $conn)
+              <tr>
+                <td class="font-mono text-xs">{{ $conn->key }}</td>
+                <td class="text-xs">{{ $conn->name }}</td>
+                <td><span class="badge badge-sand">{{ $conn->status }}</span></td>
+              </tr>
+            @empty
+              <tr><td colspan="3" class="text-center text-xs text-[var(--text-muted)] py-4">-</td></tr>
+            @endforelse
+          </tbody>
+        </table>
+      </div>
     </div>
+    @if(Auth::user()->hasPermission('system.configure'))
+      <div class="p-3.5 border-t border-[var(--border-color)] flex flex-wrap items-center justify-between gap-2 text-xs">
+        <span class="text-[var(--text-muted)]">{{ $isId ? 'Bersihkan contoh data simulasi awal (akun & audit log tetap aman).' : 'Clear sample simulation fixtures (accounts & audit log preserved).' }}</span>
+        <form method="POST" action="{{ route('admin.system.purge-simulation') }}" onsubmit="return confirm('Hapus seluruh rekaman bertanda is_simulation=true?')">
+          @csrf
+          <button type="submit" class="btn-danger py-1 px-2.5 text-[11px]">
+            <i class="fa-solid fa-broom"></i> <span>{{ $isId ? 'Bersihkan Data Simulasi' : 'Purge Simulation Data' }}</span>
+          </button>
+        </form>
+      </div>
+    @endif
   </div>
 </div>
 

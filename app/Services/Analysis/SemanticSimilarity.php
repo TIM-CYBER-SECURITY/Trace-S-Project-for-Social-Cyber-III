@@ -22,7 +22,7 @@ class SemanticSimilarity
         $sim = $d->isSimulation();
         return [
             'method' => $sim ? 'Hashing trigram karakter (SIMULASI, bukan semantik sungguhan)' : 'Embedding cosine',
-            'model' => $sim ? $d->modelName() : (config('trace.ai.embedding_model') ?: null),
+            'model' => $sim ? $d->modelName() : ($this->ai->resolvedConfig()['embedding_model'] ?: null),
             'version' => $sim ? '1.0' : null,
             'is_simulation' => $sim,
         ];

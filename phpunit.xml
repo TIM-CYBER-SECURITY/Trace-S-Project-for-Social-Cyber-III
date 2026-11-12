@@ -32,5 +32,10 @@
         <env name="SESSION_DRIVER" value="array"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="TRACE_PROVISIONING_PATH" value="storage/framework/testing/provisioning"/>
+        <env name="AI_DRIVER" value="mock"/>
+        <env name="AI_BASE_URL" value="http://127.0.0.1:11434"/>
+        <env name="AI_MODEL" value="TraceS-Mock-IndoIntel-8B"/>
+        <env name="AI_TIMEOUT" value="30"/>
+        <env name="TRACE_CLASSIFICATION_LABEL" value="TESTING // NON-OPERATIONAL"/>
     </php>
 </phpunit>

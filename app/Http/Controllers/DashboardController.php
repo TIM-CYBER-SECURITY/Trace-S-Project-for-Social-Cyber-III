@@ -7,10 +7,15 @@ use App\Models\EvidenceItem;
 use App\Models\InvestigationCase;
 use App\Models\Narrative;
 use App\Models\NarrativeCluster;
+use App\Models\RssFeed;
 use App\Models\ThreatAnalysis;
 use App\Services\Analysis\Lexicon;
+use App\Services\DataAcquisition\EvidenceCollectorService;
+use App\Services\DataAcquisition\RssIngestionService;
+use App\Services\Support\AuditLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
 
 class DashboardController extends Controller
 {
@@ -89,6 +94,7 @@ class DashboardController extends Controller
         $trajectory = $this->buildTrajectorySeries(now()->subHours(24), now());
 
         $connectors = Connector::orderBy('priority')->get();
+        $rssFeeds = RssFeed::where('is_active', true)->orderBy('name')->get();
         $connectedSourcesCount = InvestigationCase::withCount('sources')->get()->sum('sources_count');
         $recentCases = InvestigationCase::with(['creator', 'analyses'])->latest()->take(5)->get();
         $hasSimulationData = Narrative::where('is_simulation', true)->exists()
@@ -104,10 +110,83 @@ class DashboardController extends Controller
             'exposureGrid',
             'trajectory',
             'connectors',
+            'rssFeeds',
             'connectedSourcesCount',
             'recentCases',
             'hasSimulationData'
         ));
+    }
+
+    public function storeNarrative(Request $request, AuditLogger $audit)
+    {
+        $validated = $request->validate([
+            'title' => 'required|string|min:5|max:250',
+            'region' => 'required|string|max:60',
+            'category' => 'required|string|max:60',
+            'severity' => 'required|in:AUTO,RENDAH,SEDANG,TINGGI,KRITIS',
+            'sentiment' => 'required|in:AUTO,NEGATIF,NETRAL,POSITIF',
+            'case_id' => 'nullable|exists:cases,id',
+        ]);
+
+        $sentiment = $validated['sentiment'] === 'AUTO'
+            ? RssIngestionService::inferSentiment($validated['title'])
+            : $validated['sentiment'];
+        $severity = $validated['severity'] === 'AUTO'
+            ? RssIngestionService::inferSeverity($validated['title'])
+            : $validated['severity'];
+
+        $narrative = Narrative::create([
+            'title' => trim($validated['title']),
+            'region' => trim($validated['region']),
+            'category' => trim($validated['category']),
+            'sentiment' => $sentiment,
+            'severity' => $severity,
+            'case_id' => $validated['case_id'] ?? null,
+            'captured_at' => now(),
+            'is_simulation' => false,
+        ]);
+
+        $audit->log('NARRATIVE_LOGGED', $narrative, [
+            'region' => $narrative->region,
+            'severity' => $narrative->severity,
+            'sentiment' => $narrative->sentiment,
+        ], Auth::id());
+
+        return redirect()->route('early-warning')
+            ->with('success', "Narasi operasional berhasil dicatat ({$narrative->region} • {$narrative->severity}/{$narrative->sentiment}).");
+    }
+
+    public function syncRss(RssIngestionService $rss)
+    {
+        $result = $rss->syncActiveFeeds(Auth::user());
+        $msg = "Sinkronisasi {$result['feeds_checked']} feed RSS selesai: {$result['imported']} narasi baru masuk ke database.";
+        if (!empty($result['errors'])) {
+            return redirect()->route('early-warning')
+                ->with($result['imported'] > 0 ? 'warning' : 'error', $msg . ' Catatan: ' . implode(' | ', array_slice($result['errors'], 0, 2)));
+        }
+        return redirect()->route('early-warning')->with('success', $msg);
+    }
+
+    public function storeRssFeed(Request $request, AuditLogger $audit)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:120',
+            'feed_url' => 'required|url|max:500',
+        ]);
+
+        if ($err = EvidenceCollectorService::validatePublicUrl($validated['feed_url'])) {
+            return back()->with('error', 'URL feed ditolak oleh kebijakan anti-SSRF: ' . $err)->withInput();
+        }
+
+        $feed = RssFeed::create([
+            'name' => trim($validated['name']),
+            'feed_url' => trim($validated['feed_url']),
+            'is_active' => true,
+        ]);
+
+        $audit->log('RSS_FEED_ADDED', $feed, ['name' => $feed->name, 'url' => $feed->feed_url], Auth::id());
+
+        return back()->with('success', "Sumber RSS '{$feed->name}' berhasil ditambahkan.");
     }
 
     public function sentiment()

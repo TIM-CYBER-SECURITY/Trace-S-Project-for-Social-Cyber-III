@@ -128,10 +128,16 @@
           </div>
         </div>
 
-        <button type="submit" class="btn-primary w-full justify-center">
+        <button type="submit" {{ !$selectedCase ? 'disabled' : '' }} class="btn-primary w-full justify-center {{ !$selectedCase ? 'opacity-50 cursor-not-allowed' : '' }}">
           <i class="fa-solid fa-magnifying-glass"></i>
           <span>{{ $isId ? 'Jalankan Pemeriksaan Kredibilitas' : 'Run Credibility Scan' }}</span>
         </button>
+        @if(!$selectedCase)
+          <p class="text-[11px] font-mono text-[#8A580B] dark:text-[#E7C37B]">
+            {{ $isId ? 'Belum ada kasus investigasi aktif.' : 'No active investigation case.' }}
+            <a href="{{ route('cases.index') }}" class="underline font-semibold">{{ $isId ? 'Buat kasus di Arsip Kasus →' : 'Create a case in Case Archive →' }}</a>
+          </p>
+        @endif
       </form>
     </div>
 
