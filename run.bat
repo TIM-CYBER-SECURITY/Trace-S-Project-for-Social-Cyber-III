@@ -68,10 +68,10 @@ echo  Sistem siap dijalankan!
 echo  URL Akses : http://127.0.0.1:8000
 echo  
 echo  Akun Default Evaluasi (Tersedia Tombol Quick Switch di Login):
-echo    - Operator : operator@siberad.mil.id (Password: password)
-echo    - Analis   : analis@siberad.mil.id   (Password: password)
-echo    - Komandan : komandan@siberad.mil.id (Password: password)
-echo    - Admin    : admin@siberad.mil.id    (Password: password)
+echo    - Operator : operator@traces.mil.id (Password: operator123)
+echo    - Analis   : analis@traces.mil.id   (Password: analis123)
+echo    - Komandan : komandan@traces.mil.id (Password: komandan123)
+echo    - Admin    : admin@traces.mil.id    (Password: admin123)
 echo =========================================================================
 echo.
 echo Menjalankan Laravel Development Server... Tekan Ctrl+C untuk berhenti.

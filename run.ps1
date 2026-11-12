@@ -41,10 +41,10 @@ Write-Host " Sistem siap dijalankan!                                            
 Write-Host " URL Akses : http://127.0.0.1:8000                                       " -ForegroundColor Green
 Write-Host "                                                                         "
 Write-Host " Akun Default Evaluasi (4 Peran):                                        " -ForegroundColor White
-Write-Host "   - Operator : operator@siberad.mil.id (Password: password)             " -ForegroundColor Gray
-Write-Host "   - Analis   : analis@siberad.mil.id   (Password: password)             " -ForegroundColor Gray
-Write-Host "   - Komandan : komandan@siberad.mil.id (Password: password)             " -ForegroundColor Gray
-Write-Host "   - Admin    : admin@siberad.mil.id    (Password: password)             " -ForegroundColor Gray
+Write-Host "   - Operator : operator@traces.mil.id (Password: operator123)          " -ForegroundColor Gray
+Write-Host "   - Analis   : analis@traces.mil.id   (Password: analis123)            " -ForegroundColor Gray
+Write-Host "   - Komandan : komandan@traces.mil.id (Password: komandan123)          " -ForegroundColor Gray
+Write-Host "   - Admin    : admin@traces.mil.id    (Password: admin123)             " -ForegroundColor Gray
 Write-Host "=========================================================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Menjalankan Laravel Server (Tekan Ctrl+C untuk berhenti)..." -ForegroundColor White
