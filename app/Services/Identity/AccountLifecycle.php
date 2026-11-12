@@ -2,20 +2,17 @@
 
 namespace App\Services\Identity;
 
-use App\Models\PlatformOwner;
-use App\Models\RegistrationRequest;
 use App\Models\StatusTransition;
 use App\Models\User;
 use App\Services\Support\AuditLogger;
 use App\Services\Support\Notifier;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 /**
  * Satu-satunya jalur perubahan status akun. Setiap transisi:
- * validasi -> simpan -> riwayat -> audit -> sinkron registry/pendaftaran -> notifikasi.
+ * validasi -> simpan -> riwayat -> audit -> sinkron registry -> notifikasi.
  */
 class AccountLifecycle
 {
@@ -36,10 +33,6 @@ class AccountLifecycle
 
     public static function currentActor(): array
     {
-        $owner = Auth::guard('platform')->user();
-        if ($owner instanceof PlatformOwner) {
-            return ['type' => 'OWNER', 'label' => $owner->owner_id];
-        }
         $user = Auth::guard('web')->user();
         if ($user instanceof User) {
             return ['type' => 'USER', 'label' => $user->trace_id, 'user_id' => $user->id];
@@ -77,7 +70,6 @@ class AccountLifecycle
             $user->update(['account_status' => $to]);
             self::recordTransition('ACCOUNT', $user->trace_id, $from, $to, $actor, $note);
             $this->audit->log('ACCOUNT_' . $to, $user, ['from' => $from, 'to' => $to, 'note' => $note], null, 'SUCCESS', $actor);
-            $this->syncRegistration($user, $to, $actor);
         });
 
         if (in_array($to, ['SUSPENDED', 'REVOKED'], true)) {
@@ -148,24 +140,5 @@ class AccountLifecycle
     public function revokeSessions(User $user): void
     {
         DB::table('sessions')->where('user_id', $user->id)->delete();
-    }
-
-    private function syncRegistration(User $user, string $to, array $actor): void
-    {
-        $map = ['ACTIVE' => 'ACTIVE', 'SUSPENDED' => 'SUSPENDED', 'REVOKED' => 'REVOKED'];
-        if (! isset($map[$to])) {
-            return;
-        }
-        $req = RegistrationRequest::where('trace_id', $user->trace_id)->first();
-        if ($req && $req->approval_status !== $map[$to]) {
-            $old = $req->approval_status;
-            $req->update(['approval_status' => $map[$to]]);
-            self::recordTransition('REGISTRATION', $req->request_reference, $old, $map[$to], $actor);
-        }
-    }
-
-    public static function newReference(): string
-    {
-        return 'REG-' . now()->format('Y') . '-' . strtoupper(Str::random(6));
     }
 }

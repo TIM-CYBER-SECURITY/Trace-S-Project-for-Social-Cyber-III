@@ -1,58 +1,70 @@
-# Provisioning Trace-ID
+# Provisioning Akun Trace-ID (Developer-Controlled)
 
-Direktori ini memisahkan **manajemen akun** dari kode aplikasi. Menambah akun **tidak memerlukan perubahan kode frontend maupun backend**.
+Direktori ini memisahkan **pengelolaan dan persetujuan akun institusional** dari antarmuka web TRACE-S. Pembuatan akun **tidak tersedia melalui web publik** — seluruh permohonan diterima, diverifikasi, dan disetujui oleh tim pengembang secara eksternal sebelum diprovisioning ke database.
 
 | Path | Isi | Di-commit? |
 |---|---|---|
-| `schema/trace-id-account.schema.json` | JSON Schema entri akun | Ya |
-| `templates/account-template.json` | Contoh aman (data fiktif) | Ya |
-| `registry/approved-accounts.json` | Registry **nyata** akun disetujui | **Tidak** (gitignore) |
-| `registry/pending-accounts.json` | Catatan kandidat/menunggu | **Tidak** |
+| `schema/account.schema.json` | JSON Schema kanonik entri akun (`trace_id`, `role`, metadata persetujuan) | Ya |
+| `schema/trace-id-account.schema.json` | JSON Schema kompatibel untuk skema entri akun eksternal | Ya |
+| `templates/account-template.json` | Contoh format entri JSON aman (tanpa rahasia/kredensial nyata) | Ya |
+| `tools/` | Skrip pembantu Windows (`issue-account.bat`, `validate-accounts.bat`, `provision-accounts.bat`, dll.) | Ya |
+| `registry/approved-accounts.json` | Registry akun institusi yang telah disetujui secara eksternal | **Tidak** (gitignore) |
 | `imports/`, `archive/` | Berkas impor sementara / arsip registry lama | **Tidak** |
-| `issued/` | Berkas kredensial awal (sekali serah, lalu hapus) | **Tidak** |
+| `issued/` | Berkas kredensial sementara (`<TRACE-ID>.credential.txt`, hapus setelah diserahkan) | **Tidak** |
 
-> Untuk produksi, arahkan registry & issued ke lokasi di luar repositori dan di luar web root:
+> Untuk produksi, arahkan registry & issued ke lokasi terisolasi di luar repositori dan di luar web root:
 > `TRACE_REGISTRY_PATH=/secure/trace/registry`, `TRACE_ISSUED_PATH=/secure/trace/issued`
 > dengan izin `0700` (direktori) / `0600` (berkas) milik pengguna layanan.
 
-## Aturan keamanan
+## Aturan Keamanan
 
-- Registry **tidak boleh** memuat kata sandi, hash, rahasia pemulihan, atau token sesi.
-- Registry **bukan** basis data autentikasi. Database adalah sumber kebenaran akun aktif.
-- Pangkat/jabatan **tidak pernah** otomatis memberi peran ADMINISTRATOR; setiap entri butuh `approved_by` dan `approved_at`.
-- Hanya entri `approval_status: APPROVED` yang diimpor. Entri tidak valid membatalkan seluruh impor.
+- Registry **dilarang keras** memuat kata sandi, hash kata sandi, rahasia pemulihan, atau token sesi.
+- Database adalah sumber kebenaran status akun aktif (`PROVISIONED`, `ACTIVE`, `SUSPENDED`, `REVOKED`).
+- Jabatan atau pangkat **tidak pernah** otomatis memberikan peran `ADMINISTRATOR`; setiap entri wajib mencantumkan `approved_by` dan `approved_at`.
+- Hanya entri dengan `approval_status: APPROVED` yang dapat diimpor. Satu entri tidak valid menggagalkan seluruh proses validasi/impor.
 
-## Menambahkan akun baru (tanpa mengubah kode)
+## Alur Menambahkan Akun Baru (Dua Jalur CLI Resmi)
 
-1. Salin entri dari `templates/account-template.json` ke `registry/approved-accounts.json` (di dalam array `accounts`).
-2. Ubah isi: `trace_id` (format `TRS-XXXX-XXXX`, huruf besar/angka, unik), `full_name`, `organization`, `approved_role`, `approved_by`, `approved_at` (RFC 3339).
-3. Validasi:
+### Jalur 1 — Penerbitan Terintegrasi (`trace:issue-account`)
+Setelah verifikasi permohonan institusi selesai:
+```bash
+php artisan trace:issue-account "Mayor Inf Contoh" "Satuan Operasi Siber" \
+  --unit="Subdirektorat Analisis" \
+  --position="Kepala Seksi" \
+  --role=ADMINISTRATOR \
+  --approved-by="Developer Verification Lead"
+```
+Atau di Windows gunakan `provisioning\tools\issue-account.bat` / `.ps1`. Perintah ini memvalidasi kelengkapan, menghasilkan Trace-ID unik (`TRS-XXXX-XXXX`), memperbarui `registry/approved-accounts.json`, membuat akun `PROVISIONED` di database, dan menuliskan kata sandi sementara acak **hanya** ke `issued/<TRACE-ID>.credential.txt`.
+
+### Jalur 2 — Sunting Registry JSON + Provisioning Batch
+1. Salin struktur dari `templates/account-template.json` ke `registry/approved-accounts.json` (array `accounts`).
+2. Isi field wajib: `trace_id` (`TRS-XXXX-XXXX`), `full_name`, `organization`, `role` (`ADMINISTRATOR` atau `OPERATOR`), `approval_status` (`APPROVED`), `approved_by`, dan `approved_at` (RFC 3339).
+3. Validasi skema dan keunikan:
+   ```bash
+   php artisan trace:validate-accounts
    ```
-   php artisan trace:validate-registry
-   ```
-4. Simulasi (tanpa menulis ke DB):
-   ```
+4. Simulasi tanpa menulis ke DB:
+   ```bash
    php artisan trace:provision-accounts --dry-run
    ```
-5. Provisioning:
-   ```
+5. Jalankan provisioning:
+   ```bash
    php artisan trace:provision-accounts
    ```
-   Kata sandi sementara **tidak** ditampilkan di terminal; ditulis ke `issued/<TRACE-ID>.credential.txt`.
-6. Serahkan kredensial lewat kanal aman, lalu hapus berkas tersebut. Pengguna wajib mengganti kata sandi saat login pertama.
+   Kata sandi sementara ditulis hanya ke `issued/<TRACE-ID>.credential.txt` (tidak pernah dicetak ke terminal).
+6. Serahkan Trace-ID & kata sandi sementara melalui kanal aman terpisah, hapus berkas `.credential.txt`, dan instruksikan pengguna login di `/login` untuk mengganti kata sandi pada sesi pertama (`PROVISIONED -> ACTIVE`).
 
-Menjalankan langkah 5 dua kali **tidak** membuat identitas ganda (idempoten per `trace_id`).
+Menjalankan `trace:provision-accounts` berulang kali bersifat idempoten per `trace_id` (akun yang sudah ada di DB dilewati dengan status `SKIPPED_ALREADY_PROVISIONED`).
 
-## Perintah
+## Daftar Perintah CLI Resmi
 
 | Perintah | Fungsi |
 |---|---|
-| `trace:validate-registry` | Validasi skema + duplikat + persetujuan |
-| `trace:provision-accounts [--dry-run] [--only=TRS-...]` | Impor akun disetujui |
-| `trace:list-accounts [--status=ACTIVE]` | Daftar akun terprovisioning |
-| `trace:suspend-account TRS-... --reason=` | Tangguhkan + cabut sesi |
-| `trace:revoke-account TRS-... --reason=` | Cabut permanen |
-| `trace:owner-create <id> "<nama>" [--generate]` | Buat identitas Developer/Owner |
-| `trace:audit-verify` | Verifikasi rantai hash audit log |
-
-Jalur UI (Developer/Owner Portal, `/platform`) memakai layanan yang sama dengan CLI.
+| `trace:issue-account` | Catat persetujuan ke registry + provision DB + tulis berkas kredensial privat |
+| `trace:validate-accounts` | Validasi registry terhadap skema JSON, duplikasi, dan field terlarang |
+| `trace:validate-registry` | Alias validasi registry eksternal |
+| `trace:provision-accounts [--dry-run] [--only=TRS-...]` | Impor akun `APPROVED` dari registry ke database |
+| `trace:list-accounts [--status=ACTIVE]` | Daftar akun operasional yang terdaftar di database |
+| `trace:suspend-account TRS-... --reason=` | Tangguhkan akun + cabut seluruh sesi aktifnya |
+| `trace:revoke-account TRS-... --reason=` | Cabut permanen akun + cabut seluruh sesi aktifnya |
+| `trace:audit-verify` | Verifikasi integritas rantai hash SHA-256 log audit |

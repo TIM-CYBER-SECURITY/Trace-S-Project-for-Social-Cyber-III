@@ -41,6 +41,19 @@ class RegistryValidator
                 $errors[$label][] = $msg;
             }
 
+            $role = $entry['role'] ?? $entry['approved_role'] ?? null;
+            if (! is_string($role) || ! in_array($role, ['ADMINISTRATOR', 'OPERATOR'], true)) {
+                $errors[$label][] = 'role wajib diisi (ADMINISTRATOR atau OPERATOR).';
+            } elseif (isset($entry['role'], $entry['approved_role']) && $entry['role'] !== $entry['approved_role']) {
+                $errors[$label][] = 'role dan approved_role tidak konsisten.';
+            }
+
+            foreach (['password', 'password_hash', 'secret', 'token', 'api_key', 'recovery_key'] as $forbidden) {
+                if (array_key_exists($forbidden, $entry)) {
+                    $errors[$label][] = "Registry tidak boleh memuat bidang rahasia: {$forbidden}.";
+                }
+            }
+
             $tid = $entry['trace_id'] ?? null;
             if (is_string($tid)) {
                 if (isset($seen[$tid])) {

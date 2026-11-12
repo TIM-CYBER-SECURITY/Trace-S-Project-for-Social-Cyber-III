@@ -36,11 +36,11 @@ class RegistryStore
     public function schemaPath(): string
     {
         // Skema adalah artefak repositori (bukan data privat); selalu dari direktori aplikasi.
-        return base_path('provisioning/schema/trace-id-account.schema.json');
+        $preferred = base_path('provisioning/schema/account.schema.json');
+        return is_file($preferred) ? $preferred : base_path('provisioning/schema/trace-id-account.schema.json');
     }
 
     public function approvedFile(): string { return $this->registryDir() . '/approved-accounts.json'; }
-    public function pendingFile(): string { return $this->registryDir() . '/pending-accounts.json'; }
 
     /** @return array<int,array> */
     public function read(string $file): array
@@ -125,17 +125,37 @@ class RegistryStore
         return $changed;
     }
 
+    /** Menandai waktu provisioning entri registry setelah akun dibuat di database. */
+    public function markProvisioned(string $traceId, string $isoTimestamp): bool
+    {
+        $file = $this->approvedFile();
+        if (! is_file($file)) {
+            return false;
+        }
+        $accounts = $this->read($file);
+        $changed = false;
+        foreach ($accounts as &$a) {
+            if (($a['trace_id'] ?? null) === $traceId && empty($a['provisioned_at'])) {
+                $a['provisioned_at'] = $isoTimestamp;
+                $changed = true;
+            }
+        }
+        unset($a);
+        if ($changed) {
+            $this->write($file, $accounts);
+        }
+        return $changed;
+    }
+
     public function traceIdExists(string $traceId): bool
     {
-        foreach ([$this->approvedFile(), $this->pendingFile()] as $f) {
-            try {
-                foreach ($this->read($f) as $a) {
-                    if (($a['trace_id'] ?? null) === $traceId) {
-                        return true;
-                    }
+        try {
+            foreach ($this->read($this->approvedFile()) as $a) {
+                if (($a['trace_id'] ?? null) === $traceId) {
+                    return true;
                 }
-            } catch (\Throwable) {
             }
+        } catch (\Throwable) {
         }
         return false;
     }

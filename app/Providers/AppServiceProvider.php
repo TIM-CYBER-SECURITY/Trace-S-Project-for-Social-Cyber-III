@@ -3,9 +3,6 @@
 namespace App\Providers;
 
 use App\Services\Support\AppSettings;
-use Illuminate\Cache\RateLimiting\Limit;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -17,9 +14,6 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        RateLimiter::for('registration', fn (Request $r) => Limit::perMinutes(10, 5)->by($r->ip()));
-        RateLimiter::for('status-lookup', fn (Request $r) => Limit::perMinute(10)->by($r->ip()));
-
         // Konfigurasi produksi tidak boleh berjalan dengan pengaturan pengembangan.
         if ($this->app->environment('production')) {
             if (config('app.debug')) {

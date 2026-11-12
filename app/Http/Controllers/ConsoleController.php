@@ -48,6 +48,10 @@ class ConsoleController extends Controller
         ]);
 
         $session = ConsoleSession::with('case.evidence')->findOrFail($validated['session_id']);
+        if ((int) $session->user_id !== (int) Auth::id()) {
+            $this->audit->log('CONSOLE_SESSION_DENIED', $session, ['requested_session' => $session->id], Auth::id(), 'DENIED');
+            abort(403, 'Anda tidak berwenang mengakses sesi konsol milik akun lain.');
+        }
         $userMsgText = trim($validated['message']);
 
         // 1. Cek Prompt Injection

@@ -1,12 +1,301 @@
-@import 'tailwindcss';
+@import "tailwindcss";
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
+@import "@fontsource/jetbrains-mono/400.css";
+@import "@fontsource/jetbrains-mono/500.css";
+@import "@fontsource/jetbrains-mono/600.css";
+@import "@fontsource/jetbrains-mono/700.css";
+@import "@fortawesome/fontawesome-free/css/all.min.css";
 
-@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
-@source '../../storage/framework/views/*.php';
+@custom-variant dark (&:where(.dark, .dark *));
+
+@source "../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php";
+@source "../../storage/framework/views/*.php";
 @source "../**/*.blade.php";
 @source "../**/*.js";
-@source "../**/*.vue";
 
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+    --color-forest: #17251F;
+    --color-olive: #586B47;
+    --color-charcoal: #202622;
+    --color-slate-mil: #46514C;
+    --color-sand: #C5B89C;
+    --color-offwhite: #F2F2EC;
+    --color-gray-mil: #8C9690;
+}
+
+/* ==========================================================================
+   TRACE-S Institutional Military Design Tokens (§2.2)
+   Palette: #17251F, #586B47, #202622, #46514C, #C5B89C, #F2F2EC, #8C9690
+   ========================================================================== */
+:root {
+    --bg-canvas: #F2F2EC;
+    --bg-surface: #FFFFFF;
+    --bg-subtle: #E7E7DE;
+    --bg-topbar: #17251F;
+    --bg-sidebar: #202622;
+    --text-primary: #202622;
+    --text-secondary: #46514C;
+    --text-muted: #5F6963;
+    --text-inverse: #F2F2EC;
+    --border-color: #CFCFC4;
+    --border-strong: #8C9690;
+    --accent-olive: #586B47;
+    --accent-olive-hover: #475739;
+    --accent-sand: #C5B89C;
+    --accent-forest: #17251F;
+}
+
+.dark {
+    --bg-canvas: #17251F;
+    --bg-surface: #202622;
+    --bg-subtle: #1B221E;
+    --bg-topbar: #111B17;
+    --bg-sidebar: #1B231E;
+    --text-primary: #F2F2EC;
+    --text-secondary: #C5B89C;
+    --text-muted: #8C9690;
+    --text-inverse: #F2F2EC;
+    --border-color: #36413C;
+    --border-strong: #46514C;
+    --accent-olive: #586B47;
+    --accent-olive-hover: #677D54;
+    --accent-sand: #C5B89C;
+    --accent-forest: #17251F;
+}
+
+@layer base {
+    html {
+        font-family: var(--font-sans);
+        color: var(--text-primary);
+        background-color: var(--bg-canvas);
+    }
+
+    body {
+        background-color: var(--bg-canvas);
+        color: var(--text-primary);
+    }
+
+    ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+        background: var(--bg-subtle);
+    }
+    ::-webkit-scrollbar-thumb {
+        background: var(--border-strong);
+    }
+}
+
+@layer components {
+    .panel {
+        background-color: var(--bg-surface);
+        border: 1px solid var(--border-color);
+        border-radius: 0.25rem;
+    }
+
+    .panel-subtle {
+        background-color: var(--bg-subtle);
+        border: 1px solid var(--border-color);
+        border-radius: 0.25rem;
+    }
+
+    .panel-header {
+        border-bottom: 1px solid var(--border-color);
+        padding: 0.75rem 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+    }
+
+    .label-meta {
+        font-family: var(--font-mono);
+        font-size: 0.6875rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+    }
+
+    .input-mil {
+        width: 100%;
+        background-color: var(--bg-surface);
+        border: 1px solid var(--border-strong);
+        color: var(--text-primary);
+        border-radius: 0.25rem;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.8125rem;
+        line-height: 1.4;
+        transition: border-color 150ms ease;
+    }
+
+    .input-mil:focus {
+        outline: none;
+        border-color: var(--accent-olive);
+        box-shadow: 0 0 0 2px rgba(88, 107, 71, 0.18);
+    }
+
+    .btn-primary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.5rem 0.875rem;
+        background-color: #586B47;
+        color: #F2F2EC;
+        border: 1px solid #475739;
+        border-radius: 0.25rem;
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: background-color 150ms ease;
+    }
+
+    .btn-primary:hover {
+        background-color: #475739;
+    }
+
+    .btn-secondary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.5rem 0.875rem;
+        background-color: var(--bg-subtle);
+        color: var(--text-primary);
+        border: 1px solid var(--border-strong);
+        border-radius: 0.25rem;
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: background-color 150ms ease;
+    }
+
+    .btn-secondary:hover {
+        border-color: var(--accent-olive);
+    }
+
+    .btn-danger {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.5rem 0.875rem;
+        background-color: #7F1D1D;
+        color: #FEF2F2;
+        border: 1px solid #991B1B;
+        border-radius: 0.25rem;
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        cursor: pointer;
+    }
+
+    .btn-danger:hover {
+        background-color: #991B1B;
+    }
+
+    .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.15rem 0.5rem;
+        border-radius: 0.2rem;
+        font-family: var(--font-mono);
+        font-size: 0.6875rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        border: 1px solid transparent;
+        white-space: nowrap;
+    }
+
+    .badge-olive {
+        background-color: rgba(88, 107, 71, 0.14);
+        border-color: rgba(88, 107, 71, 0.45);
+        color: #3E4D31;
+    }
+    .dark .badge-olive {
+        color: #D5E2C8;
+        background-color: rgba(88, 107, 71, 0.28);
+    }
+
+    .badge-sand {
+        background-color: rgba(197, 184, 156, 0.25);
+        border-color: rgba(197, 184, 156, 0.65);
+        color: #46514C;
+    }
+    .dark .badge-sand {
+        color: #C5B89C;
+        background-color: rgba(197, 184, 156, 0.14);
+    }
+
+    .badge-neutral {
+        background-color: var(--bg-subtle);
+        border-color: var(--border-strong);
+        color: var(--text-secondary);
+    }
+
+    .badge-warn {
+        background-color: rgba(180, 120, 24, 0.14);
+        border-color: rgba(180, 120, 24, 0.45);
+        color: #8A580B;
+    }
+    .dark .badge-warn {
+        color: #E7C37B;
+        background-color: rgba(180, 120, 24, 0.2);
+    }
+
+    .badge-danger {
+        background-color: rgba(153, 27, 27, 0.12);
+        border-color: rgba(153, 27, 27, 0.45);
+        color: #991B1B;
+    }
+    .dark .badge-danger {
+        color: #FCA5A5;
+        background-color: rgba(153, 27, 27, 0.25);
+    }
+
+    .table-mil {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+        font-size: 0.8125rem;
+    }
+
+    .table-mil thead th {
+        background-color: var(--bg-subtle);
+        color: var(--text-muted);
+        border-bottom: 1px solid var(--border-color);
+        padding: 0.55rem 0.75rem;
+        font-family: var(--font-mono);
+        font-size: 0.6875rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        white-space: nowrap;
+    }
+
+    .table-mil tbody td {
+        padding: 0.65rem 0.75rem;
+        border-bottom: 1px solid var(--border-color);
+        vertical-align: top;
+    }
+
+    .table-mil tbody tr:hover {
+        background-color: rgba(88, 107, 71, 0.06);
+    }
 }

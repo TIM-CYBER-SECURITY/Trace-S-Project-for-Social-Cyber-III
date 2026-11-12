@@ -101,6 +101,9 @@ class CaseController extends Controller
     {
         $case = InvestigationCase::findOrFail($id);
 
+        $maxKb = (int) config('trace.upload.max_kb', 5120);
+        $exts = implode(',', config('trace.upload.mimes', ['txt', 'pdf', 'png', 'jpg', 'jpeg', 'md', 'html']));
+
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'publisher' => 'nullable|string|max:150',
@@ -108,7 +111,7 @@ class CaseController extends Controller
             'role' => 'required|in:REFERENCE,PRIMARY,COMPARED,POST,SUBJECT,OTHER',
             'type' => 'required|in:TEXT,URL,IMAGE,DOCUMENT,SCREENSHOT',
             'extracted_text' => 'nullable|string',
-            'evidence_file' => 'nullable|file|max:5120',
+            'evidence_file' => ['nullable', 'file', 'max:' . $maxKb, 'extensions:' . $exts],
             'collection_notes' => 'nullable|string',
             'published_at' => 'nullable|date',
             'is_simulation' => 'nullable|boolean',

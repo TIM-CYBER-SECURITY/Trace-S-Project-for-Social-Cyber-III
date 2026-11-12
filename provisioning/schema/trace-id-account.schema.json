@@ -1,16 +1,14 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Trace-S Account Registry Entry",
-  "description": "Satu entri akun Trace-ID pada provisioning/registry/approved-accounts.json. Tidak boleh memuat kata sandi, hash, rahasia pemulihan, atau token sesi.",
+  "description": "Entri akun Trace-ID terverifikasi pada provisioning/registry/approved-accounts.json. Tidak boleh memuat kata sandi, hash, rahasia pemulihan, atau token sesi.",
   "type": "object",
   "required": [
     "trace_id",
     "full_name",
     "organization",
-    "requested_role",
-    "approved_role",
-    "account_status",
     "approval_status",
+    "account_status",
     "approved_at"
   ],
   "properties": {
@@ -26,19 +24,23 @@
       "type": "string",
       "minLength": 2
     },
-    "unit": {
-      "type": ["string", "null"]
-    },
-    "position": {
-      "type": ["string", "null"]
-    },
-    "requested_role": {
+    "role": {
       "type": "string",
       "enum": ["ADMINISTRATOR", "OPERATOR"]
     },
     "approved_role": {
       "type": "string",
       "enum": ["ADMINISTRATOR", "OPERATOR"]
+    },
+    "requested_role": {
+      "type": "string",
+      "enum": ["ADMINISTRATOR", "OPERATOR"]
+    },
+    "unit": {
+      "type": ["string", "null"]
+    },
+    "position": {
+      "type": ["string", "null"]
     },
     "approval_status": {
       "type": "string",
@@ -62,6 +64,9 @@
     "expires_at": {
       "type": ["string", "null"],
       "format": "date-time"
+    },
+    "notes": {
+      "type": ["string", "null"]
     },
     "registration_reference": {
       "type": ["string", "null"]

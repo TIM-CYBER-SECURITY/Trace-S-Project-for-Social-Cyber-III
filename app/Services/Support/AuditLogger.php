@@ -2,7 +2,6 @@
 
 namespace App\Services\Support;
 
-use App\Models\PlatformOwner;
 use App\Models\SystemLog;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
@@ -97,11 +96,6 @@ class AuditLogger
     {
         if ($actor) {
             return [$actor['type'] ?? 'SYSTEM', $actor['label'] ?? null, $actor['user_id'] ?? $userId];
-        }
-
-        $owner = Auth::guard('platform')->user();
-        if ($owner instanceof PlatformOwner && $userId === null) {
-            return ['OWNER', $owner->owner_id, null];
         }
 
         $user = $userId ? User::find($userId) : Auth::guard('web')->user();

@@ -1,33 +1,33 @@
-@extends('layouts.tactical')
-
-@php
-  $isId = app()->getLocale() === 'id';
-@endphp
-
-@section('title', '404 // Resource Not Found')
-
-@section('content')
-<!-- [Error404Panel] START -->
-<div class="bg-neutral-900 border border-amber-500/30 rounded-sm p-8 max-w-xl mx-auto mt-10 text-center space-y-4 font-mono">
-  <div class="inline-flex w-12 h-12 rounded-sm text-amber-500 bg-amber-500/10 border border-amber-500/30 items-center justify-center text-lg">
-    <i class="fa-solid fa-triangle-exclamation"></i>
-  </div>
-  <div class="space-y-1">
-    <div class="text-xs uppercase tracking-widest text-amber-500 font-semibold">HTTP 404 // NOT FOUND</div>
-    <h1 class="text-sm font-semibold text-neutral-300 uppercase">
-      {{ $isId ? 'Halaman atau Berkas Tidak Ditemukan' : 'Requested Resource Not Found' }}
+<!DOCTYPE html>
+<html lang="{{ app()->getLocale() === 'id' ? 'id' : 'en' }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>404 // Resource Not Found — TRACE-S</title>
+  <script>
+    if (localStorage.getItem('trace-theme') === 'dark') document.documentElement.classList.add('dark');
+  </script>
+  @vite(['resources/css/app.css', 'resources/js/app.js'])
+</head>
+@php $isId = app()->getLocale() === 'id'; @endphp
+<body class="min-h-screen flex items-center justify-center bg-[var(--bg-canvas)] text-[var(--text-primary)] p-4">
+  <div class="max-w-lg w-full panel p-6 space-y-4 border-l-4 border-l-[#C5B89C]">
+    <div class="flex items-center justify-between">
+      <span class="badge badge-sand">HTTP 404 // NOT FOUND</span>
+      <span class="label-meta">RESOURCE ISOLATION</span>
+    </div>
+    <h1 class="text-lg font-mono font-bold">
+      {{ $isId ? 'Rekaman atau Halaman Tidak Ditemukan' : 'Record or Endpoint Not Found' }}
     </h1>
-    <p class="text-xs text-neutral-500 font-sans leading-relaxed">
-      {{ $isId
-        ? 'Alamat halaman atau ID kasus yang Anda tuju tidak terdaftar di dalam penyimpanan.'
-        : 'The requested page path or case identifier does not exist in the repository.' }}
+    <p class="text-xs text-[var(--text-secondary)] leading-relaxed">
+      {{ $isId ? 'Data yang diminta tidak tersedia dalam ruang lingkup akses organisasi Anda.' : 'The requested record is unavailable or outside your organization access boundary.' }}
     </p>
+    <div class="flex items-center gap-2 pt-2">
+      <a href="{{ url('/') }}" class="btn-primary">
+        <i class="fa-solid fa-arrow-left"></i>
+        <span>{{ $isId ? 'Kembali' : 'Return' }}</span>
+      </a>
+    </div>
   </div>
-  <div class="pt-2">
-    <a href="{{ route('dashboard') }}" class="px-4 py-2 text-cyan-500 bg-cyan-500/10 border border-cyan-500/50 hover:bg-neutral-800/50 text-xs uppercase tracking-wider rounded-sm inline-block">
-      {{ $isId ? 'Kembali ke Dasbor Utama' : 'Return to Main Dashboard' }}
-    </a>
-  </div>
-</div>
-<!-- [Error404Panel] END -->
-@endsection
+</body>
+</html>

@@ -2,7 +2,6 @@
 
 namespace App\Services\Identity;
 
-use App\Models\RegistrationRequest;
 use App\Models\User;
 
 class TraceIdGenerator
@@ -19,7 +18,6 @@ class TraceIdGenerator
         for ($i = 0; $i < 50; $i++) {
             $id = 'TRS-' . $this->chunk() . '-' . $this->chunk();
             if (! User::where('trace_id', $id)->exists()
-                && ! RegistrationRequest::where('trace_id', $id)->exists()
                 && ! $this->registry->traceIdExists($id)) {
                 return $id;
             }

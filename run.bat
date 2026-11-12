@@ -1,18 +1,15 @@
 @echo off
 setlocal enabledelayedexpansion
 
-:: 1. Pastikan selalu berada di folder tempat file run.bat berada
 cd /d "%~dp0"
-
-title PUSSIBERAD TRACE-S // Tactical Cyber Intelligence Platform
+title TRACE-S v2.0 // Institutional Social Cyber Intelligence Platform
 
 echo =========================================================================
-echo       PUSSIBERAD TNI AD - TRACE-S (Social Cyber Intelligence)
-echo       Kategori 04: Siber Sosial - Kartika Cyber Hackathon 2026
+echo   TRACE-S v2.0 // Institutional Information & Social Cyber Platform
+echo   Military-Oriented Operations - RBAC - External Trace-ID Provisioning
 echo =========================================================================
 echo.
 
-:: 2. Tentukan binary PHP (System PHP atau Portable .tools\php)
 set PHP_BIN=php
 where php >nul 2>nul
 if %ERRORLEVEL% equ 0 (
@@ -32,47 +29,58 @@ if exist "%~dp0.tools\php\php.exe" (
     goto check_env
 )
 
-echo [INFO] PHP belum terdeteksi. Menyiapkan portable PHP 8.3 secara otomatis...
+echo [INFO] PHP belum terdeteksi. Menyiapkan portable PHP 8.3...
 if exist ".tools\setup-php.ps1" (
     powershell -ExecutionPolicy Bypass -File ".tools\setup-php.ps1"
     if exist ".tools\php\php.exe" (
         set PHP_BIN=.tools\php\php.exe
-        echo [OK] Portable PHP berhasil disiapkan!
+        echo [OK] Portable PHP siap digunakan.
         goto check_env
     )
 )
 
 echo [ERROR] PHP tidak ditemukan di sistem dan folder .tools\php tidak tersedia.
-echo Silakan pastikan folder .tools\php ada atau koneksi internet aktif.
 pause
 exit /b 1
 
 :check_env
-:: 3. Cek file .env
 if not exist ".env" (
-    echo [INFO] Menyiapkan file .env dari .env.example...
+    echo [INFO] Menyiapkan .env dari .env.example...
     copy .env.example .env >nul
     %PHP_BIN% artisan key:generate
 )
 
-:: 4. Cek database SQLite
 if not exist "database\database.sqlite" (
-    echo [INFO] Inisialisasi database SQLite dan seeder skenario PUSSIBERAD...
+    echo [INFO] Inisialisasi database SQLite, RBAC, dan skenario simulasi lokal...
     type nul > database\database.sqlite
     %PHP_BIN% artisan migrate:fresh --seed --force
 )
 
+if not exist "public\build\manifest.json" (
+    echo [WARN] Asset frontend terkompilasi tidak ditemukan di public\build\manifest.json.
+    where npm >nul 2>nul
+    if %ERRORLEVEL% equ 0 (
+        echo [INFO] Menjalankan npm run build...
+        call npm run build
+    ) else (
+        echo [WARN] Jalankan "npm install && npm run build" secara manual sebelum membuka UI.
+    )
+)
+
 echo.
 echo =========================================================================
-echo  Sistem siap dijalankan!
-echo  URL Akses : http://127.0.0.1:8000
-echo  
-echo  Akun Default Evaluasi (Tersedia Tombol Quick Switch di Login):
-echo    - Operator : operator@traces.mil.id (Password: operator123)
-echo    - Analis   : analis@traces.mil.id   (Password: analis123)
-echo    - Komandan : komandan@traces.mil.id (Password: komandan123)
-echo    - Admin    : admin@traces.mil.id    (Password: admin123)
+echo  Sistem siap dijalankan (Mode Operasional Lokal)
+echo  URL Utama         : http://127.0.0.1:8000/login
+echo  Cek Kesehatan     : http://127.0.0.1:8000/health
+echo.
+echo  Catatan Keamanan ^& Provisioning Akun (Khusus Developer):
+echo    Tidak ada pendaftaran publik maupun akun/kata sandi demo.
+echo    Terbitkan akun baru setelah verifikasi institusi eksternal:
+echo      provisioning\tools\issue-account.bat "Nama" "Organisasi" --role=ADMINISTRATOR --approved-by="DevTeam"
+echo    Atau validasi ^& impor dari registry eksternal:
+echo      %PHP_BIN% artisan trace:validate-accounts
+echo      %PHP_BIN% artisan trace:provision-accounts
 echo =========================================================================
 echo.
-echo Menjalankan Laravel Development Server... Tekan Ctrl+C untuk berhenti.
+echo Menjalankan server pengembangan Laravel... Tekan Ctrl+C untuk berhenti.
 %PHP_BIN% artisan serve --host=127.0.0.1 --port=8000

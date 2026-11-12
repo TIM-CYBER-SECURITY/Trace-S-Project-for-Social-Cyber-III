@@ -16,7 +16,7 @@ return [
     'classification_label' => env('TRACE_CLASSIFICATION_LABEL', 'PROTOTIPE - TIDAK UNTUK DISTRIBUSI'),
 
     // ------------------------------------------------------------------
-    // RBAC: kemampuan => peran yang diizinkan (Supplemental §3)
+    // RBAC: kemampuan => peran yang diizinkan
     // ------------------------------------------------------------------
     // Dua peran operasional (ADMINISTRATOR, OPERATOR). Matriks ini adalah sumber
     // seeder RBAC; otorisasi aktual dibaca dari tabel roles/permissions (deny-by-default).
@@ -52,7 +52,6 @@ return [
 
         'accounts.manage'    => ['Mengelola akun Operator', ['ADMINISTRATOR']],
         'trace_id.manage'    => ['Mengelola rekaman Trace-ID', ['ADMINISTRATOR']],
-        'registrations.view' => ['Melihat status permohonan Trace-ID (hanya baca)', ['ADMINISTRATOR']],
 
         'skills.use'         => ['Menjalankan Skills yang diizinkan', ['ADMINISTRATOR', 'OPERATOR']],
         'skills.install'     => ['Memasang/menghapus Skills', ['ADMINISTRATOR']],
@@ -84,23 +83,22 @@ return [
         'login_max_attempts'   => (int) env('TRACE_LOGIN_MAX_ATTEMPTS', 5),
         'login_decay_seconds'  => (int) env('TRACE_LOGIN_DECAY', 300),
         'password_min_length'  => 12,
-        'owner_password_min_length' => 14,
         'idle_timeout_minutes' => (int) env('SESSION_LIFETIME', 120),
     ],
 
     // ------------------------------------------------------------------
-    // AI Server: local-first, model-agnostic (Master §8, §14)
+    // AI Server: local-first, model-agnostic
     // ------------------------------------------------------------------
     'ai' => [
         'driver'          => env('AI_DRIVER', 'mock'),           // mock | ollama | openai_compatible | external
-        'base_url'        => env('AI_BASE_URL'),
-        'model'           => env('AI_MODEL'),
+        'base_url'        => env('AI_BASE_URL', env('AI_SERVER_URL')),
+        'model'           => env('AI_MODEL', env('AI_SERVER_MODEL')),
         'embedding_model' => env('AI_EMBEDDING_MODEL'),
-        'timeout'         => (int) env('AI_TIMEOUT', 180),
+        'timeout'         => (int) env('AI_TIMEOUT', env('AI_REQUEST_TIMEOUT', 180)),
         'require_local'   => filter_var(env('AI_REQUIRE_LOCAL', true), FILTER_VALIDATE_BOOL),
         'allow_external'  => filter_var(env('AI_ALLOW_EXTERNAL', false), FILTER_VALIDATE_BOOL),
         'external_api_key' => env('AI_EXTERNAL_API_KEY'),         // hanya jika admin mengaktifkan ExternalDriver
-        'api_key'         => env('AI_API_KEY'),                   // opsional, autentikasi layanan ke AI Server internal
+        'api_key'         => env('AI_API_KEY', env('AI_SERVER_API_KEY')), // opsional, autentikasi layanan ke AI Server internal
         'max_retries'     => (int) env('AI_MAX_RETRIES', 2),      // retry terbatas untuk JSON tidak valid
         'max_input_chars' => (int) env('AI_MAX_INPUT_CHARS', 12000),
         'max_output_chars' => (int) env('AI_MAX_OUTPUT_CHARS', 20000),
@@ -144,7 +142,7 @@ return [
     ],
 
     // ------------------------------------------------------------------
-    // Enumerasi yang divalidasi backend (Master §10, Supplemental §11)
+    // Enumerasi yang divalidasi backend
     // ------------------------------------------------------------------
     'enums' => [
         'claim_type'          => ['FAKTA', 'OPINI', 'DUGAAN', 'KUTIPAN'],
@@ -167,15 +165,5 @@ return [
         'context_consistency' => ['CONSISTENT', 'INCONSISTENT', 'UNKNOWN'],
         'change_type'         => ['ADDED', 'REMOVED', 'ALTERED', 'UNCHANGED'],
         'coordination'        => ['NOT_ASSESSED', 'INDICATORS_PRESENT', 'INSUFFICIENT_EVIDENCE'],
-    ],
-
-    // Titik peta Indonesia (persen dari kanvas) untuk Early Warning Dashboard
-    'regions' => [
-        'Medan'      => ['x' => 14, 'y' => 30],
-        'Jakarta'    => ['x' => 33, 'y' => 63],
-        'Surabaya'   => ['x' => 46, 'y' => 68],
-        'Balikpapan' => ['x' => 55, 'y' => 45],
-        'Makassar'   => ['x' => 61, 'y' => 62],
-        'Jayapura'   => ['x' => 91, 'y' => 56],
     ],
 ];

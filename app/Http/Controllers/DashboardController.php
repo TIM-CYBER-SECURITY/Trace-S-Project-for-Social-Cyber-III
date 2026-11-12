@@ -3,14 +3,72 @@
 namespace App\Http\Controllers;
 
 use App\Models\Connector;
+use App\Models\EvidenceItem;
 use App\Models\InvestigationCase;
 use App\Models\Narrative;
 use App\Models\NarrativeCluster;
 use App\Models\ThreatAnalysis;
+use App\Services\Analysis\Lexicon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 
 class DashboardController extends Controller
 {
+    /**
+     * Peta agregasi wilayah ke segmen jaringan netral (non-PII, non-KODAM, subnet /24 + ASN ISP).
+     * Hanya dipopulasikan untuk wilayah yang memiliki rekaman Narrative aktual di database.
+     */
+    private const NETWORK_CATALOG = [
+        'Jakarta' => [
+            'id' => 'EXP-JW-01',
+            'island' => 'Jawa',
+            'regency' => 'Jakarta Pusat',
+            'district' => 'Kec. Gambir',
+            'subnet' => '103.247.12.0/24',
+            'asn' => 'AS23693 (PT Telkom Indonesia)',
+        ],
+        'Surabaya' => [
+            'id' => 'EXP-JW-02',
+            'island' => 'Jawa',
+            'regency' => 'Kota Surabaya',
+            'district' => 'Kec. Gubeng',
+            'subnet' => '103.247.112.0/24',
+            'asn' => 'AS23693 (PT Telkom Indonesia)',
+        ],
+        'Medan' => [
+            'id' => 'EXP-SM-01',
+            'island' => 'Sumatera',
+            'regency' => 'Kota Medan',
+            'district' => 'Kec. Medan Barat',
+            'subnet' => '114.122.40.0/24',
+            'asn' => 'AS17974 (PT Telekomunikasi Indonesia)',
+        ],
+        'Balikpapan' => [
+            'id' => 'EXP-KL-01',
+            'island' => 'Kalimantan',
+            'regency' => 'Kota Balikpapan',
+            'district' => 'Kec. Balikpapan Kota',
+            'subnet' => '182.253.88.0/24',
+            'asn' => 'AS7713 (PT Telekomunikasi Indonesia)',
+        ],
+        'Makassar' => [
+            'id' => 'EXP-SL-01',
+            'island' => 'Sulawesi',
+            'regency' => 'Kota Makassar',
+            'district' => 'Kec. Panakkukang',
+            'subnet' => '125.164.20.0/24',
+            'asn' => 'AS7713 (PT Telekomunikasi Indonesia)',
+        ],
+        'Jayapura' => [
+            'id' => 'EXP-PP-01',
+            'island' => 'Papua',
+            'regency' => 'Kota Jayapura',
+            'district' => 'Kec. Jayapura Utara',
+            'subnet' => '103.136.44.0/24',
+            'asn' => 'AS7713 (PT Telekomunikasi Indonesia)',
+        ],
+    ];
+
     public function index()
     {
         $narrativesCount = Narrative::count();
@@ -18,32 +76,23 @@ class DashboardController extends Controller
         $activeClustersCount = NarrativeCluster::count();
         $casesCount = InvestigationCase::count();
 
-        // Sentimen
         $negatives = Narrative::where('sentiment', 'NEGATIF')->count();
-        $sentimentRatio = $narrativesCount > 0 ? round(($negatives / $narrativesCount) * 100, 1) : 68.4;
+        $sentimentRatio = $narrativesCount > 0 ? round(($negatives / $narrativesCount) * 100, 1) : 0.0;
 
-        // Peta ancaman titik (Master §7.2, config trace.regions)
-        $regions = config('trace.regions');
-        $threatPoints = [
-            ['name' => 'Jakarta', 'x' => 33, 'y' => 63, 'severity' => 'KRITIS', 'count' => 14, 'pulse' => 'animate-ping'],
-            ['name' => 'Surabaya', 'x' => 46, 'y' => 68, 'severity' => 'TINGGI', 'count' => 8, 'pulse' => 'animate-pulse'],
-            ['name' => 'Medan', 'x' => 14, 'y' => 30, 'severity' => 'SEDANG', 'count' => 5, 'pulse' => ''],
-            ['name' => 'Makassar', 'x' => 61, 'y' => 62, 'severity' => 'SEDANG', 'count' => 4, 'pulse' => ''],
-            ['name' => 'Balikpapan', 'x' => 55, 'y' => 45, 'severity' => 'RENDAH', 'count' => 2, 'pulse' => ''],
-            ['name' => 'Jayapura', 'x' => 91, 'y' => 56, 'severity' => 'RENDAH', 'count' => 1, 'pulse' => ''],
-        ];
+        $narratives = Narrative::with(['case', 'cluster'])
+            ->orderByDesc('captured_at')
+            ->orderByDesc('id')
+            ->take(25)
+            ->get();
 
-        // §6B PRD: Geospatial & Network Exposure Grid (Pulau -> Kota/Kab -> Kecamatan -> Subnet /24, ASN ISP, EXIF, Jumlah Akun Pola Serupa)
-        // Tanpa daftar KODAM terhubung ke akun dan tanpa resolusi identitas individu (§2A-A)
-        $exposureGrid = $this->exposureGridData();
-        $regionalData = $exposureGrid;
+        $exposureGrid = $this->buildExposureGrid();
+        $trajectory = $this->buildTrajectorySeries(now()->subHours(24), now());
 
-        // Status konektor pengumpul data yang jujur
         $connectors = Connector::orderBy('priority')->get();
         $connectedSourcesCount = InvestigationCase::withCount('sources')->get()->sum('sources_count');
-
-        // Recent cases
         $recentCases = InvestigationCase::with(['creator', 'analyses'])->latest()->take(5)->get();
+        $hasSimulationData = Narrative::where('is_simulation', true)->exists()
+            || InvestigationCase::where('is_simulation', true)->exists();
 
         return view('dashboard.index', compact(
             'narrativesCount',
@@ -51,18 +100,16 @@ class DashboardController extends Controller
             'activeClustersCount',
             'casesCount',
             'sentimentRatio',
-            'threatPoints',
-            'regionalData',
+            'narratives',
             'exposureGrid',
+            'trajectory',
             'connectors',
             'connectedSourcesCount',
-            'recentCases'
+            'recentCases',
+            'hasSimulationData'
         ));
     }
 
-    /**
-     * Modul A2 — Sentiment Analysis Dashboard (FR-015 s.d. FR-018)
-     */
     public function sentiment()
     {
         $narrativesCount = Narrative::count();
@@ -70,147 +117,278 @@ class DashboardController extends Controller
         $positives = Narrative::where('sentiment', 'POSITIF')->count();
         $neutrals = max(0, $narrativesCount - $negatives - $positives);
 
+        $trajectory = $this->buildTrajectorySeries(now()->subHours(24), now());
+        $tonePatterns = $this->computeLexiconTonePatterns();
         $connectors = Connector::orderBy('priority')->get();
         $recentCases = InvestigationCase::latest()->take(5)->get();
+        $hasSimulationData = Narrative::where('is_simulation', true)->exists()
+            || EvidenceItem::where('is_simulation', true)->exists();
 
         return view('sentiment.index', compact(
             'narrativesCount',
             'negatives',
             'positives',
             'neutrals',
+            'trajectory',
+            'tonePatterns',
             'connectors',
-            'recentCases'
+            'recentCases',
+            'hasSimulationData'
         ));
     }
 
     /**
-     * Payload exposure_grid netral (§6B PRD):
-     * Pulau -> Kota/Kabupaten -> Kecamatan -> Subnet /24, ASN ISP, konsistensi EXIF, jumlah akun pola serupa.
-     * Seluruh data membawa atribut is_simulation: true.
-     */
-    private function exposureGridData(): array
-    {
-        return [
-            [
-                'id' => 'EXP-JW-01',
-                'island' => 'Jawa',
-                'regency' => 'Jakarta Pusat',
-                'district' => 'Kec. Gambir',
-                'subnet' => '103.247.12.0/24',
-                'asn' => 'AS23693 (PT Telkom Indonesia)',
-                'exif_status' => 'CONSISTENT',
-                'account_pattern_count' => 26,
-                'velocity_status' => 'HIGH',
-                'dominant_topic' => 'Program Subsidi & Alokasi Anggaran Pendidikan',
-                'is_simulation' => true,
-            ],
-            [
-                'id' => 'EXP-JW-02',
-                'island' => 'Jawa',
-                'regency' => 'Kab. Subang',
-                'district' => 'Kec. Pagaden',
-                'subnet' => '36.88.42.0/24',
-                'asn' => 'AS23693 (PT Telkom Indonesia)',
-                'exif_status' => 'CONSISTENT',
-                'account_pattern_count' => 16,
-                'velocity_status' => 'HIGH',
-                'dominant_topic' => 'Rantai Pasok Pangan Lokal & Koperasi',
-                'is_simulation' => true,
-            ],
-            [
-                'id' => 'EXP-JW-03',
-                'island' => 'Jawa',
-                'regency' => 'Kota Surabaya',
-                'district' => 'Kec. Gubeng',
-                'subnet' => '103.247.112.0/24',
-                'asn' => 'AS23693 (PT Telkom Indonesia)',
-                'exif_status' => 'STRIPPED_BY_PLATFORM',
-                'account_pattern_count' => 15,
-                'velocity_status' => 'MODERATE',
-                'dominant_topic' => 'Variasi Klaim Potongan Anggaran Daerah',
-                'is_simulation' => true,
-            ],
-            [
-                'id' => 'EXP-SM-01',
-                'island' => 'Sumatera',
-                'regency' => 'Kota Medan',
-                'district' => 'Kec. Medan Barat',
-                'subnet' => '114.122.40.0/24',
-                'asn' => 'AS17974 (PT Telekomunikasi Indonesia)',
-                'exif_status' => 'STRIPPED_BY_PLATFORM',
-                'account_pattern_count' => 12,
-                'velocity_status' => 'MODERATE',
-                'dominant_topic' => 'Distribusi Subsidi Energi & Logistik',
-                'is_simulation' => true,
-            ],
-            [
-                'id' => 'EXP-KL-01',
-                'island' => 'Kalimantan',
-                'regency' => 'Kota Balikpapan',
-                'district' => 'Kec. Balikpapan Kota',
-                'subnet' => '182.253.88.0/24',
-                'asn' => 'AS7713 (PT Telekomunikasi Indonesia)',
-                'exif_status' => 'CONSISTENT',
-                'account_pattern_count' => 8,
-                'velocity_status' => 'NORMAL',
-                'dominant_topic' => 'Kebijakan Publik & Infrastruktur Wilayah',
-                'is_simulation' => true,
-            ],
-            [
-                'id' => 'EXP-SL-01',
-                'island' => 'Sulawesi',
-                'regency' => 'Kota Makassar',
-                'district' => 'Kec. Panakkukang',
-                'subnet' => '125.164.20.0/24',
-                'asn' => 'AS7713 (PT Telekomunikasi Indonesia)',
-                'exif_status' => 'STRIPPED_BY_PLATFORM',
-                'account_pattern_count' => 9,
-                'velocity_status' => 'MODERATE',
-                'dominant_topic' => 'Isu Bantuan Sosial & Layanan Publik',
-                'is_simulation' => true,
-            ],
-        ];
-    }
-
-    /**
-     * Polling JSON Feed untuk Live Threat Feed & Time Range Filter di dashboard
+     * Polling JSON Feed nyata berbasis basis data Trace-S untuk rentang waktu yang dipilih.
      */
     public function threatFeed(Request $request)
     {
         $range = $request->query('range', '24h');
-        $multiplier = match ($range) {
-            '1h' => 0.08,
-            '6h' => 0.35,
-            '7d' => 4.8,
-            default => 1.0,
+        $since = match ($range) {
+            '1h' => now()->subHour(),
+            '6h' => now()->subHours(6),
+            '7d' => now()->subDays(7),
+            default => now()->subHours(24),
         };
 
-        $baseNarratives = Narrative::count() > 0 ? Narrative::count() : 48720;
-        $baseCritical = ThreatAnalysis::where('threat_level', 'KRITIS')->count() > 0 ? ThreatAnalysis::where('threat_level', 'KRITIS')->count() : 7;
-        $baseClusters = NarrativeCluster::count() > 0 ? NarrativeCluster::count() : 12;
+        $narrativeQuery = Narrative::where(function ($q) use ($since) {
+            $q->where('captured_at', '>=', $since)
+                ->orWhere(function ($q2) use ($since) {
+                    $q2->whereNull('captured_at')->where('created_at', '>=', $since);
+                });
+        });
 
-        $logs = Narrative::latest()->take(10)->get()->map(fn ($n) => [
+        $narrativesCount = (clone $narrativeQuery)->count();
+        $negatives = (clone $narrativeQuery)->where('sentiment', 'NEGATIF')->count();
+        $sentimentRatio = $narrativesCount > 0 ? round(($negatives / $narrativesCount) * 100, 1) : 0.0;
+
+        $criticalCount = ThreatAnalysis::where('threat_level', 'KRITIS')
+            ->where(function ($q) use ($since) {
+                $q->where('analyzed_at', '>=', $since)->orWhere('created_at', '>=', $since);
+            })->count();
+
+        $activeClusters = NarrativeCluster::where('created_at', '>=', $since)->count();
+
+        $rows = (clone $narrativeQuery)
+            ->orderByDesc('captured_at')
+            ->orderByDesc('id')
+            ->take(25)
+            ->get();
+
+        $logs = $rows->map(fn (Narrative $n) => [
             'id' => $n->id,
-            'time' => $n->captured_at ? $n->captured_at->format('H:i:s') : now()->format('H:i:s'),
+            'code' => 'NARR-' . str_pad((string) $n->id, 4, '0', STR_PAD_LEFT),
+            'time' => ($n->captured_at ?? $n->created_at)?->format('H:i:s') ?? '-',
             'region' => $n->region ?? 'NATIONAL',
-            'severity' => $n->severity,
+            'severity' => strtoupper((string) ($n->severity ?? 'RENDAH')),
+            'sentiment' => strtoupper((string) ($n->sentiment ?? 'NETRAL')),
             'title' => $n->title,
-            'category' => $n->category ?? 'DISINFORMATION',
+            'category' => $n->category ?? 'DISINFORMASI',
+            'case_id' => $n->case_id,
             'is_simulation' => (bool) $n->is_simulation,
-        ]);
+        ])->values();
 
         return response()->json([
             'status' => 'OK',
-            'is_simulation' => true,
+            'is_simulation' => $rows->contains('is_simulation', true),
             'range' => $range,
             'metrics' => [
-                'narratives_count' => (int) round($baseNarratives * $multiplier),
-                'critical_count' => max(1, (int) round($baseCritical * ($range === '1h' ? 0.4 : ($range === '7d' ? 2.1 : 1.0)))),
-                'sentiment_ratio' => $range === '1h' ? 74.1 : ($range === '6h' ? 71.8 : ($range === '7d' ? 66.5 : 68.4)),
-                'active_clusters' => max(2, (int) round($baseClusters * ($range === '1h' ? 0.5 : ($range === '7d' ? 1.8 : 1.0)))),
+                'narratives_count' => $narrativesCount,
+                'critical_count' => $criticalCount,
+                'sentiment_ratio' => $sentimentRatio,
+                'active_clusters' => $activeClusters,
             ],
-            'source_scope' => 'Based on active dataset in internal Trace-S database',
+            'trajectory' => $this->buildTrajectorySeries($since, now()),
+            'source_scope' => 'Active Trace-S internal database records',
             'data' => $logs,
         ]);
+    }
+
+    /**
+     * Mengagregasi data Narrative aktual per wilayah ke Grid Paparan Jaringan netral (tanpa PII).
+     * Tidak memproduksi data fiktif bila tabel narratives kosong.
+     */
+    private function buildExposureGrid(): array
+    {
+        $narratives = Narrative::with('cluster')->orderByDesc('captured_at')->get();
+        if ($narratives->isEmpty()) {
+            return [];
+        }
+
+        $grouped = $narratives->groupBy(fn (Narrative $n) => trim((string) ($n->region ?: 'Nasional')));
+        $rows = [];
+        $idx = 1;
+
+        foreach ($grouped as $region => $items) {
+            $meta = self::NETWORK_CATALOG[$region] ?? [
+                'id' => 'EXP-REG-' . str_pad((string) $idx, 2, '0', STR_PAD_LEFT),
+                'island' => 'Nasional',
+                'regency' => $region,
+                'district' => 'Agregasi Wilayah',
+                'subnet' => 'Agregasi Subnet',
+                'asn' => 'Agregat Jaringan Publik',
+            ];
+
+            $criticalOrHigh = $items->filter(fn (Narrative $n) => in_array(strtoupper((string) $n->severity), ['KRITIS', 'TINGGI'], true))->count();
+            $velocity = $criticalOrHigh >= 2 || $items->count() >= 3
+                ? 'HIGH'
+                : ($criticalOrHigh >= 1 ? 'MODERATE' : 'NORMAL');
+
+            $latest = $items->first();
+            $rows[] = [
+                'id' => $meta['id'],
+                'island' => $meta['island'],
+                'regency' => $meta['regency'],
+                'district' => $meta['district'],
+                'subnet' => $meta['subnet'],
+                'asn' => $meta['asn'],
+                'narrative_count' => $items->count(),
+                'critical_count' => $criticalOrHigh,
+                'velocity_status' => $velocity,
+                'dominant_topic' => $latest?->title ?? '-',
+                'is_simulation' => $items->contains('is_simulation', true),
+            ];
+            $idx++;
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Menghitung kurva seri waktu 7 bucket dari rekaman Narrative aktual pada jendela waktu [start, end].
+     */
+    private function buildTrajectorySeries(Carbon $start, Carbon $end): array
+    {
+        $buckets = 7;
+        $spanSeconds = max($buckets, $end->timestamp - $start->timestamp);
+        $stepSeconds = $spanSeconds / ($buckets - 1);
+
+        $points = [];
+        $labels = [];
+        for ($i = 0; $i < $buckets; $i++) {
+            $t = Carbon::createFromTimestamp((int) round($start->timestamp + ($i * $stepSeconds)));
+            $labels[] = $t->format('H:i');
+            $points[$i] = ['total' => 0, 'negative' => 0, 'neutral' => 0, 'positive' => 0];
+        }
+
+        $items = Narrative::where(function ($q) use ($start) {
+            $q->where('captured_at', '>=', $start)
+                ->orWhere(function ($q2) use ($start) {
+                    $q2->whereNull('captured_at')->where('created_at', '>=', $start);
+                });
+        })->get();
+
+        foreach ($items as $item) {
+            $ts = ($item->captured_at ?? $item->created_at)?->timestamp ?? $end->timestamp;
+            $ratio = max(0.0, min(1.0, ($ts - $start->timestamp) / $spanSeconds));
+            $idx = (int) min($buckets - 1, round($ratio * ($buckets - 1)));
+            $points[$idx]['total']++;
+            $sent = strtoupper((string) $item->sentiment);
+            if ($sent === 'NEGATIF') {
+                $points[$idx]['negative']++;
+            } elseif ($sent === 'POSITIF') {
+                $points[$idx]['positive']++;
+            } else {
+                $points[$idx]['neutral']++;
+            }
+        }
+
+        $maxVal = max(1, ...array_map(fn ($p) => $p['total'], $points));
+
+        $toPath = function (string $key, int $height = 180) use ($points, $buckets, $maxVal): array {
+            $coords = [];
+            foreach ($points as $i => $p) {
+                $x = (int) round(($i / max(1, $buckets - 1)) * 600);
+                $val = $p[$key];
+                $y = $val === 0
+                    ? $height
+                    : (int) max(10, round($height - (($val / $maxVal) * ($height - 20))));
+                $coords[] = ['x' => $x, 'y' => $y, 'val' => $val];
+            }
+            $d = implode(' L ', array_map(fn ($c) => $c['x'] . ' ' . $c['y'], $coords));
+            $path = 'M ' . $d;
+            $area = $path . " L 600 {$height} L 0 {$height} Z";
+            return ['path' => $path, 'area' => $area, 'coords' => $coords];
+        };
+
+        return [
+            'labels' => $labels,
+            'max_value' => $maxVal,
+            'total' => $toPath('total', 190),
+            'negative' => $toPath('negative', 190),
+            'neutral' => $toPath('neutral', 190),
+            'positive' => $toPath('positive', 190),
+            'sentiment_negative' => $toPath('negative', 175),
+            'sentiment_neutral' => $toPath('neutral', 175),
+            'sentiment_positive' => $toPath('positive', 175),
+        ];
+    }
+
+    /**
+     * Menghitung distribusi pola bahasa berbasis Leksikon Indonesia atas korpus Narrative & EvidenceItem aktual.
+     */
+    private function computeLexiconTonePatterns(): array
+    {
+        $texts = Narrative::pluck('title')
+            ->merge(EvidenceItem::whereNotNull('extracted_text')->pluck('extracted_text'))
+            ->filter()
+            ->values();
+
+        $categories = [
+            'termination_alarm' => [
+                'id' => 'Pola Penekanan / Penghentian',
+                'en' => 'Termination / Escalation Pattern',
+                'cues' => array_merge(Lexicon::ACTIONS['TERMINATE'], Lexicon::ACTIONS['REDUCE']),
+                'count' => 0,
+            ],
+            'rumor_uncertainty' => [
+                'id' => 'Pola Dugaan / Rumor / Wacana',
+                'en' => 'Rumor / Speculation / Plan Pattern',
+                'cues' => array_merge(Lexicon::DUGAAN, Lexicon::RENCANA),
+                'count' => 0,
+            ],
+            'opinion_dispute' => [
+                'id' => 'Pola Opini / Penolakan',
+                'en' => 'Opinion / Skepticism Pattern',
+                'cues' => Lexicon::OPINI,
+                'count' => 0,
+            ],
+            'official_statement' => [
+                'id' => 'Pola Pernyataan Resmi / Konfirmasi',
+                'en' => 'Official Statement Pattern',
+                'cues' => Lexicon::RESMI_KUAT,
+                'count' => 0,
+            ],
+            'continuity_support' => [
+                'id' => 'Pola Kelanjutan / Klarifikasi',
+                'en' => 'Continuity / Clarification Pattern',
+                'cues' => Lexicon::ACTIONS['CONTINUE'],
+                'count' => 0,
+            ],
+        ];
+
+        $totalHits = 0;
+        foreach ($texts as $t) {
+            $txt = (string) $t;
+            foreach ($categories as $k => $meta) {
+                $matched = Lexicon::matchCues($txt, $meta['cues']);
+                if ($matched !== []) {
+                    $categories[$k]['count'] += count($matched);
+                    $totalHits += count($matched);
+                }
+            }
+        }
+
+        $out = [];
+        foreach ($categories as $k => $meta) {
+            $out[] = [
+                'key' => $k,
+                'id' => $meta['id'],
+                'en' => $meta['en'],
+                'count' => $meta['count'],
+                'pct' => $totalHits > 0 ? round(($meta['count'] / $totalHits) * 100, 1) : 0.0,
+            ];
+        }
+
+        return $out;
     }
 }

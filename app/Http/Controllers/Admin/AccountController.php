@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\RegistrationRequest;
 use App\Models\StatusTransition;
 use App\Models\User;
 use App\Services\Identity\AccountLifecycle;
@@ -57,7 +56,7 @@ class AccountController extends Controller
         if ($user->id === $me->id) {
             return back()->with('error', 'Anda tidak dapat mengubah akun Anda sendiri.');
         }
-        // Administrator hanya mengelola akun OPERATOR; akun ADMINISTRATOR dikelola jalur Developer/Owner.
+        // Administrator hanya mengelola akun OPERATOR; akun ADMINISTRATOR dikelola melalui provisioning eksternal pengembang.
         if (! $user->hasRole('OPERATOR')) {
             $this->audit->log('ACCOUNT_ACTION_DENIED', $user, ['action' => $v['action']], $me->id, 'DENIED');
             return back()->with('error', 'Administrator hanya dapat mengelola akun Operator.');
@@ -85,19 +84,6 @@ class AccountController extends Controller
         }
 
         return back();
-    }
-
-    public function registrations(Request $request)
-    {
-        $me = Auth::user();
-        $q = RegistrationRequest::where('organization', $me->organization?->name)->orderByDesc('id');
-        if ($s = $request->query('status')) {
-            $q->where('approval_status', $s);
-        }
-        // Hanya baca; tanpa data identitas (NRP/kontak). Persetujuan hanya oleh Developer/Owner.
-        $items = $q->paginate(20, ['id', 'request_reference', 'full_name', 'position', 'requested_role', 'approved_role', 'approval_status', 'trace_id', 'created_at', 'updated_at'])->withQueryString();
-
-        return view('admin.registrations', compact('items'));
     }
 
     private function target(string $traceId): User

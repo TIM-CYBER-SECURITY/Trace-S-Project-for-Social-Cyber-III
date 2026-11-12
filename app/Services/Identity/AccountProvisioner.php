@@ -3,7 +3,6 @@
 namespace App\Services\Identity;
 
 use App\Models\Organization;
-use App\Models\RegistrationRequest;
 use App\Models\Role;
 use App\Models\Unit;
 use App\Models\User;
@@ -64,7 +63,8 @@ class AccountProvisioner
     {
         $actor ??= AccountLifecycle::currentActor();
         $tid = $entry['trace_id'];
-        $base = ['trace_id' => $tid, 'role' => $entry['approved_role'], 'warnings' => []];
+        $roleName = $entry['role'] ?? $entry['approved_role'] ?? '';
+        $base = ['trace_id' => $tid, 'role' => $roleName, 'warnings' => []];
 
         if (($entry['approval_status'] ?? '') !== 'APPROVED') {
             return ['result' => $base + ['status' => self::NOT_APPROVED]];
@@ -91,8 +91,8 @@ class AccountProvisioner
         $password = TraceIdGenerator::temporaryPassword();
 
         try {
-            DB::transaction(function () use ($entry, $password, $actor) {
-                $role = Role::where('name', $entry['approved_role'])->first();
+            DB::transaction(function () use ($entry, $password, $actor, $roleName) {
+                $role = Role::where('name', $roleName)->first();
                 if (! $role) {
                     throw new RuntimeException('Peran belum tersedia di database. Jalankan seeder RBAC (php artisan db:seed --class=RbacSeeder).');
                 }
@@ -117,14 +117,8 @@ class AccountProvisioner
 
                 AccountLifecycle::recordTransition('ACCOUNT', $user->trace_id, null, 'PROVISIONED', $actor, 'Diprovisioning dari registry.');
                 $this->audit->log('TRACE_ID_PROVISIONED', $user, [
-                    'trace_id' => $user->trace_id, 'role' => $entry['approved_role'], 'approved_by' => $entry['approved_by'] ?? null,
+                    'trace_id' => $user->trace_id, 'role' => $roleName, 'approved_by' => $entry['approved_by'] ?? null,
                 ], null, 'SUCCESS', $actor);
-
-                $req = RegistrationRequest::where('trace_id', $user->trace_id)->first();
-                if ($req && $req->approval_status === 'APPROVED') {
-                    $req->update(['approval_status' => 'CREDENTIAL ISSUED']);
-                    AccountLifecycle::recordTransition('REGISTRATION', $req->request_reference, 'APPROVED', 'CREDENTIAL ISSUED', $actor);
-                }
             });
         } catch (QueryException $e) {
             // Balapan: Trace-ID dibuat proses lain di antara pemeriksaan dan penyisipan.
@@ -132,6 +126,12 @@ class AccountProvisioner
                 return ['result' => $base + ['status' => self::EXISTS]];
             }
             throw $e;
+        }
+
+        try {
+            $this->registry->markProvisioned($tid, now()->toIso8601String());
+        } catch (\Throwable) {
+            // Best-effort sync; DB tetap menjadi sumber otoritatif.
         }
 
         return ['result' => $base + ['status' => self::CREATED], 'password' => $password];

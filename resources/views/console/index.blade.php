@@ -1,258 +1,230 @@
-@extends('layouts.tactical')
+@extends('layouts.app')
 
 @php
   $isId = app()->getLocale() === 'id';
+  $aiStatus = app(\App\Services\Ai\AiManager::class)->status();
+  $aiDriver = strtoupper($aiStatus['driver'] ?? 'MOCK');
 @endphp
 
 @section('title', ($isId ? 'Konsol Analis AI' : 'AI Analyst Console') . ' // TRACE-S')
 
 @section('content')
+<div class="space-y-5">
 
-<!-- [ModuleEHeader] START -->
-<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-800 pb-3">
-  <div>
-    <div class="flex items-center gap-2.5">
-      <h1 class="text-sm font-semibold font-mono tracking-wide text-neutral-300 uppercase">
-        {{ $isId ? 'Konsol Dialog Analis AI Terkunci Konteks Kasus' : 'Case-Scoped AI Analyst Console' }}
-      </h1>
-      <span class="text-[10px] font-mono px-2 py-0.5 text-cyan-500 bg-cyan-500/10 border border-cyan-500/50 rounded-sm">
-        MODULE E (§5.7 FR-050)
-      </span>
-    </div>
-    <p class="text-xs text-neutral-500 mt-0.5">
-      {{ $isId
-        ? 'Terkunci hanya pada data kasus aktif (Case ID) menggunakan daftar fungsi resmi (allowlist) tanpa akses shell bebas.'
-        : 'Strictly locked to active case data (Case ID) using backend allowlisted tools without free shell access.' }}
-    </p>
-  </div>
-
-  <!-- Case Context Switcher -->
-  <form action="{{ route('console.index') }}" method="GET" class="flex items-center gap-2 text-xs font-mono">
-    <label class="text-[10px] uppercase tracking-widest text-neutral-500">{{ $isId ? 'KASUS TERKUNCI:' : 'LOCKED CASE:' }}</label>
-    <select name="case_id" onchange="this.form.submit()" aria-label="Select case context" class="bg-neutral-900 border border-neutral-800 text-neutral-300 px-3 py-1.5 rounded-sm focus:outline-none focus:border-cyan-500 text-xs font-mono">
-      @foreach($cases as $c)
-        <option value="{{ $c->id }}" {{ $selectedCase && $selectedCase->id === $c->id ? 'selected' : '' }}>
-          {{ $c->case_code }} — {{ Str::limit($c->title, 35) }}
-        </option>
-      @endforeach
-    </select>
-  </form>
-</div>
-<!-- [ModuleEHeader] END -->
-
-<!-- [AiAnalystConsoleContainer] START -->
-<div class="bg-neutral-900 border border-neutral-800 rounded-sm flex flex-col h-[620px] overflow-hidden">
-
-  <!-- Console Status Bar -->
-  <div class="px-4 py-2.5 bg-neutral-950 border-b border-neutral-800 flex flex-wrap items-center justify-between gap-3 font-mono text-xs">
-    <div class="flex items-center gap-3">
-      <div class="flex items-center gap-1.5">
-        <span class="w-2 h-2 rounded-full bg-cyan-500 animate-pulse-slow"></span>
-        <span class="text-cyan-500 font-semibold uppercase text-[10px] tracking-widest">CASE-LOCKED SESSION</span>
+  <!-- Header -->
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--border-color)] pb-3">
+    <div>
+      <div class="flex flex-wrap items-center gap-2">
+        <h1 class="text-lg font-semibold tracking-tight">
+          {{ $isId ? 'Konsol Dialog Analis AI Terkunci Kasus' : 'Case-Scoped AI Analyst Console' }}
+        </h1>
       </div>
-      <span class="text-neutral-800">|</span>
-      <span class="text-neutral-500 text-xs">CASE ID: <b class="text-neutral-300">{{ $selectedCase?->case_code ?? 'UNBOUND' }}</b></span>
-      <span class="text-neutral-800">|</span>
-      <span class="text-neutral-500 text-xs">{{ $isId ? 'BUKTI:' : 'EVIDENCE:' }} <b class="text-cyan-500">{{ $selectedCase?->evidence->count() ?? 0 }}</b></span>
-    </div>
-
-    <div class="flex flex-wrap items-center gap-2 text-[10px] text-neutral-500">
-      <span class="px-2 py-0.5 bg-neutral-900 border border-neutral-800 rounded-sm">
-        ALLOWLIST: extract_claims, compare_numeric_entities, analyze_citations
-      </span>
-      <span class="px-2 py-0.5 text-amber-500 bg-amber-500/10 border border-amber-500/30 rounded-sm" title="is_simulation: true">
-        {{ $isId ? 'SIMULASI' : 'SIMULATION' }}
-      </span>
-    </div>
-  </div>
-
-  <!-- Messages Scroll Area -->
-  <div id="console-messages" class="flex-1 p-4 overflow-y-auto space-y-3.5 font-mono text-xs bg-neutral-950">
-
-    <!-- System Initialization Message -->
-    <div class="p-3.5 bg-neutral-900 border border-neutral-800 rounded-sm space-y-1.5 max-w-3xl">
-      <div class="flex items-center justify-between text-[10px] text-cyan-500 pb-1.5 border-b border-neutral-800 uppercase tracking-widest">
-        <span class="font-semibold flex items-center gap-1.5">
-          <i class="fa-solid fa-terminal"></i>
-          <span>TRACE-S CASE ASSISTANT</span>
-        </span>
-        <span>CASE: {{ $selectedCase?->case_code }}</span>
-      </div>
-      <p class="font-sans text-neutral-300 text-xs leading-relaxed">
+      <p class="text-xs text-[var(--text-muted)] mt-0.5">
         {{ $isId
-          ? 'Sesi ini terkunci pada berkas bukti kasus ' . ($selectedCase?->case_code ?? '-') . '. Anda dapat meminta ekstraksi klaim, perbandingan angka terhadap dokumen resmi, atau rujukan bukti. Setiap jawaban menyertakan kode bukti yang digunakan.'
-          : 'This session is strictly locked to evidence files in case ' . ($selectedCase?->case_code ?? '-') . '. You can request claim extraction, numeric entity comparison against official documents, or citation checks. Every response cites the evidence IDs used.' }}
+          ? 'Terkunci hanya pada bukti kasus aktif (Case ID) menggunakan daftar alat backend resmi (allowlist) tanpa akses shell bebas.'
+          : 'Locked strictly to active case evidence using backend allowlisted tools without shell execution.' }}
       </p>
     </div>
 
-    @foreach($messages as $msg)
-    @if($msg->role === 'user')
-    <div class="flex justify-end">
-      <div class="p-3 bg-neutral-900 border border-cyan-500/50 rounded-sm space-y-1 max-w-2xl text-right">
-        <div class="text-[10px] uppercase tracking-widest text-cyan-500 font-semibold">
-          {{ Auth::user()->name }} &middot; {{ $msg->created_at->format('H:i') }} UTC
-        </div>
-        <p class="font-sans text-neutral-300 text-xs text-left leading-relaxed whitespace-pre-wrap">{{ $msg->content }}</p>
-      </div>
-    </div>
-    @else
-    <div class="flex justify-start">
-      <div class="p-3.5 bg-neutral-900 border border-neutral-800 rounded-sm space-y-2 max-w-2xl">
-        <div class="flex items-center justify-between text-[10px] text-cyan-500 pb-1 border-b border-neutral-800 uppercase tracking-widest">
-          <span class="font-semibold">AI ANALYST CONSOLE</span>
-          <span class="text-neutral-500">{{ $msg->created_at->format('H:i') }} UTC</span>
-        </div>
-        <p class="font-sans text-neutral-300 text-xs leading-relaxed whitespace-pre-wrap">{{ $msg->content }}</p>
-
-        @if(!empty($msg->sources))
-        <div class="flex flex-wrap items-center gap-1.5 pt-1 text-[10px]">
-          <span class="text-neutral-500 uppercase tracking-widest">{{ $isId ? 'RUJUKAN BUKTI:' : 'EVIDENCE CITATIONS:' }}</span>
-          @foreach($msg->sources as $src)
-            <span class="px-1.5 py-0.5 text-cyan-500 bg-cyan-500/10 border border-cyan-500/50 rounded-sm">{{ $src }}</span>
-          @endforeach
-        </div>
-        @endif
-
-        @if(!empty($msg->tool_calls))
-        <div class="p-2 bg-neutral-950 border border-neutral-800 rounded-sm text-[10px] text-neutral-500 space-y-0.5">
-          <div class="uppercase tracking-widest font-semibold text-neutral-300">ALLOWLISTED TOOL EXECUTION:</div>
-          @foreach($msg->tool_calls as $tc)
-            <div>&middot; Tool: <b class="text-cyan-500">{{ $tc['tool'] ?? 'extract_claims' }}</b></div>
-          @endforeach
-        </div>
-        @endif
-      </div>
-    </div>
-    @endif
-    @endforeach
-
-  </div>
-
-  <!-- Input Bar Form -->
-  <div class="p-3 bg-neutral-900 border-t border-neutral-800">
-    <form id="console-form" class="flex items-center gap-2">
-      <input type="hidden" id="session-id" value="{{ $session->id }}">
-      <div class="relative flex-1">
-        <input type="text" id="console-input" required autocomplete="off"
-               aria-label="Enter case question"
-               placeholder="{{ $isId ? 'Tanyakan ekstraksi klaim, perbandingan angka, atau kutipan bukti pada kasus ini...' : 'Ask for claim extraction, numeric comparison, or evidence citations in this case...' }}"
-               class="w-full bg-neutral-950 border border-neutral-800 text-neutral-300 px-3.5 py-2 text-xs font-mono rounded-sm focus:outline-none focus:border-cyan-500 placeholder-neutral-500">
-      </div>
-      <button type="submit" id="send-btn" aria-label="Send message" class="px-4 py-2 text-cyan-500 bg-cyan-500/10 border border-cyan-500/50 hover:bg-neutral-800/50 text-xs font-mono uppercase tracking-wider rounded-sm transition-opacity duration-150 flex items-center gap-2 font-semibold">
-        <span>{{ $isId ? 'Kirim' : 'Send' }}</span>
-        <i class="fa-solid fa-paper-plane text-xs"></i>
-      </button>
+    <form action="{{ route('console.index') }}" method="GET" class="flex items-center gap-2 text-xs font-mono">
+      <label class="label-meta">{{ $isId ? 'Kasus:' : 'Case:' }}</label>
+      <select name="case_id" onchange="this.form.submit()" aria-label="Select case context" class="input-mil py-1.5 text-xs font-mono w-auto max-w-xs">
+        @foreach($cases as $c)
+          <option value="{{ $c->id }}" {{ $selectedCase && $selectedCase->id === $c->id ? 'selected' : '' }}>
+            {{ $c->case_code }} — {{ Str::limit($c->title, 35) }}
+          </option>
+        @endforeach
+      </select>
     </form>
   </div>
 
-</div>
-<!-- [AiAnalystConsoleContainer] END -->
+  <!-- Console Container -->
+  <div class="panel flex flex-col h-[600px] overflow-hidden">
 
+    <!-- Status Bar -->
+    <div class="px-4 py-2.5 bg-[var(--bg-subtle)] border-b border-[var(--border-color)] flex flex-wrap items-center justify-between gap-2 font-mono text-xs">
+      <div class="flex flex-wrap items-center gap-3">
+        <span class="badge badge-olive">CASE-LOCKED SESSION</span>
+        <span>CASE: <b>{{ $selectedCase?->case_code ?? 'UNBOUND' }}</b></span>
+        <span>{{ $isId ? 'BUKTI:' : 'EVIDENCE:' }} <b>{{ $selectedCase?->evidence->count() ?? 0 }}</b></span>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2 text-[11px]">
+        <span class="badge badge-neutral">ALLOWLIST: extract_claims, compare_numeric_entities, analyze_citations</span>
+        <span class="badge badge-neutral">DRIVER: {{ $aiDriver }}</span>
+        @if(!empty($aiStatus['is_simulation']))
+          <span class="badge badge-warn">{{ $isId ? 'SIMULASI' : 'SIMULATION' }}</span>
+        @elseif(($aiStatus['status'] ?? 'OFFLINE') === 'ONLINE')
+          <span class="badge badge-olive">ONLINE</span>
+        @else
+          <span class="badge badge-danger">{{ $aiStatus['status'] ?? 'OFFLINE' }}</span>
+        @endif
+      </div>
+    </div>
+
+    <!-- Scroll Area -->
+    <div id="console-messages" class="flex-1 p-4 overflow-y-auto space-y-3.5 text-xs">
+
+      <div class="panel-subtle p-3.5 max-w-3xl space-y-1.5">
+        <div class="flex items-center justify-between text-[11px] font-mono border-b border-[var(--border-color)] pb-1">
+          <span class="font-semibold"><i class="fa-solid fa-terminal mr-1.5 text-[var(--accent-olive)]"></i>TRACE-S CASE ASSISTANT</span>
+          <span class="text-[var(--text-muted)]">{{ $selectedCase?->case_code ?? '-' }}</span>
+        </div>
+        <p class="leading-relaxed">
+          {{ $isId
+            ? 'Sesi ini terikat pada berkas bukti kasus ' . ($selectedCase?->case_code ?? '-') . '. Anda dapat meminta ekstraksi klaim, ringkasan bukti, atau rujukan sumber pada kasus ini.'
+            : 'This session is scoped to evidence in case ' . ($selectedCase?->case_code ?? '-') . '. You may request claim extraction, summaries, or evidence citations.' }}
+        </p>
+      </div>
+
+      @foreach($messages as $msg)
+        @if($msg->role === 'user')
+        <div class="flex justify-end">
+          <div class="panel p-3 max-w-2xl border-r-4 border-r-[#586B47] space-y-1">
+            <div class="label-meta text-right">{{ Auth::user()->trace_id ?? Auth::user()->name }} &middot; {{ $msg->created_at->format('H:i') }} UTC</div>
+            <p class="leading-relaxed whitespace-pre-wrap">{{ $msg->content }}</p>
+          </div>
+        </div>
+        @else
+        <div class="flex justify-start">
+          <div class="panel p-3.5 max-w-2xl border-l-4 border-l-[#46514C] space-y-2">
+            <div class="flex items-center justify-between text-[11px] font-mono border-b border-[var(--border-color)] pb-1">
+              <span class="font-semibold">AI ANALYST CONSOLE</span>
+              <span class="text-[var(--text-muted)]">{{ $msg->created_at->format('H:i') }} UTC</span>
+            </div>
+            <p class="leading-relaxed whitespace-pre-wrap">{{ $msg->content }}</p>
+
+            @if(!empty($msg->sources))
+            <div class="flex flex-wrap items-center gap-1.5 pt-1">
+              <span class="label-meta">{{ $isId ? 'Rujukan Bukti:' : 'Citations:' }}</span>
+              @foreach($msg->sources as $src)
+                <span class="badge badge-olive">{{ $src }}</span>
+              @endforeach
+            </div>
+            @endif
+
+            @if(!empty($msg->tool_calls))
+            <div class="panel-subtle p-2 text-[11px] font-mono space-y-0.5">
+              <div class="label-meta">ALLOWLISTED TOOL EXECUTION:</div>
+              @foreach($msg->tool_calls as $tc)
+                <div>&middot; Tool: <b>{{ is_array($tc) ? ($tc['tool'] ?? 'tool') : $tc }}</b></div>
+              @endforeach
+            </div>
+            @endif
+          </div>
+        </div>
+        @endif
+      @endforeach
+
+    </div>
+
+    <!-- Input Bar -->
+    <div class="p-3 bg-[var(--bg-subtle)] border-t border-[var(--border-color)]">
+      <form id="console-form" class="flex items-center gap-2">
+        <input type="hidden" id="session-id" value="{{ $session->id }}">
+        <input type="text" id="console-input" required autocomplete="off"
+               aria-label="Enter case question"
+               placeholder="{{ $isId ? 'Tanyakan ekstraksi klaim, ringkasan, atau rujukan bukti pada kasus ini...' : 'Ask for claim extraction, case summary, or evidence citations...' }}"
+               class="input-mil font-mono text-xs flex-1">
+        <button type="submit" id="send-btn" class="btn-primary shrink-0">
+          <span>{{ $isId ? 'Kirim' : 'Send' }}</span>
+          <i class="fa-solid fa-paper-plane text-xs"></i>
+        </button>
+      </form>
+    </div>
+
+  </div>
+
+</div>
 @endsection
 
 @push('scripts')
-<!-- [ModuleEScripts] START -->
 <script>
-  const form = document.getElementById('console-form');
-  const input = document.getElementById('console-input');
-  const sendBtn = document.getElementById('send-btn');
-  const msgContainer = document.getElementById('console-messages');
-  const sessionId = document.getElementById('session-id').value;
+  (function () {
+    const form = document.getElementById('console-form');
+    const input = document.getElementById('console-input');
+    const sendBtn = document.getElementById('send-btn');
+    const msgContainer = document.getElementById('console-messages');
+    const sessionId = document.getElementById('session-id').value;
+    const actorLabel = @json(Auth::user()->trace_id ?? Auth::user()->name);
 
-  function scrollToBottom() {
-    msgContainer.scrollTop = msgContainer.scrollHeight;
-  }
-  scrollToBottom();
+    function scrollToBottom() {
+      msgContainer.scrollTop = msgContainer.scrollHeight;
+    }
+    scrollToBottom();
 
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const text = input.value.trim();
-    if (!text) return;
+    function escapeHtml(str) {
+      const p = document.createElement('p');
+      p.textContent = str == null ? '' : String(str);
+      return p.innerHTML;
+    }
 
-    const userDiv = document.createElement('div');
-    userDiv.className = 'flex justify-end';
-    userDiv.innerHTML = `
-      <div class="p-3 bg-neutral-900 border border-cyan-500/50 rounded-sm space-y-1 max-w-2xl text-right">
-        <div class="text-[10px] uppercase tracking-widest text-cyan-500 font-semibold">
-          OPERATOR &middot; NOW
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const text = input.value.trim();
+      if (!text) return;
+
+      const userDiv = document.createElement('div');
+      userDiv.className = 'flex justify-end';
+      userDiv.innerHTML = `
+        <div class="panel p-3 max-w-2xl border-r-4 border-r-[#586B47] space-y-1">
+          <div class="label-meta text-right">${escapeHtml(actorLabel)} &middot; NOW</div>
+          <p class="leading-relaxed whitespace-pre-wrap">${escapeHtml(text)}</p>
         </div>
-        <p class="font-sans text-neutral-300 text-xs text-left leading-relaxed">${escapeHtml(text)}</p>
-      </div>
-    `;
-    msgContainer.appendChild(userDiv);
-    input.value = '';
-    sendBtn.disabled = true;
-    scrollToBottom();
+      `;
+      msgContainer.appendChild(userDiv);
+      input.value = '';
+      sendBtn.disabled = true;
+      scrollToBottom();
 
-    // Monochrome skeleton loading bar (§4.6)
-    const loadingDiv = document.createElement('div');
-    loadingDiv.className = 'flex justify-start';
-    loadingDiv.id = 'loading-placeholder';
-    loadingDiv.innerHTML = `
-      <div class="p-3 bg-neutral-900 border border-neutral-800 rounded-sm w-64 space-y-2">
-        <div class="h-2.5 bg-neutral-800 animate-pulse rounded-none w-3/4"></div>
-        <div class="h-2.5 bg-neutral-800 animate-pulse rounded-none w-1/2"></div>
-      </div>
-    `;
-    msgContainer.appendChild(loadingDiv);
-    scrollToBottom();
+      const loadingDiv = document.createElement('div');
+      loadingDiv.id = 'loading-placeholder';
+      loadingDiv.className = 'flex justify-start';
+      loadingDiv.innerHTML = `<div class="panel p-3 text-xs font-mono text-[var(--text-muted)]">Processing case-scoped query...</div>`;
+      msgContainer.appendChild(loadingDiv);
+      scrollToBottom();
 
-    try {
-      const res = await fetch("{{ route('console.message') }}", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRF-TOKEN": "{{ csrf_token() }}"
-        },
-        body: JSON.stringify({
-          session_id: sessionId,
-          message: text
-        })
-      });
+      try {
+        const res = await fetch("{{ route('console.message') }}", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "X-CSRF-TOKEN": "{{ csrf_token() }}"
+          },
+          body: JSON.stringify({ session_id: sessionId, message: text })
+        });
+        loadingDiv.remove();
+        const json = await res.json();
 
-      loadingDiv.remove();
-      const json = await res.json();
-
-      if (json.status === 'OK' && json.message) {
-        const msg = json.message;
-        const assistDiv = document.createElement('div');
-        assistDiv.className = 'flex justify-start';
-
-        let sourcesHtml = '';
-        if (msg.sources && msg.sources.length) {
-          sourcesHtml = `
-            <div class="flex flex-wrap items-center gap-1.5 pt-1 text-[10px]">
-              <span class="text-neutral-500 uppercase tracking-widest">EVIDENCE CITATIONS:</span>
-              ${msg.sources.map(s => `<span class="px-1.5 py-0.5 text-cyan-500 bg-cyan-500/10 border border-cyan-500/50 rounded-sm">${escapeHtml(s)}</span>`).join('')}
+        if (json.status === 'OK' && json.message) {
+          const msg = json.message;
+          const assistDiv = document.createElement('div');
+          assistDiv.className = 'flex justify-start';
+          let sourcesHtml = '';
+          if (msg.sources && msg.sources.length) {
+            sourcesHtml = `<div class="flex flex-wrap items-center gap-1.5 pt-1"><span class="label-meta">CITATIONS:</span>${msg.sources.map(s => `<span class="badge badge-olive">${escapeHtml(s)}</span>`).join('')}</div>`;
+          }
+          const simTag = msg.is_simulation ? `<span class="badge badge-warn">SIMULATION</span>` : '';
+          assistDiv.innerHTML = `
+            <div class="panel p-3.5 max-w-2xl border-l-4 border-l-[#46514C] space-y-2">
+              <div class="flex items-center justify-between gap-2 text-[11px] font-mono border-b border-[var(--border-color)] pb-1">
+                <span class="font-semibold">AI ANALYST CONSOLE ${simTag}</span>
+                <span class="text-[var(--text-muted)]">${escapeHtml(msg.created_at || '')} UTC</span>
+              </div>
+              <p class="leading-relaxed whitespace-pre-wrap">${escapeHtml(msg.content)}</p>
+              ${sourcesHtml}
             </div>
           `;
+          msgContainer.appendChild(assistDiv);
         }
-
-        assistDiv.innerHTML = `
-          <div class="p-3.5 bg-neutral-900 border border-neutral-800 rounded-sm space-y-2 max-w-2xl">
-            <div class="flex items-center justify-between text-[10px] text-cyan-500 pb-1 border-b border-neutral-800 uppercase tracking-widest">
-              <span class="font-semibold">AI ANALYST CONSOLE</span>
-              <span class="text-neutral-500">${escapeHtml(msg.created_at || '')} UTC</span>
-            </div>
-            <p class="font-sans text-neutral-300 text-xs leading-relaxed whitespace-pre-wrap">${escapeHtml(msg.content)}</p>
-            ${sourcesHtml}
-          </div>
-        `;
-        msgContainer.appendChild(assistDiv);
+      } catch (_) {
+        document.getElementById('loading-placeholder')?.remove();
+      } finally {
+        sendBtn.disabled = false;
+        scrollToBottom();
       }
-    } catch (err) {
-      document.getElementById('loading-placeholder')?.remove();
-    } finally {
-      sendBtn.disabled = false;
-      scrollToBottom();
-    }
-  });
-
-  function escapeHtml(string) {
-    const p = document.createElement("p");
-    p.textContent = string;
-    return p.innerHTML;
-  }
+    });
+  })();
 </script>
-<!-- [ModuleEScripts] END -->
 @endpush

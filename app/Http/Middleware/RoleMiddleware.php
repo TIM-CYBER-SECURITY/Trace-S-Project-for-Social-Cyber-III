@@ -19,10 +19,10 @@ class RoleMiddleware
         if (!empty($roles) && !$user->hasRole(...$roles)) {
             if ($request->expectsJson()) {
                 return response()->json([
-                    'error' => 'Akses ditolak: Tingkat otorisasi (' . strtoupper($user->role) . ') tidak mencukupi untuk modul ini.',
+                    'error' => 'Akses ditolak: Tingkat otorisasi (' . $user->roleLabel() . ') tidak mencukupi untuk modul ini.',
                 ], 403);
             }
-            abort(403, 'Otorisasi ditolak. Peran Anda: ' . strtoupper($user->role) . ' tidak memiliki clearance untuk tindakan tersebut.');
+            abort(403, 'Otorisasi ditolak. Peran Anda: ' . $user->roleLabel() . ' tidak memiliki izin untuk tindakan tersebut.');
         }
 
         return $next($request);

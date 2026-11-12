@@ -1,12 +1,11 @@
 # =========================================================================
-# PUSSIBERAD TNI AD - TRACE-S (Social Cyber Intelligence)
-# Kategori 04: Siber Sosial - Kartika Cyber Hackathon 2026
+# TRACE-S v2.0 // Institutional Social Cyber Intelligence Platform
 # =========================================================================
 
-Write-Host "=========================================================================" -ForegroundColor Cyan
-Write-Host "      PUSSIBERAD TNI AD - TRACE-S (Social Cyber Intelligence)            " -ForegroundColor Green
-Write-Host "      Kategori 04: Siber Sosial - Kartika Cyber Hackathon 2026           " -ForegroundColor Yellow
-Write-Host "=========================================================================" -ForegroundColor Cyan
+Write-Host "=========================================================================" -ForegroundColor DarkGreen
+Write-Host "  TRACE-S v2.0 // Institutional Information & Social Cyber Platform     " -ForegroundColor White
+Write-Host "  RBAC Governance - External Trace-ID Provisioning - Append-Only Audit  " -ForegroundColor Gray
+Write-Host "=========================================================================" -ForegroundColor DarkGreen
 
 $phpBin = "php"
 if (-not (Get-Command php -ErrorAction SilentlyContinue)) {
@@ -21,32 +20,43 @@ if (-not (Get-Command php -ErrorAction SilentlyContinue)) {
     Write-Host "[OK] Menggunakan system PHP terpasang." -ForegroundColor Green
 }
 
-# Cek .env
 if (-not (Test-Path ".env")) {
-    Write-Host "[INFO] Membuat file .env dari .env.example..." -ForegroundColor Yellow
+    Write-Host "[INFO] Membuat .env dari .env.example..." -ForegroundColor Yellow
     Copy-Item ".env.example" ".env"
     & $phpBin artisan key:generate
 }
 
-# Cek SQLite
 if (-not (Test-Path "database\database.sqlite") -or (Get-Item "database\database.sqlite").Length -eq 0) {
-    Write-Host "[INFO] Inisialisasi database SQLite dan seeder skenario..." -ForegroundColor Yellow
+    Write-Host "[INFO] Inisialisasi database SQLite, RBAC, dan skenario simulasi lokal..." -ForegroundColor Yellow
     New-Item -ItemType File -Path "database\database.sqlite" -Force | Out-Null
     & $phpBin artisan migrate:fresh --seed --force
 }
 
+if (-not (Test-Path "public\build\manifest.json")) {
+    Write-Host "[WARN] Asset frontend terkompilasi tidak ditemukan (public/build/manifest.json)." -ForegroundColor Yellow
+    if (Get-Command npm -ErrorAction SilentlyContinue) {
+        Write-Host "[INFO] Menjalankan npm run build..." -ForegroundColor Yellow
+        npm run build
+    } else {
+        Write-Host "[WARN] npm tidak ditemukan. Jalankan 'npm install && npm run build' secara manual." -ForegroundColor Yellow
+    }
+}
+
 Write-Host ""
-Write-Host "=========================================================================" -ForegroundColor Cyan
-Write-Host " Sistem siap dijalankan!                                                 " -ForegroundColor White
-Write-Host " URL Akses : http://127.0.0.1:8000                                       " -ForegroundColor Green
-Write-Host "                                                                         "
-Write-Host " Akun Default Evaluasi (4 Peran):                                        " -ForegroundColor White
-Write-Host "   - Operator : operator@traces.mil.id (Password: operator123)          " -ForegroundColor Gray
-Write-Host "   - Analis   : analis@traces.mil.id   (Password: analis123)            " -ForegroundColor Gray
-Write-Host "   - Komandan : komandan@traces.mil.id (Password: komandan123)          " -ForegroundColor Gray
-Write-Host "   - Admin    : admin@traces.mil.id    (Password: admin123)             " -ForegroundColor Gray
-Write-Host "=========================================================================" -ForegroundColor Cyan
+Write-Host "=========================================================================" -ForegroundColor DarkGreen
+Write-Host " Sistem siap dijalankan (Mode Operasional Lokal)" -ForegroundColor White
+Write-Host " URL Utama         : http://127.0.0.1:8000/login" -ForegroundColor Green
+Write-Host " Cek Kesehatan     : http://127.0.0.1:8000/health" -ForegroundColor Gray
 Write-Host ""
-Write-Host "Menjalankan Laravel Server (Tekan Ctrl+C untuk berhenti)..." -ForegroundColor White
+Write-Host " Catatan Keamanan & Provisioning Akun (Khusus Developer):" -ForegroundColor Yellow
+Write-Host "   Tidak ada pendaftaran publik maupun akun/kata sandi demo." -ForegroundColor Gray
+Write-Host "   Terbitkan akun setelah verifikasi institusi eksternal:" -ForegroundColor Gray
+Write-Host "     $phpBin artisan trace:issue-account ""Nama"" ""Organisasi"" --role=ADMINISTRATOR --approved-by=""DevTeam""" -ForegroundColor Gray
+Write-Host "   Validasi & impor dari provisioning/registry/approved-accounts.json:" -ForegroundColor Gray
+Write-Host "     $phpBin artisan trace:validate-accounts" -ForegroundColor Gray
+Write-Host "     $phpBin artisan trace:provision-accounts" -ForegroundColor Gray
+Write-Host "=========================================================================" -ForegroundColor DarkGreen
+Write-Host ""
+Write-Host "Menjalankan Laravel Development Server (Ctrl+C untuk berhenti)..." -ForegroundColor White
 
 & $phpBin artisan serve --host=127.0.0.1 --port=8000

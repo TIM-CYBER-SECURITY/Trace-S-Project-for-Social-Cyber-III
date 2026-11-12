@@ -43,6 +43,11 @@ class SkillController extends Controller
             'user_ids.*' => ['integer'],
         ]);
         $me = Auth::user();
+        if (in_array($v['action'], ['install', 'update', 'remove'], true)) {
+            abort_unless($me->hasPermission('skills.install'), 403, 'Memasang atau menghapus Skill memerlukan izin skills.install.');
+        } else {
+            abort_unless($me->hasPermission('skills.configure'), 403, 'Mengonfigurasi atau menugaskan Skill memerlukan izin skills.configure.');
+        }
 
         try {
             if (in_array($v['action'], ['install', 'update'], true)) {

@@ -24,7 +24,7 @@ class ProvisionAccountsCommand extends Command
         }
 
         if ($out['errors']) {
-            $this->error('Registry tidak valid; impor DIBATALKAN. Jalankan trace:validate-registry untuk detail.');
+            $this->error('Registry tidak valid; impor DIBATALKAN. Jalankan trace:validate-accounts untuk detail.');
             foreach ($out['errors'] as $label => $msgs) {
                 $this->line("  {$label}: " . implode(' | ', $msgs));
             }

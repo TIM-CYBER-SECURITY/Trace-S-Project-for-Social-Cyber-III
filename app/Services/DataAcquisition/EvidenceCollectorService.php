@@ -11,7 +11,8 @@ use App\Services\Support\AuditLogger;
 use Exception;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Data Acquisition & Evidence Management (Master Prompt §9, Supplemental §4).
@@ -22,6 +23,7 @@ use Illuminate\Support\Facades\Storage;
  *
  * Menjamin:
  * - Tidak menerobos CAPTCHA/login/private.
+ * - Anti-SSRF (menolak loopback/private/link-local/reserved IP dan skema non-HTTP).
  * - Membedakan status akses: OK | GAGAL | TIDAK TERSEDIA | BELUM DIPERIKSA.
  * - Simpan hash konten (SHA-256), timestamp, URL, penerbit.
  * - Konten dari web dibersihkan dan diperlakukan sebagai DATA TIDAK TEPERCAYA.
@@ -30,6 +32,83 @@ class EvidenceCollectorService
 {
     public function __construct(private AuditLogger $audit)
     {
+    }
+
+    /** Validasi file unggahan berbasis ekstensi dan magic bytes (tanpa bergantung pada fileinfo/finfo). */
+    public static function assertSafeUpload(UploadedFile $file): void
+    {
+        $ext = strtolower($file->getClientOriginalExtension());
+        $allowed = config('trace.upload.mimes', ['txt', 'pdf', 'png', 'jpg', 'jpeg', 'md', 'html']);
+        if (! in_array($ext, $allowed, true)) {
+            throw ValidationException::withMessages([
+                'evidence_file' => 'Ekstensi berkas tidak diizinkan. Gunakan: ' . implode(', ', $allowed),
+            ]);
+        }
+
+        $path = $file->getRealPath();
+        $head = $path && is_file($path) ? (string) @file_get_contents($path, false, null, 0, 512) : '';
+
+        $ok = match ($ext) {
+            'pdf' => str_starts_with($head, '%PDF-'),
+            'png' => str_starts_with($head, "\x89PNG\r\n\x1a\n"),
+            'jpg', 'jpeg' => str_starts_with($head, "\xFF\xD8\xFF"),
+            'txt', 'md', 'html' => ! str_contains($head, "\x00")
+                && ! preg_match('/^(MZ|\x7FELF|%!PS|#!\s*\/)/', $head)
+                && ($ext === 'html' || mb_check_encoding($head, 'UTF-8')),
+            default => false,
+        };
+
+        if (! $ok) {
+            throw ValidationException::withMessages([
+                'evidence_file' => 'Isi berkas tidak cocok dengan ekstensi atau berpotensi tidak aman.',
+            ]);
+        }
+    }
+
+    /** Periksa apakah URL layak diakses tanpa memicu SSRF ke jaringan lokal/internal. */
+    public static function validatePublicUrl(string $url): ?string
+    {
+        $parts = parse_url($url);
+        if (! is_array($parts) || empty($parts['scheme']) || empty($parts['host'])) {
+            return 'URL tidak memiliki skema atau host yang valid.';
+        }
+        $scheme = strtolower($parts['scheme']);
+        if (! in_array($scheme, ['http', 'https'], true)) {
+            return "Skema URL '{$scheme}' tidak diizinkan (hanya http/https).";
+        }
+        if (isset($parts['user']) || isset($parts['pass'])) {
+            return 'URL dengan kredensial tersemat tidak diizinkan.';
+        }
+
+        if (config('trace.fetch.allow_private', false)) {
+            return null;
+        }
+
+        $host = strtolower(trim($parts['host'], '[]'));
+        if ($host === 'localhost' || str_ends_with($host, '.localhost') || str_ends_with($host, '.local') || str_ends_with($host, '.internal')) {
+            return 'Host internal/lokal diblokir oleh kebijakan anti-SSRF.';
+        }
+
+        if (filter_var($host, FILTER_VALIDATE_IP)) {
+            if (! self::isPublicIp($host)) {
+                return "Alamat IP {$host} berada dalam rentang privat/loopback/tercadang.";
+            }
+            return null;
+        }
+
+        $ips = @gethostbynamel($host) ?: [];
+        foreach ($ips as $ip) {
+            if (! self::isPublicIp($ip)) {
+                return "Host {$host} mengarah ke alamat IP non-publik ({$ip}).";
+            }
+        }
+
+        return null;
+    }
+
+    private static function isPublicIp(string $ip): bool
+    {
+        return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== false;
     }
 
     /**
@@ -45,9 +124,28 @@ class EvidenceCollectorService
         $rawPath = null;
 
         if ($file && $file->isValid()) {
-            $rawPath = $file->store('evidence/' . $case->case_code, 'local');
-            if (empty($extractedText) && in_array(strtolower($file->getClientOriginalExtension()), ['txt', 'md', 'json', 'csv'])) {
+            self::assertSafeUpload($file);
+            $ext = strtolower($file->getClientOriginalExtension());
+            $safeName = Str::random(40) . ($ext ? '.' . $ext : '');
+            $relDir = 'evidence/' . $case->case_code;
+            $rawPath = $relDir . '/' . $safeName;
+            if (class_exists(\finfo::class)) {
+                $rawPath = $file->storeAs($relDir, $safeName, 'local');
+            } else {
+                $diskRoot = (string) config('filesystems.disks.local.root', storage_path('app/private'));
+                $destDir = rtrim($diskRoot, '\\/') . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relDir);
+                if (! is_dir($destDir) && ! @mkdir($destDir, 0750, true) && ! is_dir($destDir)) {
+                    throw new Exception('Direktori penyimpanan bukti privat tidak dapat dibuat.');
+                }
+                file_put_contents($destDir . DIRECTORY_SEPARATOR . $safeName, (string) file_get_contents($file->getRealPath()), LOCK_EX);
+                @chmod($destDir . DIRECTORY_SEPARATOR . $safeName, 0640);
+            }
+            if (empty($extractedText) && in_array($ext, ['txt', 'md', 'html'], true)) {
                 $extractedText = (string) file_get_contents($file->getRealPath());
+                if ($ext === 'html') {
+                    $cleaned = preg_replace('/<(script|style|nav|header|footer|aside)[^>]*>.*?<\/\\1>/is', '', $extractedText);
+                    $extractedText = trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($cleaned))));
+                }
             }
         }
 
@@ -120,6 +218,7 @@ class EvidenceCollectorService
         $cfg = config('trace.fetch');
         $timeout = $cfg['timeout'] ?? 10;
         $maxBytes = $cfg['max_bytes'] ?? 2_000_000;
+        $maxRedirects = (int) ($cfg['max_redirects'] ?? 3);
 
         $host = parse_url($url, PHP_URL_HOST);
         $extractedText = '';
@@ -127,41 +226,71 @@ class EvidenceCollectorService
         $title = $extra['title'] ?? ($host ? 'Web Capture: ' . $host : 'Web Document');
         $notes = '';
 
-        try {
-            $response = Http::timeout($timeout)
-                ->withUserAgent($cfg['user_agent'] ?? 'Trace-S/1.0')
-                ->get($url);
-
-            if ($response->successful()) {
-                $html = $response->body();
-                if (strlen($html) > $maxBytes) {
-                    $html = substr($html, 0, $maxBytes);
-                    $notes .= "Teks dibatasi pada batas maksimum {$maxBytes} bytes. ";
-                }
-
-                // Ekstraksi judul jika ada
-                if (preg_match('/<title[^>]*>(.*?)<\/title>/is', $html, $matches)) {
-                    $pageTitle = trim(html_entity_decode(strip_tags($matches[1])));
-                    if (!empty($pageTitle)) {
-                        $title = $pageTitle;
-                    }
-                }
-
-                // Hapus script, style, nav, footer
-                $cleaned = preg_replace('/<(script|style|nav|header|footer|aside)[^>]*>.*?<\/\\1>/is', '', $html);
-                $extractedText = trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($cleaned))));
-
-                if (empty($extractedText)) {
-                    $accessStatus = 'TIDAK TERSEDIA';
-                    $notes .= "Halaman berhasil diakses tetapi tidak ada teks yang dapat diekstraksi.";
-                }
-            } else {
-                $accessStatus = 'GAGAL';
-                $notes .= "HTTP error: status " . $response->status();
-            }
-        } catch (Exception $e) {
+        $ssrfError = self::validatePublicUrl($url);
+        if ($ssrfError !== null) {
             $accessStatus = 'GAGAL';
-            $notes .= "Gagal menghubungi URL: " . $e->getMessage();
+            $notes = 'Ditolak (kebijakan anti-SSRF): ' . $ssrfError;
+            $this->audit->log('EVIDENCE_FETCH_BLOCKED_SSRF', $case, ['url' => mb_substr($url, 0, 200), 'reason' => $ssrfError], $user?->id, 'DENIED');
+        } else {
+            try {
+                $currentUrl = $url;
+                $response = null;
+                for ($hop = 0; $hop <= $maxRedirects; $hop++) {
+                    if ($err = self::validatePublicUrl($currentUrl)) {
+                        $accessStatus = 'GAGAL';
+                        $notes .= 'Redirect ditolak (kebijakan anti-SSRF): ' . $err;
+                        $response = null;
+                        break;
+                    }
+                    $response = Http::timeout($timeout)
+                        ->withOptions(['allow_redirects' => false])
+                        ->withUserAgent($cfg['user_agent'] ?? 'Trace-S/1.0')
+                        ->get($currentUrl);
+
+                    if ($response->status() >= 300 && $response->status() < 400 && ($loc = $response->header('Location'))) {
+                        if ($hop === $maxRedirects) {
+                            $accessStatus = 'GAGAL';
+                            $notes .= "Batas redirect ({$maxRedirects}) terlampaui.";
+                            $response = null;
+                            break;
+                        }
+                        $currentUrl = str_starts_with($loc, 'http') ? $loc : (parse_url($currentUrl, PHP_URL_SCHEME) . '://' . parse_url($currentUrl, PHP_URL_HOST) . '/' . ltrim($loc, '/'));
+                        continue;
+                    }
+                    break;
+                }
+
+                if ($response && $response->successful()) {
+                    $html = $response->body();
+                    if (strlen($html) > $maxBytes) {
+                        $html = substr($html, 0, $maxBytes);
+                        $notes .= "Teks dibatasi pada batas maksimum {$maxBytes} bytes. ";
+                    }
+
+                    // Ekstraksi judul jika ada
+                    if (preg_match('/<title[^>]*>(.*?)<\/title>/is', $html, $matches)) {
+                        $pageTitle = trim(html_entity_decode(strip_tags($matches[1])));
+                        if (!empty($pageTitle)) {
+                            $title = $pageTitle;
+                        }
+                    }
+
+                    // Hapus script, style, nav, footer
+                    $cleaned = preg_replace('/<(script|style|nav|header|footer|aside)[^>]*>.*?<\/\\1>/is', '', $html);
+                    $extractedText = trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($cleaned))));
+
+                    if (empty($extractedText)) {
+                        $accessStatus = 'TIDAK TERSEDIA';
+                        $notes .= "Halaman berhasil diakses tetapi tidak ada teks yang dapat diekstraksi.";
+                    }
+                } elseif ($response) {
+                    $accessStatus = 'GAGAL';
+                    $notes .= "HTTP error: status " . $response->status();
+                }
+            } catch (Exception $e) {
+                $accessStatus = 'GAGAL';
+                $notes .= "Gagal menghubungi URL: " . $e->getMessage();
+            }
         }
 
         $hash = EvidenceItem::hashOf($extractedText);

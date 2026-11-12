@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Trace-S Account Registry Entry",
+  "description": "Entri akun Trace-ID terverifikasi pada provisioning/registry/approved-accounts.json. Tidak boleh memuat kata sandi, hash, rahasia pemulihan, atau token sesi.",
+  "type": "object",
+  "required": [
+    "trace_id",
+    "full_name",
+    "organization",
+    "approval_status",
+    "account_status",
+    "approved_at"
+  ],
+  "properties": {
+    "trace_id": {
+      "type": "string",
+      "pattern": "^TRS-[A-Z0-9]{4}-[A-Z0-9]{4}$"
+    },
+    "full_name": {
+      "type": "string",
+      "minLength": 2
+    },
+    "organization": {
+      "type": "string",
+      "minLength": 2
+    },
+    "role": {
+      "type": "string",
+      "enum": ["ADMINISTRATOR", "OPERATOR"]
+    },
+    "approved_role": {
+      "type": "string",
+      "enum": ["ADMINISTRATOR", "OPERATOR"]
+    },
+    "requested_role": {
+      "type": "string",
+      "enum": ["ADMINISTRATOR", "OPERATOR"]
+    },
+    "unit": {
+      "type": ["string", "null"]
+    },
+    "position": {
+      "type": ["string", "null"]
+    },
+    "approval_status": {
+      "type": "string",
+      "enum": ["APPROVED", "REJECTED"]
+    },
+    "account_status": {
+      "type": "string",
+      "enum": ["PROVISIONED", "ACTIVE", "SUSPENDED", "REVOKED"]
+    },
+    "approved_by": {
+      "type": ["string", "null"]
+    },
+    "approved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "provisioned_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "notes": {
+      "type": ["string", "null"]
+    },
+    "registration_reference": {
+      "type": ["string", "null"]
+    }
+  },
+  "additionalProperties": false
+}

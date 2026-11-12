@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Middleware\AuthenticatePlatform;
 use App\Http\Middleware\AuthenticateTrace;
 use App\Http\Middleware\PermissionMiddleware;
 use App\Http\Middleware\RoleMiddleware;
@@ -28,13 +27,12 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'auth.trace' => AuthenticateTrace::class,
-            'auth.platform' => AuthenticatePlatform::class,
             'permission' => PermissionMiddleware::class,
             'role' => RoleMiddleware::class,
         ]);
 
-        // Tamu diarahkan ke halaman login yang sesuai.
-        $middleware->redirectGuestsTo(fn (Request $r) => $r->is('platform*') ? route('platform.login') : route('login'));
+        // Tamu diarahkan langsung ke halaman login Trace-ID.
+        $middleware->redirectGuestsTo(fn (Request $r) => route('login'));
     })
     ->withExceptions(function (Exceptions $exceptions) {
         // Sesi/CSRF kedaluwarsa: kembali ke login tanpa stack trace.
@@ -42,7 +40,7 @@ return Application::configure(basePath: dirname(__DIR__))
             if ($request->expectsJson()) {
                 return response()->json(['error' => 'Sesi kedaluwarsa. Muat ulang halaman.'], 419);
             }
-            return redirect()->route($request->is('platform*') ? 'platform.login' : 'login')
+            return redirect()->route('login')
                 ->with('warning', 'Sesi Anda telah kedaluwarsa. Silakan masuk kembali.');
         });
 

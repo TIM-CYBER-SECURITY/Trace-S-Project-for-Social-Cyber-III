@@ -8,20 +8,26 @@ use App\Models\AiServer;
 use App\Models\Connector;
 use App\Models\EvidenceComparison;
 use App\Models\EvidenceItem;
+use App\Models\InformationRecord;
 use App\Models\InvestigationCase;
 use App\Models\Narrative;
 use App\Models\NarrativeCluster;
 use App\Models\NarrativeClusterItem;
+use App\Models\Organization;
+use App\Models\RecordVersion;
 use App\Models\Report;
+use App\Models\Role;
 use App\Models\RssFeed;
+use App\Models\Skill;
 use App\Models\Source;
 use App\Models\SourceRelationship;
-use App\Models\SystemLog;
 use App\Models\ThreatActor;
 use App\Models\ThreatAnalysis;
+use App\Models\Unit;
 use App\Models\User;
+use App\Services\Skills\SkillService;
+use App\Services\Support\AuditLogger;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 class DatabaseSeeder extends Seeder
@@ -36,20 +42,32 @@ class DatabaseSeeder extends Seeder
             return;
         }
 
+        $org = Organization::firstOrCreate(
+            ['name' => 'Satuan Uji Simulasi (Non-Produksi)'],
+            ['status' => 'ACTIVE']
+        );
+        $unit = Unit::firstOrCreate(
+            ['organization_id' => $org->id, 'name' => 'Tim Simulasi Awal'],
+            ['status' => 'ACTIVE']
+        );
+
         // 1. Pemilik fixture simulasi: akun sistem yang tidak dapat login
         //    (status SYSTEM, kata sandi acak yang tidak pernah diungkap). Tidak ada kredensial demo.
         $operator = User::create([
             'name' => 'SIMULATION FIXTURE OWNER',
             'trace_id' => null,
             'password' => Str::random(64),
-            'role_id' => \App\Models\Role::where('name', 'OPERATOR')->value('id'),
+            'role_id' => Role::where('name', 'OPERATOR')->value('id'),
+            'organization_id' => $org->id,
+            'unit_id' => $unit->id,
+            'position' => 'System Fixture Placeholder',
             'account_status' => 'SYSTEM',
             'approval_status' => 'APPROVED',
             'must_change_password' => true,
         ]);
         $analis = $komandan = $admin = $operator;
 
-        // 2. AI Server & Model Registry (Master §8)
+        // 2. AI Server & Model Registry
         $mockServer = AiServer::create([
             'name' => 'Internal AI Inference Engine (MockDriver)',
             'driver' => 'mock',
@@ -581,25 +599,51 @@ class DatabaseSeeder extends Seeder
             ]);
         }
 
-        // 12. Audit Log Seed (Prinsip Append-Only)
-        SystemLog::create([
-            'user_id' => $admin->id,
-            'action' => 'SYSTEM_INITIALIZATION',
-            'target_type' => 'TraceSApp',
-            'target_id' => '1',
-            'ip' => '127.0.0.1',
-            'user_agent' => 'Trace-S Seeder / CLI',
-            'metadata' => ['mode' => 'LOCAL_FIRST', 'env' => 'DEVELOPMENT_SIMULATION'],
+        // 12. Katalog Skill awal (status DISABLED; diaktifkan eksplisit oleh Administrator)
+        $skillService = app(SkillService::class);
+        foreach (['claim-extractor', 'lexical-similarity'] as $skillKey) {
+            if (! Skill::where('skill_key', $skillKey)->exists()) {
+                $skillService->install($operator, $skillKey);
+            }
+        }
+
+        // 13. Contoh Rekaman Informasi terstruktur (Fixture Simulasi)
+        $infoRecord = InformationRecord::create([
+            'record_code' => 'INF-2026-000001',
+            'title' => '[SIMULASI] Ringkasan Verifikasi Narasi Evaluasi Anggaran Program Nasional',
+            'description' => 'Rekaman contoh untuk uji alur kerja peninjauan informasi.',
+            'category' => 'narrative_observation',
+            'status' => 'APPROVED',
+            'organization_id' => $org->id,
+            'created_by' => $operator->id,
+            'reviewed_by' => $operator->id,
+            'current_version' => 1,
+            'approved_version' => 1,
+            'submitted_at' => now()->subHours(5),
+            'approved_at' => now()->subHours(3),
+        ]);
+        RecordVersion::create([
+            'record_id' => $infoRecord->id,
+            'version_number' => 1,
+            'title' => $infoRecord->title,
+            'description' => $infoRecord->description,
+            'category' => $infoRecord->category,
+            'content' => "Catatan Simulasi: Berdasarkan dataset contoh kasus TS-2026-001, klaim penghentian total program nasional berasal dari modifikasi wacana evaluasi anggaran. Materi primer menunjukkan evaluasi berkala tetap berlangsung tanpa pembatalan program.",
+            'changed_by' => $operator->id,
+            'change_reason' => 'Seed fixture awal non-produksi',
         ]);
 
-        SystemLog::create([
-            'user_id' => $operator->id,
-            'action' => 'CASE_CREATED',
-            'target_type' => 'InvestigationCase',
-            'target_id' => (string) $case->id,
-            'ip' => '127.0.0.1',
-            'user_agent' => 'Trace-S Operator Terminal',
-            'metadata' => ['case_code' => $case->case_code, 'priority' => $case->priority],
-        ]);
+        // 14. Audit Log Seed (Append-Only dengan SHA-256 hash chain)
+        $audit = app(AuditLogger::class);
+        $audit->log('SYSTEM_INITIALIZATION', ['type' => 'TraceSApp', 'id' => '1'], [
+            'mode' => 'LOCAL_FIRST',
+            'env' => app()->environment(),
+            'simulation_fixture' => true,
+        ], null, 'SUCCESS', ['type' => 'SYSTEM', 'label' => 'seeder']);
+
+        $audit->log('CASE_CREATED', $case, [
+            'case_code' => $case->case_code,
+            'priority' => $case->priority,
+        ], $operator->id, 'SUCCESS', ['type' => 'SYSTEM', 'label' => 'seeder']);
     }
 }

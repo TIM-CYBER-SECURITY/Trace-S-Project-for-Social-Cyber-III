@@ -1,164 +1,141 @@
-@extends('layouts.tactical')
+@extends('layouts.app')
 
 @php
   $isId = app()->getLocale() === 'id';
+  $canWriteCase = Auth::user()->hasPermission('case.write');
 @endphp
 
 @section('title', ($isId ? 'Arsip Kasus' : 'Case Archive') . ' // TRACE-S')
 
 @section('content')
+<div class="space-y-5">
 
-<!-- [CaseArchiveHeader] START -->
-<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-800 pb-3">
-  <div>
-    <div class="flex items-center gap-2.5">
-      <h1 class="text-sm font-semibold font-mono tracking-wide text-neutral-300 uppercase">
-        {{ $isId ? 'Arsip Kasus Analisis Siber Sosial' : 'Social Cyber Analysis Case Archive' }}
-      </h1>
-      <span class="text-[10px] font-mono px-2 py-0.5 text-cyan-500 bg-cyan-500/10 border border-cyan-500/50 rounded-sm">
-        CASE-CENTRIC WORKFLOW
-      </span>
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--border-color)] pb-3">
+    <div>
+      <div class="flex flex-wrap items-center gap-2">
+        <h1 class="text-lg font-semibold tracking-tight">
+          {{ $isId ? 'Arsip Kasus Analisis Siber Sosial' : 'Social Cyber Analysis Case Archive' }}
+        </h1>
+        <span class="badge badge-olive">CASE-CENTRIC WORKFLOW</span>
+      </div>
+      <p class="text-xs text-[var(--text-muted)] mt-0.5">
+        {{ $isId
+          ? 'Pengelolaan berkas kasus investigasi, repositori bukti SHA-256, dan pelacakan pemeriksaan klaim.'
+          : 'Case dossier management, SHA-256 digital evidence repository, and linked claim inspections.' }}
+      </p>
     </div>
-    <p class="text-xs text-neutral-500 mt-0.5">
-      {{ $isId
-        ? 'Pengelolaan berkas kasus, penyimpanan bukti digital dengan hash SHA-256, dan keterkaitan pemeriksaan klaim.'
-        : 'Management of case files, SHA-256 digital evidence storage, and linked claim inspections.' }}
-    </p>
-  </div>
 
-  <div>
-    <button onclick="document.getElementById('new-case-modal').classList.remove('hidden')"
-            aria-label="Create new case"
-            class="px-4 py-2 text-cyan-500 bg-cyan-500/10 border border-cyan-500/50 hover:bg-neutral-800/50 text-xs font-mono uppercase tracking-wider rounded-sm transition-opacity duration-150 flex items-center gap-2 font-semibold">
+    @if($canWriteCase)
+    <button type="button" onclick="document.getElementById('new-case-modal').classList.remove('hidden')" class="btn-primary self-start sm:self-auto">
       <i class="fa-solid fa-folder-plus"></i>
       <span>{{ $isId ? 'Buat Kasus Baru' : 'Create New Case' }}</span>
     </button>
+    @endif
   </div>
-</div>
-<!-- [CaseArchiveHeader] END -->
 
-<!-- [CaseArchiveTable] START -->
-<div class="bg-neutral-900 border border-neutral-800 rounded-sm p-4 space-y-3">
-  <div class="flex items-center justify-between border-b border-neutral-800 pb-2.5">
-    <div class="text-xs font-mono uppercase tracking-wide text-neutral-300 font-semibold">
-      {{ $isId ? 'Total Kasus Terdaftar:' : 'Total Registered Cases:' }} <b class="text-cyan-500">{{ $cases->total() }}</b>
+  <div class="panel">
+    <div class="panel-header">
+      <span class="font-mono text-xs font-semibold uppercase tracking-wider">
+        {{ $isId ? 'Total Kasus Terdaftar:' : 'Registered Cases:' }} {{ $cases->total() }}
+      </span>
+      <span class="label-meta">{{ $isId ? 'Urutan: Terbaru' : 'Sort: Latest' }}</span>
     </div>
-    <div class="text-[10px] font-mono text-neutral-500 uppercase tracking-widest">
-      {{ $isId ? 'URUTAN: TERBARU' : 'SORT: LATEST' }}
+
+    <div class="overflow-x-auto">
+      <table class="table-mil">
+        <thead>
+          <tr>
+            <th>Case ID</th>
+            <th>{{ $isId ? 'Judul & Klaim Utama' : 'Title & Primary Claim' }}</th>
+            <th>{{ $isId ? 'Kategori' : 'Category' }}</th>
+            <th>{{ $isId ? 'Prioritas' : 'Priority' }}</th>
+            <th>{{ $isId ? 'Bukti' : 'Evidence' }}</th>
+            <th>Status</th>
+            <th class="text-right">{{ $isId ? 'Aksi' : 'Action' }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @forelse($cases as $c)
+          <tr>
+            <td class="font-mono font-semibold whitespace-nowrap">
+              <a href="{{ route('cases.show', $c->id) }}" class="text-[var(--accent-olive)] dark:text-[#C5B89C] hover:underline">{{ $c->case_code }}</a>
+              @if($c->is_simulation)
+                <span class="badge badge-warn block mt-1 w-fit">SIMULATION</span>
+              @endif
+            </td>
+            <td class="max-w-md">
+              <a href="{{ route('cases.show', $c->id) }}" class="font-semibold hover:underline block truncate">{{ $c->title }}</a>
+              <div class="text-xs text-[var(--text-muted)] truncate mt-0.5">"{{ $c->claim_text }}"</div>
+            </td>
+            <td class="text-xs text-[var(--text-muted)]">{{ $c->category }}</td>
+            <td>
+              <span class="badge {{ $c->priority === 'KRITIS' ? 'badge-danger' : ($c->priority === 'TINGGI' ? 'badge-warn' : 'badge-neutral') }}">
+                {{ $c->priority }}
+              </span>
+            </td>
+            <td class="font-mono text-xs whitespace-nowrap"><b>{{ $c->evidence_count }}</b> {{ $isId ? 'berkas' : 'items' }}</td>
+            <td><span class="badge badge-neutral">{{ $c->status }}</span></td>
+            <td class="text-right whitespace-nowrap">
+              <a href="{{ route('cases.show', $c->id) }}" class="btn-secondary py-1 px-2.5 text-[11px]">
+                {{ $isId ? 'Buka Kasus' : 'Open Case' }}
+              </a>
+            </td>
+          </tr>
+          @empty
+          <tr>
+            <td colspan="7" class="text-center text-[var(--text-muted)] py-6">
+              {{ $isId ? 'Belum ada kasus terdaftar.' : 'No cases registered yet.' }}
+            </td>
+          </tr>
+          @endforelse
+        </tbody>
+      </table>
     </div>
+
+    @if($cases->hasPages())
+    <div class="p-3 border-t border-[var(--border-color)]">{{ $cases->links() }}</div>
+    @endif
   </div>
 
-  <div class="overflow-x-auto">
-    <table class="w-full text-left font-mono text-xs">
-      <thead>
-        <tr class="border-b border-neutral-800 text-[10px] uppercase tracking-widest text-neutral-500 bg-neutral-950">
-          <th class="py-2 px-3">CASE ID</th>
-          <th class="py-2 px-3">{{ $isId ? 'JUDUL & KLAIM UTAMA' : 'TITLE & PRIMARY CLAIM' }}</th>
-          <th class="py-2 px-3">{{ $isId ? 'KATEGORI' : 'CATEGORY' }}</th>
-          <th class="py-2 px-3">{{ $isId ? 'PRIORITAS' : 'PRIORITY' }}</th>
-          <th class="py-2 px-3">{{ $isId ? 'BUKTI' : 'EVIDENCE' }}</th>
-          <th class="py-2 px-3">STATUS</th>
-          <th class="py-2 px-3 text-right">{{ $isId ? 'AKSI' : 'ACTION' }}</th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-neutral-800 leading-tight">
-        @forelse($cases as $c)
-        <tr class="hover:bg-neutral-800/50 transition-opacity duration-150">
-          <td class="py-2.5 px-3 font-semibold text-cyan-500">
-            <a href="{{ route('cases.show', $c->id) }}" class="hover:underline">{{ $c->case_code }}</a>
-            @if($c->is_simulation)
-            <span class="block text-[10px] font-normal text-amber-500">SIMULATION</span>
-            @endif
-          </td>
-          <td class="py-2.5 px-3 max-w-md">
-            <a href="{{ route('cases.show', $c->id) }}" class="font-sans text-neutral-300 hover:text-cyan-500 font-medium block truncate">
-              {{ $c->title }}
-            </a>
-            <div class="text-xs text-neutral-500 font-sans truncate mt-0.5">"{{ $c->claim_text }}"</div>
-          </td>
-          <td class="py-2.5 px-3 text-xs text-neutral-500">{{ $c->category }}</td>
-          <td class="py-2.5 px-3">
-            @if($c->priority === 'KRITIS')
-              <span class="px-2 py-0.5 text-rose-600 bg-rose-500/10 border border-rose-600/50 text-[10px] uppercase font-semibold rounded-sm">CRITICAL</span>
-            @elseif($c->priority === 'TINGGI')
-              <span class="px-2 py-0.5 text-amber-500 bg-amber-500/10 border border-amber-500/30 text-[10px] uppercase font-semibold rounded-sm">HIGH</span>
-            @else
-              <span class="px-2 py-0.5 text-cyan-500 bg-cyan-500/10 border border-cyan-500/50 text-[10px] uppercase rounded-sm">{{ $c->priority }}</span>
-            @endif
-          </td>
-          <td class="py-2.5 px-3 text-neutral-300">
-            <b>{{ $c->evidence_count }}</b> {{ $isId ? 'berkas' : 'items' }}
-          </td>
-          <td class="py-2.5 px-3">
-            <span class="px-2 py-0.5 bg-neutral-950 border border-neutral-800 text-neutral-300 text-[10px] uppercase rounded-sm">
-              {{ $c->status }}
-            </span>
-          </td>
-          <td class="py-2.5 px-3 text-right">
-            <a href="{{ route('cases.show', $c->id) }}" class="px-2.5 py-1 text-cyan-500 bg-cyan-500/10 border border-cyan-500/50 hover:bg-neutral-800/50 text-[10px] rounded-sm">
-              {{ $isId ? 'Buka Kasus' : 'Open Case' }}
-            </a>
-          </td>
-        </tr>
-        @empty
-        <tr>
-          <td colspan="7" class="py-6 text-center text-neutral-500">
-            {{ $isId ? 'Belum ada kasus terdaftar.' : 'No cases registered yet.' }}
-          </td>
-        </tr>
-        @endforelse
-      </tbody>
-    </table>
-  </div>
-
-  <div class="pt-2">
-    {{ $cases->links() }}
-  </div>
 </div>
-<!-- [CaseArchiveTable] END -->
 
-<!-- [CreateNewCaseModal] START -->
-<div id="new-case-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 transition-opacity duration-150">
-  <div class="bg-neutral-900 border border-neutral-800 rounded-sm w-full max-w-xl p-5 space-y-4">
-    <div class="flex items-center justify-between border-b border-neutral-800 pb-3">
-      <div class="flex items-center gap-2">
-        <i class="fa-solid fa-folder-plus text-cyan-500"></i>
-        <h2 class="text-sm font-semibold font-mono uppercase tracking-wide text-neutral-300">
-          {{ $isId ? 'Registrasi Kasus Analisis Baru' : 'Register New Analysis Case' }}
-        </h2>
-      </div>
-      <button onclick="document.getElementById('new-case-modal').classList.add('hidden')" aria-label="Close modal" class="text-neutral-500 hover:text-neutral-300">
+@if($canWriteCase)
+<div id="new-case-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+  <div class="panel w-full max-w-xl shadow-2xl">
+    <div class="panel-header">
+      <h2 class="font-mono text-xs font-semibold uppercase tracking-wider">
+        {{ $isId ? 'Registrasi Kasus Analisis Baru' : 'Register New Analysis Case' }}
+      </h2>
+      <button type="button" onclick="document.getElementById('new-case-modal').classList.add('hidden')" class="btn-secondary py-1 px-2 text-xs" aria-label="Close modal">
         <i class="fa-solid fa-xmark"></i>
       </button>
     </div>
 
-    <form action="{{ route('cases.store') }}" method="POST" class="space-y-3.5 text-xs font-mono">
+    <form action="{{ route('cases.store') }}" method="POST" class="p-4 space-y-3.5 text-xs">
       @csrf
       <div class="space-y-1">
-        <label class="text-[10px] uppercase tracking-widest text-neutral-500">{{ $isId ? 'JUDUL KASUS' : 'CASE TITLE' }}</label>
-        <input type="text" name="title" required placeholder="{{ $isId ? 'mis. Pemeriksaan Klaim Anggaran Pendidikan 2026' : 'e.g. Verification of 2026 Education Budget Claim' }}"
-               class="w-full bg-neutral-950 border border-neutral-800 text-neutral-300 px-3 py-2 text-xs font-mono rounded-sm focus:outline-none focus:border-cyan-500">
+        <label class="label-meta">{{ $isId ? 'Judul Kasus' : 'Case Title' }}</label>
+        <input type="text" name="title" required placeholder="{{ $isId ? 'Contoh: Pemeriksaan Klaim Anggaran Pendidikan' : 'e.g. Education Budget Claim Verification' }}" class="input-mil">
       </div>
 
       <div class="space-y-1">
-        <label class="text-[10px] uppercase tracking-widest text-neutral-500">{{ $isId ? 'KLAIM UTAMA YANG DIPERIKSA' : 'PRIMARY CLAIM TO VERIFY' }}</label>
-        <textarea name="claim_text" rows="3" required placeholder="{{ $isId ? 'Tuliskan bunyi klaim yang beredar...' : 'Enter the exact circulating claim text...' }}"
-                  class="w-full bg-neutral-950 border border-neutral-800 text-neutral-300 px-3 py-2 text-xs font-mono rounded-sm focus:outline-none focus:border-cyan-500"></textarea>
+        <label class="label-meta">{{ $isId ? 'Klaim Utama yang Diperiksa' : 'Primary Claim Under Verification' }}</label>
+        <textarea name="claim_text" rows="3" required placeholder="{{ $isId ? 'Tuliskan bunyi klaim yang beredar...' : 'Enter the circulating claim text...' }}" class="input-mil"></textarea>
       </div>
 
-      <div class="grid grid-cols-2 gap-3">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div class="space-y-1">
-          <label class="text-[10px] uppercase tracking-widest text-neutral-500">{{ $isId ? 'KATEGORI' : 'CATEGORY' }}</label>
-          <select name="category" required class="w-full bg-neutral-950 border border-neutral-800 text-neutral-300 px-3 py-2 text-xs font-mono rounded-sm focus:outline-none focus:border-cyan-500">
-            <option value="DISINFORMASI STRATEGIS / KOGNITIF">{{ $isId ? 'Disinformasi Terbukti' : 'Verified Disinformation' }}</option>
-            <option value="MANIPULASI KONTEN DIGITAL">{{ $isId ? 'Perubahan Konten / Editan' : 'Altered Digital Content' }}</option>
+          <label class="label-meta">{{ $isId ? 'Kategori' : 'Category' }}</label>
+          <select name="category" required class="input-mil font-mono text-xs">
+            <option value="DISINFORMASI STRATEGIS / KOGNITIF">{{ $isId ? 'Disinformasi Terbukti' : 'Disinformation' }}</option>
+            <option value="MANIPULASI KONTEN DIGITAL">{{ $isId ? 'Alterasi Konten Digital' : 'Altered Digital Content' }}</option>
             <option value="MISINFORMASI VIRAL">{{ $isId ? 'Misinformasi Viral' : 'Viral Misinformation' }}</option>
           </select>
         </div>
 
         <div class="space-y-1">
-          <label class="text-[10px] uppercase tracking-widest text-neutral-500">{{ $isId ? 'PRIORITAS' : 'PRIORITY' }}</label>
-          <select name="priority" required class="w-full bg-neutral-950 border border-neutral-800 text-neutral-300 px-3 py-2 text-xs font-mono rounded-sm focus:outline-none focus:border-cyan-500">
+          <label class="label-meta">{{ $isId ? 'Prioritas' : 'Priority' }}</label>
+          <select name="priority" required class="input-mil font-mono text-xs">
             <option value="SEDANG">{{ $isId ? 'SEDANG' : 'MEDIUM' }}</option>
             <option value="TINGGI" selected>{{ $isId ? 'TINGGI' : 'HIGH' }}</option>
             <option value="KRITIS">{{ $isId ? 'KRITIS' : 'CRITICAL' }}</option>
@@ -166,17 +143,12 @@
         </div>
       </div>
 
-      <div class="flex items-center justify-end gap-2 pt-2 border-t border-neutral-800">
-        <button type="button" onclick="document.getElementById('new-case-modal').classList.add('hidden')" class="px-3 py-1.5 bg-neutral-950 hover:bg-neutral-800/50 border border-neutral-800 text-neutral-300 uppercase rounded-sm">
-          {{ $isId ? 'Batal' : 'Cancel' }}
-        </button>
-        <button type="submit" class="px-4 py-1.5 text-cyan-500 bg-cyan-500/10 border border-cyan-500/50 hover:bg-neutral-800/50 uppercase rounded-sm font-semibold">
-          {{ $isId ? 'Simpan Kasus' : 'Save Case' }}
-        </button>
+      <div class="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border-color)]">
+        <button type="button" onclick="document.getElementById('new-case-modal').classList.add('hidden')" class="btn-secondary">{{ $isId ? 'Batal' : 'Cancel' }}</button>
+        <button type="submit" class="btn-primary">{{ $isId ? 'Simpan Kasus' : 'Save Case' }}</button>
       </div>
     </form>
   </div>
 </div>
-<!-- [CreateNewCaseModal] END -->
-
+@endif
 @endsection
