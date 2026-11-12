@@ -77,18 +77,20 @@ class OpenAICompatibleDriver extends OllamaDriver
     {
         // Coba /api/v0/models (LM Studio) terlebih dahulu untuk metadata lengkap
         try {
-            $lm = $this->http(4)->get($this->baseUrl . '/api/v0/models');
+            $lm = $this->http(3)->get($this->baseUrl . '/api/v0/models');
             if ($lm->successful() && is_array($lm->json('data'))) {
                 return array_map(function ($m) {
                     $id = (string) ($m['id'] ?? '?');
                     $state = strtolower((string) ($m['state'] ?? 'not-loaded'));
                     return [
                         'name' => $id,
-                        'parameters' => $this->inferParamsFromId($id, $m['arch'] ?? null),
+                        'parameters' => $this->inferParamsFromId($id, null),
+                        'architecture' => $m['arch'] ?? null,
                         'size' => null,
                         'quantization' => $m['quantization'] ?? null,
                         'context_length' => $m['loaded_context_length'] ?? $m['max_context_length'] ?? null,
                         'type' => $m['type'] ?? 'llm',
+                        'vision' => str_contains(strtolower($id . ' ' . ($m['arch'] ?? '')), 'vl') || ($m['type'] ?? '') === 'vlm',
                         'loaded' => $state === 'loaded',
                         'status' => $state === 'loaded' ? 'LOADED' : 'READY',
                     ];
@@ -156,15 +158,23 @@ class OpenAICompatibleDriver extends OllamaDriver
             ];
         }
         $names = array_column($models, 'name');
-        $hasModel = $this->model && in_array($this->model, $names, true);
+        $matched = null;
+        foreach ($models as $m) {
+            if (($m['name'] ?? '') === $this->model) {
+                $matched = $m;
+                break;
+            }
+        }
+        $hasModel = $this->model && $matched !== null;
+        $isLoaded = !empty($matched['loaded']);
         return [
             'ok' => $hasModel,
             'status' => $h['status'],
             'latency_ms' => $h['latency_ms'],
             'message' => $hasModel
-                ? "Terhubung ke {$h['runtime']} ({$h['latency_ms']} ms). Model aktif '{$this->model}' siap digunakan."
+                ? "Terhubung ke {$h['runtime']} ({$h['latency_ms']} ms). Model aktif '{$this->model}' " . ($isLoaded ? 'termuat di memori dan siap.' : 'terdaftar di server (siap dimuat/JIT).')
                 : 'Server online (' . count($names) . ' model terdeteksi), pilih salah satu model aktif: ' . ($this->model ?: '(belum dipilih)'),
-            'details' => $h + ['models' => $names],
+            'details' => $h + ['models' => $names, 'active_loaded' => $isLoaded],
         ];
     }
 

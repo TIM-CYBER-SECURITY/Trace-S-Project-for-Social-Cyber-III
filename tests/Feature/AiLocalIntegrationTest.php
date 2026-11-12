@@ -284,4 +284,116 @@ XML;
             $this->assertDatabaseHas('users', ['id' => $admin->id]);
         }
     }
+
+    public function test_multi_ai_model_differentiation_and_seamless_adaptive_switching(): void
+    {
+        $admin = $this->makeUser('ADMINISTRATOR');
+        $operator = $this->makeUser('OPERATOR');
+
+        // Operator ditolak memicu start-local-server
+        $this->actingAs($operator, 'web')->post('/admin/ai/start-local-server')->assertStatus(403);
+
+        // 1. Verifikasi ModelProfileResolver membedakan tiap karakter model AI lokal
+        $resolver = app(\App\Services\Ai\ModelProfileResolver::class);
+        $p14b = $resolver->resolve('qwen3-14b-claude-4.5-opus-high-reasoning-distill', ['size_bytes' => 6657108500, 'architecture' => 'qwen3', 'paramsString' => '14B', 'quantization' => 'Q3_K_S']);
+        $p05b = $resolver->resolve('qwen2.5-0.5b-instruct', ['size_bytes' => 531068224, 'architecture' => 'qwen2', 'paramsString' => '0.5B', 'quantization' => 'Q8_0']);
+        $pCoder = $resolver->resolve('qwen2.5-coder:7b', ['size_bytes' => 4683073536, 'parameters' => '7.6B', 'quantization' => 'Q4_K_M']);
+        $pVl = $resolver->resolve('qwen3-vl-8b-instruct', ['vision' => true, 'paramsString' => '8B', 'architecture' => 'qwen3vl']);
+        $pEmb = $resolver->resolve('text-embedding-nomic-embed-text-v1.5', ['type' => 'embedding', 'architecture' => 'nomic-bert']);
+
+        $this->assertSame('REASONING', $p14b['capability_type']);
+        $this->assertTrue($p14b['is_reasoning']);
+        $this->assertSame(240, $p14b['recommended_timeout']);
+
+        $this->assertSame('LIGHTWEIGHT', $p05b['capability_type']);
+        $this->assertFalse($p05b['is_reasoning']);
+        $this->assertSame(60, $p05b['recommended_timeout']);
+
+        $this->assertSame('CODER_JSON', $pCoder['capability_type']);
+        $this->assertSame(0.10, $pCoder['recommended_temperature']);
+
+        $this->assertSame('MULTIMODAL', $pVl['capability_type']);
+        $this->assertTrue($pVl['is_vision']);
+
+        $this->assertSame('EMBEDDING', $pEmb['capability_type']);
+        $this->assertTrue($pEmb['is_embedding']);
+
+        // 2. Simulasikan 2 engine AI lokal sekaligus (Ollama :11434 + LM Studio :1234 dengan multi-model)
+        Http::fake([
+            'http://127.0.0.1:11434/api/version' => Http::response(['version' => '0.40.16'], 200),
+            'http://127.0.0.1:11434/api/tags' => Http::response([
+                'models' => [
+                    ['name' => 'qwen2.5-coder:7b', 'size' => 4683073536, 'details' => ['parameter_size' => '7.6B', 'quantization_level' => 'Q4_K_M', 'family' => 'qwen2']],
+                ],
+            ], 200),
+            'http://127.0.0.1:11434/api/ps' => Http::response(['models' => []], 200),
+            'http://127.0.0.1:1234/api/v0/models' => Http::response([
+                'data' => [
+                    ['id' => 'qwen3-14b-claude-4.5-opus-high-reasoning-distill', 'type' => 'llm', 'arch' => 'qwen3', 'quantization' => 'Q3_K_S', 'state' => 'loaded', 'max_context_length' => 40960],
+                    ['id' => 'qwen2.5-0.5b-instruct', 'type' => 'llm', 'arch' => 'qwen2', 'quantization' => 'Q8_0', 'state' => 'not-loaded', 'max_context_length' => 32768],
+                    ['id' => 'text-embedding-nomic-embed-text-v1.5', 'type' => 'embedding', 'arch' => 'nomic-bert', 'quantization' => 'Q4_K_M', 'state' => 'not-loaded', 'max_context_length' => 2048],
+                ],
+            ], 200),
+            'http://127.0.0.1:8080/*' => Http::response([], 503),
+        ]);
+
+        // Konfigurasi awal ke Ollama 7B
+        $this->actingAs($admin, 'web')->post('/admin/ai/configure', [
+            'driver' => 'ollama',
+            'base_url' => 'http://127.0.0.1:11434',
+            'model' => 'qwen2.5-coder:7b',
+        ])->assertRedirect();
+
+        // Pindai multi-node lewat endpoint detect-local -> harus mendaftarkan KEDUA server & ke-4 model ke DB
+        $detect = $this->actingAs($admin, 'web')->postJson('/admin/ai/detect-local');
+        $detect->assertStatus(200)->assertJsonPath('ok', true);
+
+        $this->assertDatabaseHas('ai_servers', ['driver' => 'ollama', 'base_url' => 'http://127.0.0.1:11434', 'status' => 'ONLINE']);
+        $this->assertDatabaseHas('ai_servers', ['driver' => 'openai_compatible', 'base_url' => 'http://127.0.0.1:1234', 'status' => 'ONLINE']);
+        $this->assertDatabaseHas('ai_models', ['name' => 'qwen3-14b-claude-4.5-opus-high-reasoning-distill', 'capability_type' => 'REASONING', 'recommended_timeout' => 240]);
+        $this->assertDatabaseHas('ai_models', ['name' => 'qwen2.5-0.5b-instruct', 'capability_type' => 'LIGHTWEIGHT', 'recommended_timeout' => 60]);
+
+        // 3. Alihkan dari Ollama ke LM Studio qwen2.5-0.5b-instruct lewat 1-klik switchModel -> driver, base_url, model & timeout otomatis berubah!
+        $tinyModel = AiModel::where('name', 'qwen2.5-0.5b-instruct')->firstOrFail();
+        $this->actingAs($admin, 'web')->post('/admin/ai/switch-model', [
+            'model_id' => $tinyModel->id,
+            'reason' => 'Pengujian switching otomatis ke model ringan 0.5B',
+        ])->assertRedirect();
+
+        $mgr = app(AiManager::class);
+        $mgr->resetDriver();
+        $cfgAfterTiny = $mgr->resolvedConfig();
+        $this->assertSame('openai_compatible', $cfgAfterTiny['driver']);
+        $this->assertSame('http://127.0.0.1:1234', $cfgAfterTiny['base_url']);
+        $this->assertSame('qwen2.5-0.5b-instruct', $cfgAfterTiny['model']);
+        $this->assertSame(60, $cfgAfterTiny['timeout']);
+
+        // 4. Alihkan ke qwen3-14b-claude-4.5-opus-high-reasoning-distill -> timeout otomatis naik ke 240s & is_reasoning = true
+        $bigModel = AiModel::where('name', 'qwen3-14b-claude-4.5-opus-high-reasoning-distill')->firstOrFail();
+        $this->actingAs($admin, 'web')->post('/admin/ai/switch-model', [
+            'model_id' => $bigModel->id,
+            'reason' => 'Beralih ke model High Reasoning 14B untuk analisis kasus berat',
+        ])->assertRedirect();
+
+        $mgr->resetDriver();
+        $cfgAfter14b = $mgr->resolvedConfig();
+        $this->assertSame('qwen3-14b-claude-4.5-opus-high-reasoning-distill', $cfgAfter14b['model']);
+        $this->assertSame(240, $cfgAfter14b['timeout']);
+        $this->assertTrue($mgr->activeModelProfile()['is_reasoning']);
+
+        // 5. Pastikan server Ollama (:11434) beserta modelnya tetap tersimpan dan tidak hilang
+        $this->assertDatabaseHas('ai_models', ['name' => 'qwen2.5-coder:7b', 'capability_type' => 'CODER_JSON']);
+
+        // 6. Setel model embedding tanpa menimpa model LLM aktif
+        $embModel = AiModel::where('name', 'text-embedding-nomic-embed-text-v1.5')->firstOrFail();
+        $this->actingAs($admin, 'web')->post('/admin/ai/switch-model', [
+            'model_id' => $embModel->id,
+            'reason' => 'Menetapkan model vektor embedding lokal',
+        ])->assertRedirect();
+
+        $mgr->resetDriver();
+        $cfgAfterEmbed = $mgr->resolvedConfig();
+        $this->assertSame('qwen3-14b-claude-4.5-opus-high-reasoning-distill', $cfgAfterEmbed['model']);
+        $this->assertSame('text-embedding-nomic-embed-text-v1.5', $cfgAfterEmbed['embedding_model']);
+    }
 }

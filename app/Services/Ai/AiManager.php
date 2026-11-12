@@ -3,6 +3,7 @@
 namespace App\Services\Ai;
 
 use App\Models\AiModel;
+use App\Models\AiModelChange;
 use App\Models\AiServer;
 use App\Models\User;
 use App\Services\Ai\Contracts\AiDriver;
@@ -28,13 +29,19 @@ use Illuminate\Support\Str;
 class AiManager
 {
     private ?AiDriver $driver = null;
+    private ModelProfileResolver $profiles;
+    private HardwareTelemetry $telemetry;
 
     public function __construct(
         private PromptBuilder $prompts,
         private AnalysisSchemaValidator $validator,
         private ClaimAnalyzer $claims,
         private AppSettings $settings,
+        ?ModelProfileResolver $profiles = null,
+        ?HardwareTelemetry $telemetry = null,
     ) {
+        $this->profiles = $profiles ?? new ModelProfileResolver();
+        $this->telemetry = $telemetry ?? new HardwareTelemetry($this->profiles);
     }
 
     public function setDriver(?AiDriver $driver): void
@@ -86,7 +93,7 @@ class AiManager
         return $this->driver?->name() ?? ($this->resolvedConfig()['driver'] ?? 'mock');
     }
 
-    /** Model aktif: pilihan administrator (DB) mengalahkan nilai .env. */
+    /** Model aktif: pilihan administrator (pengaturan runtime / DB) yang sesuai dengan server aktif. */
     public function activeModelName(): ?string
     {
         $cfg = $this->resolvedConfig();
@@ -94,11 +101,19 @@ class AiManager
             return null;
         }
         try {
+            $baseUrl = !empty($cfg['base_url']) ? rtrim((string) $cfg['base_url'], '/') : null;
+            $activeServerQuery = fn ($q) => $q->where('driver', $cfg['driver'])
+                ->when($baseUrl, fn ($sq) => $sq->where('base_url', $baseUrl))
+                ->where('is_active', true);
+
             $active = AiModel::where('is_active', true)
-                ->whereHas('server', fn ($q) => $q->where('driver', $cfg['driver'])->where('is_active', true))
+                ->whereHas('server', $activeServerQuery)
                 ->first();
             if ($active) {
                 return $active->name;
+            }
+            if (!empty($cfg['model'])) {
+                return $cfg['model'];
             }
             $activeAny = AiModel::where('is_active', true)
                 ->whereHas('server', fn ($q) => $q->where('driver', $cfg['driver']))
@@ -110,6 +125,49 @@ class AiManager
             // tabel belum ada pada saat bootstrap awal
         }
         return !empty($cfg['model']) ? $cfg['model'] : null;
+    }
+
+    /** Profil kemampuan & rekomendasi runtime untuk model aktif saat ini. */
+    public function activeModelProfile(): array
+    {
+        $name = $this->activeModelName();
+        if (!$name) {
+            return [
+                'capability_type' => 'SIMULATION',
+                'is_reasoning' => false,
+                'is_vision' => false,
+                'is_embedding' => false,
+                'recommended_timeout' => 30,
+                'recommended_temperature' => 0.2,
+                'notes' => 'Mode simulasi aktif.',
+            ];
+        }
+        try {
+            $row = AiModel::where('name', $name)
+                ->whereHas('server', fn ($q) => $q->where('is_active', true))
+                ->first();
+            if ($row && $row->capability_type) {
+                $hw = $this->telemetry->snapshot();
+                $fit = $this->profiles->evaluateHardwareFit($row->estimated_ram_gb, $hw);
+                return [
+                    'display_name' => $row->display_name ?? $row->name,
+                    'family' => $row->family,
+                    'parameter_size' => $row->parameter_size,
+                    'capability_type' => $row->capability_type,
+                    'is_reasoning' => (bool) $row->is_reasoning,
+                    'is_vision' => (bool) $row->is_vision,
+                    'is_embedding' => (bool) $row->is_embedding,
+                    'estimated_ram_gb' => $row->estimated_ram_gb,
+                    'recommended_timeout' => $row->recommended_timeout ?? 180,
+                    'recommended_temperature' => $row->recommended_temperature ?? 0.2,
+                    'hardware_fit' => $fit['status'],
+                    'hardware_fit_label' => $fit['label'],
+                    'notes' => $row->notes,
+                ];
+            }
+        } catch (\Throwable) {
+        }
+        return $this->profiles->resolve($name, [], $this->telemetry->snapshot());
     }
 
     public function driver(): AiDriver
@@ -190,7 +248,13 @@ class AiManager
         $embeddingModel = isset($params['embedding_model']) && trim((string) $params['embedding_model']) !== ''
             ? trim((string) $params['embedding_model'])
             : null;
-        $timeout = max(10, min(900, (int) ($params['timeout'] ?? 180)));
+
+        $hw = $this->telemetry->snapshot();
+        $modelProfile = $model ? $this->profiles->resolve($model, [], $hw) : null;
+        $hasExplicitTimeout = array_key_exists('timeout', $params) && $params['timeout'] !== null && $params['timeout'] !== '';
+        $timeout = $hasExplicitTimeout && empty($params['auto_adapt_timeout'])
+            ? max(10, min(900, (int) $params['timeout']))
+            : ($modelProfile['recommended_timeout'] ?? 180);
 
         if (in_array($driver, ['ollama', 'openai_compatible'], true)) {
             if (!$baseUrl) {
@@ -216,13 +280,25 @@ class AiManager
         } elseif ($driver === 'mock') {
             $this->settings->setInternal('ai.model', '', $by);
         }
-        $this->settings->setInternal('ai.embedding_model', $embeddingModel ?? '', $by);
+        if ($embeddingModel !== null) {
+            $this->settings->setInternal('ai.embedding_model', $embeddingModel, $by);
+        } elseif (array_key_exists('embedding_model', $params) && $params['embedding_model'] === '') {
+            $this->settings->setInternal('ai.embedding_model', '', $by);
+        }
         $this->settings->setInternal('ai.timeout', (string) $timeout, $by);
 
         if (!empty($params['clear_api_key'])) {
             $this->settings->setInternal('ai.api_key_enc', null, $by);
         } elseif (!empty($params['api_key'])) {
             $this->settings->setInternal('ai.api_key_enc', Crypt::encryptString((string) $params['api_key']), $by);
+        }
+
+        $runtimeAction = null;
+        if ($driver === 'openai_compatible' && $baseUrl && $this->isLocalLmStudioUrl($baseUrl)) {
+            $port = (int) (parse_url($baseUrl, PHP_URL_PORT) ?: 1234);
+            $runtimeAction = $model
+                ? $this->telemetry->switchLmStudioLoadedModel($model, $port, $modelProfile['estimated_ram_gb'] ?? null)
+                : $this->telemetry->ensureLmStudioServerRunning($port);
         }
 
         $this->resetDriver();
@@ -232,11 +308,12 @@ class AiManager
         $audit->log('AI_SERVER_CONFIGURED', $server, [
             'from' => ['driver' => $prevDriver, 'base_url' => $prevUrl, 'model' => $prevModel],
             'to' => ['driver' => $driver, 'base_url' => $baseUrl, 'model' => $this->activeModelName(), 'timeout' => $timeout],
+            'model_capability' => $modelProfile['capability_type'] ?? null,
             'sync_ok' => $sync['ok'],
             'models_synced' => $sync['count'],
         ], $by?->id);
 
-        return ['server' => $server, 'sync' => $sync];
+        return ['server' => $server, 'sync' => $sync, 'runtime_action' => $runtimeAction, 'profile' => $modelProfile];
     }
 
     /**
@@ -376,6 +453,10 @@ class AiManager
     /** @param array<int,array{role:string,content:string}> $messages */
     public function chat(array $messages, array $options = []): array
     {
+        if (!array_key_exists('temperature', $options)) {
+            $prof = $this->activeModelProfile();
+            $options['temperature'] = $prof['recommended_temperature'] ?? 0.2;
+        }
         return $this->driver()->chat($messages, $options);
     }
 
@@ -385,12 +466,22 @@ class AiManager
         return $this->driver()->embed($texts);
     }
 
-    /** Sinkronkan baris ai_servers dari konfigurasi aktif untuk halaman admin. */
+    public function isLocalLmStudioUrl(?string $url): bool
+    {
+        if (!$url) {
+            return false;
+        }
+        $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+        $port = (int) (parse_url($url, PHP_URL_PORT) ?: 1234);
+        return in_array($host, ['127.0.0.1', 'localhost'], true) && $port === 1234;
+    }
+
+    /** Sinkronkan baris ai_servers berdasarkan kombinasi (driver + base_url) agar multi-server tidak saling menimpa. */
     public function syncServerRecord(): AiServer
     {
         $cfg = $this->resolvedConfig();
         $driver = (string) ($cfg['driver'] ?? 'mock');
-        $baseUrl = $driver === 'mock' ? null : ($cfg['base_url'] ?: null);
+        $baseUrl = $driver === 'mock' ? null : (!empty($cfg['base_url']) ? rtrim((string) $cfg['base_url'], '/') : null);
         $health = $this->status();
 
         $defaultName = match ($driver) {
@@ -400,10 +491,26 @@ class AiManager
             default => 'Internal AI Inference Engine (MockDriver)',
         };
 
-        $server = AiServer::firstOrCreate(
-            ['driver' => $driver],
-            ['name' => $defaultName, 'base_url' => $baseUrl, 'is_active' => true]
-        );
+        if ($driver === 'mock') {
+            $server = AiServer::firstOrCreate(
+                ['driver' => 'mock'],
+                ['name' => $defaultName, 'base_url' => null, 'is_active' => true]
+            );
+        } else {
+            $server = AiServer::where('driver', $driver)
+                ->where(function ($q) use ($baseUrl) {
+                    $q->where('base_url', $baseUrl)->orWhereNull('base_url');
+                })
+                ->first();
+            if (!$server) {
+                $server = AiServer::create([
+                    'name' => $defaultName,
+                    'driver' => $driver,
+                    'base_url' => $baseUrl,
+                    'is_active' => true,
+                ]);
+            }
+        }
 
         $server->update([
             'name' => $driver === 'mock' ? 'Internal AI Inference Engine (MockDriver)' : $defaultName,
@@ -423,7 +530,8 @@ class AiManager
     }
 
     /**
-     * Ambil daftar model nyata langsung dari server AI lokal/intranet dan sinkronkan ke tabel ai_models.
+     * Ambil daftar model nyata langsung dari server AI lokal/intranet dan sinkronkan ke tabel ai_models
+     * dengan deteksi kapabilitas berbeda per model.
      *
      * @return array{ok:bool,count:int,models:array,error:?string}
      */
@@ -436,53 +544,67 @@ class AiManager
             return ['ok' => true, 'count' => $server->models()->count(), 'models' => $server->models()->get()->all(), 'error' => null];
         }
 
+        $hw = $this->telemetry->snapshot();
+        $targetName = $preferredModel ?: $this->activeModelName();
+
         try {
             $remote = $driver->listModels();
         } catch (\Throwable $e) {
+            // Jika server LM Studio localhost sedang offline, tetap indeks katalog disk agar daftar model multi-AI terlihat
+            if ($server->driver === 'openai_compatible' && $this->isLocalLmStudioUrl($server->base_url)) {
+                $this->syncLocalLmStudioCatalog($server, $hw, $targetName);
+            }
             return ['ok' => false, 'count' => 0, 'models' => [], 'error' => $e->getMessage()];
         }
 
-        $targetName = $preferredModel ?: $this->activeModelName();
         $remoteNames = array_column($remote, 'name');
 
-        // Hapus entri placeholder yang tidak benar-benar ada di server (hanya untuk server live)
-        if ($remoteNames !== []) {
-            AiModel::where('server_id', $server->id)
-                ->whereNotIn('name', $remoteNames)
-                ->delete();
+        // Untuk server live yang mengembalikan daftar lengkap, hapus entri simulasi lama dan model Ollama yang sudah dihapus
+        AiModel::where('server_id', $server->id)->where('is_simulation', true)->delete();
+        if ($server->driver === 'ollama' && $remoteNames !== []) {
+            AiModel::where('server_id', $server->id)->whereNotIn('name', $remoteNames)->delete();
         }
 
         $synced = [];
         $firstLlmName = null;
+        $firstEmbeddingName = null;
         foreach ($remote as $rm) {
             $name = (string) ($rm['name'] ?? '');
             if ($name === '') {
                 continue;
             }
-            $isEmbedding = ($rm['type'] ?? '') === 'embedding' || str_contains(strtolower($name), 'embed');
-            if (!$isEmbedding && $firstLlmName === null) {
+            $resolved = $this->profiles->resolve($name, $rm, $hw);
+            if ($resolved['is_embedding']) {
+                if ($firstEmbeddingName === null) {
+                    $firstEmbeddingName = $name;
+                }
+            } elseif ($firstLlmName === null) {
                 $firstLlmName = $name;
             }
 
-            $profile = $this->inferProfile($name, $rm['parameters'] ?? null);
-            $modelRow = AiModel::updateOrCreate(
-                ['server_id' => $server->id, 'name' => $name],
-                [
-                    'profile' => $profile,
-                    'size' => $rm['size'] ?? ($rm['parameters'] ?? null),
-                    'quantization' => $rm['quantization'] ?? null,
-                    'context_length' => isset($rm['context_length']) ? (int) $rm['context_length'] : null,
-                    'status' => !empty($rm['loaded']) ? 'READY' : ($rm['status'] ?? 'READY'),
-                    'is_simulation' => false,
-                ]
-            );
+            $modelRow = $this->upsertProfiledModel($server, $name, $resolved, !empty($rm['loaded']) ? 'LOADED' : ($rm['status'] ?? 'READY'));
             $synced[] = $modelRow;
         }
 
-        // Aktifkan model pilihan atau model LLM pertama yang terdeteksi jika model saat ini tidak valid
-        $chosenName = ($targetName && in_array($targetName, $remoteNames, true))
-            ? $targetName
-            : ($firstLlmName ?? ($remoteNames[0] ?? null));
+        // Gabungkan katalog disk LM Studio jika server hanya melaporkan sebagian (mis. /v1/models hanya loaded model)
+        if ($server->driver === 'openai_compatible' && $this->isLocalLmStudioUrl($server->base_url)) {
+            $this->syncLocalLmStudioCatalog($server, $hw, null, false);
+        }
+
+        // Hormati $preferredModel yang dipilih admin meskipun belum ter-load di /v1/models (JIT loading)
+        if ($preferredModel && !in_array($preferredModel, $remoteNames, true)) {
+            $resolvedPref = $this->profiles->resolve($preferredModel, [], $hw);
+            $this->upsertProfiledModel($server, $preferredModel, $resolvedPref, 'READY');
+        }
+
+        // Otomatis daftarkan model embedding jika ditemukan dan belum disetel
+        if ($firstEmbeddingName && !$this->settings->get('ai.embedding_model')) {
+            $this->settings->setInternal('ai.embedding_model', $firstEmbeddingName);
+        }
+
+        // Pertahankan target model yang valid/eksplisit, atau pilih LLM pertama jika belum ada pilihan
+        $chosenName = $preferredModel
+            ?: (($targetName && in_array($targetName, $remoteNames, true)) ? $targetName : ($firstLlmName ?? ($remoteNames[0] ?? null)));
 
         if ($chosenName !== null) {
             AiModel::where('server_id', $server->id)->update(['is_active' => false]);
@@ -492,6 +614,262 @@ class AiManager
         }
 
         return ['ok' => true, 'count' => count($synced), 'models' => $synced, 'error' => null];
+    }
+
+    /**
+     * Pindai semua engine AI lokal & intranet (Ollama, LM Studio, llama.cpp, dan server tersimpan lainnya),
+     * sinkronkan seluruh node & modelnya ke database dengan profil perbedaan per model.
+     *
+     * @return array{servers:array,telemetry:array,discovery:array}
+     */
+    public function discoverAndRegisterAllLocalNodes(?User $by = null): array
+    {
+        $hw = $this->telemetry->snapshot(true);
+        $discovery = $this->telemetry->detectLocalEngines();
+        $activeCfg = $this->resolvedConfig();
+        $activeDriver = (string) ($activeCfg['driver'] ?? 'mock');
+        $activeBaseUrl = $activeDriver === 'mock' ? null : rtrim((string) ($activeCfg['base_url'] ?? ''), '/');
+
+        foreach ($discovery['endpoints'] as $ep) {
+            $drv = (string) ($ep['driver'] ?? 'openai_compatible');
+            $url = rtrim((string) ($ep['base_url'] ?? ''), '/');
+            if ($url === '') {
+                continue;
+            }
+            $isActiveNode = ($activeDriver === $drv && $activeBaseUrl === $url);
+            $isOnline = !empty($ep['online']);
+
+            $label = $ep['engine'] . ' (' . $url . ')';
+            $server = AiServer::firstOrCreate(
+                ['driver' => $drv, 'base_url' => $url],
+                ['name' => $label, 'is_active' => $isActiveNode]
+            );
+
+            $server->update([
+                'name' => $label,
+                'status' => $isOnline ? 'ONLINE' : 'OFFLINE',
+                'runtime' => $ep['engine'] . ($isOnline && !empty($ep['version']) ? ' ' . $ep['version'] : ''),
+                'runtime_version' => $ep['version'] ?? $server->runtime_version,
+                'latency_ms' => $ep['latency_ms'] ?? null,
+                'last_error' => $ep['error'] ?? null,
+                'is_active' => $isActiveNode,
+                'last_checked_at' => now(),
+            ]);
+
+            if ($isOnline && !empty($ep['models'])) {
+                foreach ($ep['models'] as $m) {
+                    $mName = (string) ($m['id'] ?? '');
+                    if ($mName === '') {
+                        continue;
+                    }
+                    $resolved = $this->profiles->resolve($mName, $m, $hw);
+                    $this->upsertProfiledModel($server, $mName, $resolved, !empty($m['loaded']) ? 'LOADED' : 'READY');
+                }
+            }
+        }
+
+        // Pastikan seluruh model LM Studio lokal terdaftar di server LM Studio (:1234) walaupun server belum dinyalakan
+        if (!empty($discovery['lmstudio_local_models'])) {
+            $lmsUrl = 'http://127.0.0.1:1234';
+            $lmsServer = AiServer::firstOrCreate(
+                ['driver' => 'openai_compatible', 'base_url' => $lmsUrl],
+                ['name' => "LM Studio ({$lmsUrl})", 'is_active' => ($activeDriver === 'openai_compatible' && $activeBaseUrl === $lmsUrl)]
+            );
+            $lmsOnline = $lmsServer->status === 'ONLINE';
+            foreach ($discovery['lmstudio_local_models'] as $localM) {
+                $key = (string) ($localM['suggested_key'] ?? '');
+                if ($key === '') {
+                    continue;
+                }
+                $existing = AiModel::where('server_id', $lmsServer->id)->where('name', $key)->first();
+                $status = ($existing && $existing->status === 'LOADED' && $lmsOnline)
+                    ? 'LOADED'
+                    : ($lmsOnline ? 'READY' : 'OFFLINE');
+                $this->upsertProfiledModel($lmsServer, $key, $localM, $status);
+            }
+        }
+
+        // Hapus entri simulasi lama dari node non-mock
+        AiModel::where('is_simulation', true)
+            ->whereHas('server', fn ($q) => $q->where('driver', '!=', 'mock'))
+            ->delete();
+
+        $allServers = AiServer::with(['models' => fn ($q) => $q->orderByDesc('is_active')->orderBy('name')])
+            ->where('driver', '!=', 'mock')
+            ->orderByDesc('is_active')
+            ->orderBy('id')
+            ->get();
+
+        return [
+            'servers' => $allServers->all(),
+            'telemetry' => $hw,
+            'discovery' => $discovery,
+        ];
+    }
+
+    /**
+     * Alihkan secara penuh AI aktif ke model pilihan (sekaligus driver, endpoint server, timeout optimal,
+     * serta otomatis menyalakan/memuat LM Studio lokal bila dipilih).
+     *
+     * @return array{ok:bool,warning:?string,message:string,profile:array}
+     */
+    public function activateModel(AiModel $model, ?User $by, AuditLogger $audit, string $reason): array
+    {
+        $model->loadMissing('server');
+        $server = $model->server;
+        if (!$server || $server->driver === 'mock') {
+            throw new AiUnavailableException('Model simulasi tidak dapat diaktifkan sebagai engine operasional.', 'ERROR');
+        }
+
+        $hw = $this->telemetry->snapshot(true);
+        $resolved = $this->profiles->resolve($model->name, [
+            'display_name' => $model->display_name,
+            'family' => $model->family,
+            'parameters' => $model->parameter_size,
+            'size' => $model->size,
+            'quantization' => $model->quantization,
+            'context_length' => $model->context_length,
+            'vision' => $model->is_vision,
+            'type' => $model->is_embedding ? 'embedding' : 'llm',
+        ], $hw);
+
+        // Jika model bertipe EMBEDDING, pasangkan sebagai embedding model tanpa memutus model chat aktif
+        if ($resolved['is_embedding']) {
+            $prevEmbed = $this->settings->get('ai.embedding_model');
+            $this->settings->setInternal('ai.embedding_model', $model->name, $by);
+            $this->resetDriver();
+            $audit->log('AI_EMBEDDING_MODEL_SET', $model, [
+                'previous' => $prevEmbed,
+                'new' => $model->name,
+                'reason' => $reason,
+            ], $by?->id);
+            return [
+                'ok' => true,
+                'warning' => null,
+                'message' => "Model embedding '{$model->name}' disetel sebagai AI_EMBEDDING_MODEL (model analisis utama tetap terjaga).",
+                'profile' => $resolved,
+            ];
+        }
+
+        $prevDriver = $this->resolvedConfig()['driver'] ?? null;
+        $prevBaseUrl = $this->resolvedConfig()['base_url'] ?? null;
+        $prevActive = AiModel::where('is_active', true)
+            ->whereHas('server', fn ($q) => $q->where('is_active', true))
+            ->first();
+
+        // Terapkan driver, endpoint server tujuan, model tujuan, dan timeout optimal otomatis
+        $this->settings->setInternal('ai.driver', $server->driver, $by);
+        $this->settings->setInternal('ai.base_url', (string) ($server->base_url ?? ''), $by);
+        $this->settings->setInternal('ai.model', $model->name, $by);
+        $this->settings->setInternal('ai.timeout', (string) $resolved['recommended_timeout'], $by);
+
+        AiServer::where('id', '!=', $server->id)->update(['is_active' => false]);
+        $server->update(['is_active' => true]);
+
+        AiModel::where('server_id', $server->id)->update(['is_active' => false]);
+        $model->update(['is_active' => true]);
+
+        $warning = null;
+        $runtimeMessage = null;
+
+        // Jika server target adalah LM Studio lokal, otomatis nyalakan server & muat model baru cleanly
+        if ($server->driver === 'openai_compatible' && $this->isLocalLmStudioUrl($server->base_url)) {
+            $port = (int) (parse_url((string) $server->base_url, PHP_URL_PORT) ?: 1234);
+            $switchRes = $this->telemetry->switchLmStudioLoadedModel($model->name, $port, $resolved['estimated_ram_gb']);
+            $warning = $switchRes['warning'];
+            $runtimeMessage = $switchRes['message'];
+        }
+
+        $this->resetDriver();
+        $freshServer = $this->syncServerRecord();
+
+        // Perbarui profil & status loaded semua model di server tujuan bila online
+        if ($freshServer->status === 'ONLINE') {
+            $this->syncModelsFromServer($freshServer, $model->name);
+        } elseif (!$warning) {
+            $warning = "Server {$freshServer->name} berstatus OFFLINE. Jalankan engine AI pada {$freshServer->base_url} lalu klik Uji Koneksi.";
+        }
+
+        $changedById = $by?->id ?? User::value('id');
+        if ($changedById) {
+            AiModelChange::create([
+                'model_id' => $model->id,
+                'previous_model' => $prevActive?->name,
+                'changed_by' => $changedById,
+                'reason' => $reason,
+            ]);
+        }
+
+        $audit->log('AI_MODEL_SWITCHED', $model, [
+            'previous_driver' => $prevDriver,
+            'previous_base_url' => $prevBaseUrl,
+            'previous' => $prevActive?->name,
+            'new_driver' => $server->driver,
+            'new_base_url' => $server->base_url,
+            'new' => $model->name,
+            'capability_type' => $resolved['capability_type'],
+            'adapted_timeout' => $resolved['recommended_timeout'],
+            'server_status' => $freshServer->status,
+            'reason' => $reason,
+        ], $by?->id);
+
+        $baseMsg = "AI aktif dialihkan ke '{$model->name}' pada {$server->driver} ({$server->base_url}) • Profil: {$resolved['capability_type']} • Timeout disesuaikan otomatis ke {$resolved['recommended_timeout']}s.";
+        if ($runtimeMessage) {
+            $baseMsg .= " {$runtimeMessage}";
+        }
+
+        return [
+            'ok' => $freshServer->status === 'ONLINE',
+            'warning' => $warning,
+            'message' => $baseMsg,
+            'profile' => $resolved,
+        ];
+    }
+
+    private function syncLocalLmStudioCatalog(AiServer $server, array $hw, ?string $preferredModel = null, bool $markOffline = true): void
+    {
+        $catalog = $this->telemetry->scanLmStudioModelsDir($hw);
+        foreach ($catalog as $item) {
+            $key = (string) ($item['suggested_key'] ?? '');
+            if ($key === '') {
+                continue;
+            }
+            $existing = AiModel::where('server_id', $server->id)->where('name', $key)->first();
+            $status = ($existing && $existing->status === 'LOADED' && !$markOffline)
+                ? 'LOADED'
+                : ($markOffline ? 'OFFLINE' : 'READY');
+            $this->upsertProfiledModel($server, $key, $item, $status);
+        }
+        if ($preferredModel) {
+            AiModel::where('server_id', $server->id)->update(['is_active' => false]);
+            AiModel::where('server_id', $server->id)->where('name', $preferredModel)->update(['is_active' => true]);
+        }
+    }
+
+    private function upsertProfiledModel(AiServer $server, string $name, array $resolved, string $status = 'READY'): AiModel
+    {
+        return AiModel::updateOrCreate(
+            ['server_id' => $server->id, 'name' => $name],
+            [
+                'display_name' => $resolved['display_name'] ?? $name,
+                'family' => $resolved['family'] ?? null,
+                'parameter_size' => $resolved['parameter_size'] ?? null,
+                'profile' => $resolved['profile'] ?? $this->inferProfile($name),
+                'capability_type' => $resolved['capability_type'] ?? 'GENERAL_INSTRUCT',
+                'is_reasoning' => !empty($resolved['is_reasoning']),
+                'is_vision' => !empty($resolved['is_vision']),
+                'is_embedding' => !empty($resolved['is_embedding']),
+                'estimated_ram_gb' => $resolved['estimated_ram_gb'] ?? null,
+                'recommended_timeout' => $resolved['recommended_timeout'] ?? 180,
+                'recommended_temperature' => $resolved['recommended_temperature'] ?? 0.2,
+                'notes' => $resolved['notes'] ?? null,
+                'size' => $resolved['size'] ?? null,
+                'quantization' => $resolved['quantization'] ?? null,
+                'context_length' => isset($resolved['context_length']) ? (int) $resolved['context_length'] : null,
+                'status' => substr($status, 0, 14),
+                'is_simulation' => false,
+            ]
+        );
     }
 
     private function inferProfile(string $name, ?string $params = null): string

@@ -37,7 +37,8 @@ class OllamaDriver implements AiDriver
             throw new AiUnavailableException('AI_BASE_URL belum dikonfigurasi (NOT CONFIGURED).', 'OFFLINE');
         }
         LocalGuard::assertLocal($this->baseUrl);
-        $req = Http::timeout($timeout ?? $this->timeout)->acceptJson();
+        $effTimeout = $timeout ?? $this->timeout;
+        $req = Http::connectTimeout(min(5, $effTimeout))->timeout($effTimeout)->acceptJson();
         return $this->apiKey ? $req->withToken($this->apiKey) : $req;
     }
 
@@ -50,7 +51,9 @@ class OllamaDriver implements AiDriver
             throw new AiUnavailableException('AI Server tidak dapat dihubungi: ' . $e->getMessage(), 'OFFLINE');
         } catch (RequestException $e) {
             $code = $e->response?->status();
-            throw new AiUnavailableException("AI Server mengembalikan HTTP {$code}.", in_array($code, [429, 503], true) ? 'BUSY' : 'ERROR');
+            $errDetail = $e->response?->json('error.message') ?? $e->response?->json('error');
+            $suffix = is_string($errDetail) && $errDetail !== '' ? ' (' . mb_substr(trim($errDetail), 0, 180) . ')' : '';
+            throw new AiUnavailableException("AI Server mengembalikan HTTP {$code}{$suffix}.", in_array($code, [429, 503], true) ? 'BUSY' : 'ERROR');
         }
     }
 

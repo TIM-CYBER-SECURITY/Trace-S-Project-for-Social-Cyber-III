@@ -232,6 +232,9 @@ Route::middleware(['auth.trace'])->group(function () {
         Route::post('/ai/detect-local', [AiManagementController::class, 'detectLocal'])
             ->middleware('permission:ai.manage')
             ->name('ai.detect');
+        Route::post('/ai/start-local-server', [AiManagementController::class, 'startLocalServer'])
+            ->middleware('permission:ai.manage')
+            ->name('ai.start-local');
         Route::post('/ai/test-connection', [AiManagementController::class, 'testConnection'])
             ->middleware('permission:ai.manage')
             ->name('ai.test');

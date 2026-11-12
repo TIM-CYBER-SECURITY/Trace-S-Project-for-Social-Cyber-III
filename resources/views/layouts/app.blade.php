@@ -67,11 +67,22 @@
 
       <span class="text-[#46514C]">|</span>
 
-      <div class="flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#202622] border border-[#46514C] text-[#F2F2EC]"
-           title="AI Driver: {{ $driverUpper }}">
+      @php
+        $aiShortModel = !empty($aiStatus['active_model']) ? \Illuminate\Support\Str::limit($aiStatus['active_model'], 26) : null;
+        $aiDisplayRuntime = match (strtolower((string) ($aiStatus['driver'] ?? 'mock'))) {
+            'openai_compatible' => str_contains(strtolower((string) ($aiStatus['runtime'] ?? '')), 'lm studio') ? 'LM STUDIO' : 'OPENAI-COMPAT',
+            default => $driverUpper,
+        };
+      @endphp
+      <a href="{{ $user && $user->hasPermission('ai.manage') ? route('admin.ai.index') : '#' }}"
+         class="flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#202622] border border-[#46514C] hover:border-[#C5B89C] text-[#F2F2EC]"
+         title="AI Driver: {{ $driverUpper }}{{ $aiShortModel ? ' • Model: ' . $aiStatus['active_model'] : '' }}">
         <span class="w-2 h-2 rounded-full {{ $isSimDriver ? 'bg-[#C5B89C]' : ($serverOnline ? 'bg-[#586B47]' : 'bg-[#991B1B]') }}"></span>
         <span class="text-[10px] tracking-wider uppercase">
           AI: <strong>{{ $driverUpper }}</strong>
+          @if($aiShortModel && !$isSimDriver)
+            <span class="text-[#C5B89C] font-normal normal-case">&bull; {{ $aiShortModel }}</span>
+          @endif
           @if($isSimDriver)
             ({{ $isId ? 'SIMULASI' : 'SIMULATION' }})
           @elseif($serverOnline)
@@ -80,7 +91,7 @@
             (OFFLINE)
           @endif
         </span>
-      </div>
+      </a>
     </div>
 
     <div class="flex items-center gap-2">
