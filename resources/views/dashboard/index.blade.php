@@ -360,7 +360,7 @@
               </td>
               <td class="text-right">
                 <button type="button"
-                        onclick='inspectThreat(@json($timeLabel), @json($row->title), @json($row->region ?? "Nasional"), @json($sev . " / " . $sent), @json($code), @json($row->case_id))'
+                        onclick='inspectThreat(@json($timeLabel), @json($row->title), @json($row->region ?? "Nasional"), @json($sev . " / " . $sent), @json($code), @json($row->case_id), @json($row->id))'
                         class="btn-secondary py-1 px-2 text-[11px]">
                   {{ $isId ? 'Inspeksi' : 'Inspect' }}
                 </button>
@@ -535,8 +535,21 @@
       </div>
     </div>
 
-    <div class="p-4 border-t border-[var(--border-color)] flex items-center justify-end gap-2">
+    <div class="p-4 border-t border-[var(--border-color)] flex flex-wrap items-center justify-end gap-2">
       <button type="button" onclick="closeThreatModal()" class="btn-secondary">{{ $isId ? 'Tutup' : 'Close' }}</button>
+      @if(Auth::user()->hasPermission('case.write'))
+      <form id="escalateNarrativeForm" method="POST" action="#" class="inline hidden">
+        @csrf
+        <button type="submit" class="btn-secondary">
+          <i class="fa-solid fa-folder-plus"></i>
+          <span>{{ $isId ? 'Eskalasi ke Kasus' : 'Escalate to Case' }}</span>
+        </button>
+      </form>
+      <a id="btnOpenLinkedCase" href="#" class="btn-secondary hidden">
+        <i class="fa-solid fa-folder-open"></i>
+        <span>{{ $isId ? 'Buka Kasus Terkait' : 'Open Linked Case' }}</span>
+      </a>
+      @endif
       @if(Auth::user()->hasPermission('analysis.run'))
       <a id="btnSendScanner" href="{{ route('scanner.index') }}" class="btn-primary">
         <i class="fa-solid fa-magnifying-glass"></i>
@@ -745,7 +758,7 @@
       btn.type = 'button';
       btn.className = 'btn-secondary py-1 px-2 text-[11px]';
       btn.textContent = @json($isId ? 'Inspeksi' : 'Inspect');
-      btn.addEventListener('click', () => inspectThreat(row.time, row.title, row.region, sev + ' / ' + sent, row.code, row.case_id));
+      btn.addEventListener('click', () => inspectThreat(row.time, row.title, row.region, sev + ' / ' + sent, row.code, row.case_id, row.id));
       tdAction.appendChild(btn);
 
       tr.append(tdTime, tdTitle, tdRegion, tdStatus, tdAction);
@@ -857,7 +870,7 @@
     });
   }
 
-  function inspectThreat(time, narrative, source, status, code, caseId) {
+  function inspectThreat(time, narrative, source, status, code, caseId, narrativeId) {
     document.getElementById('modalThreatTime').textContent = time || '-';
     document.getElementById('modalThreatNarrative').textContent = narrative || '-';
     document.getElementById('modalThreatSource').textContent = source || '-';
@@ -868,6 +881,22 @@
       let url = "{{ route('scanner.index') }}?prefill=" + encodeURIComponent(narrative || '');
       if (caseId) url += "&case_id=" + encodeURIComponent(caseId);
       scanBtn.href = url;
+    }
+    const escalateForm = document.getElementById('escalateNarrativeForm');
+    const openCaseBtn = document.getElementById('btnOpenLinkedCase');
+    if (escalateForm && openCaseBtn) {
+      if (caseId) {
+        escalateForm.classList.add('hidden');
+        openCaseBtn.href = "{{ url('/cases') }}/" + encodeURIComponent(caseId);
+        openCaseBtn.classList.remove('hidden');
+      } else if (narrativeId) {
+        openCaseBtn.classList.add('hidden');
+        escalateForm.action = "{{ url('/early-warning/narratives') }}/" + encodeURIComponent(narrativeId) + "/escalate";
+        escalateForm.classList.remove('hidden');
+      } else {
+        escalateForm.classList.add('hidden');
+        openCaseBtn.classList.add('hidden');
+      }
     }
     document.getElementById('threatInspectModal').classList.remove('hidden');
   }

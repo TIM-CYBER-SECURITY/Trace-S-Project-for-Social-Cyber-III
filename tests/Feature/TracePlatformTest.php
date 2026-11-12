@@ -339,4 +339,78 @@ class TracePlatformTest extends TestCase
 
         $this->actingAs($admin, 'web')->get('/admin/registrations')->assertStatus(404);
     }
+
+    /** Alur kohesif: Early Warning Narrative -> Eskalasi Kasus -> Klastering Spread Network -> Update Status Kasus */
+    public function test_cohesive_narrative_escalation_network_clustering_and_case_status_flow(): void
+    {
+        $operator = $this->makeUser('OPERATOR');
+
+        // 1. Catat narasi baru & eskalasi menjadi InvestigationCase
+        $narrative = Narrative::create([
+            'title' => 'Isu viral penghentian subsidi tarif angkutan penyeberangan nasional.',
+            'category' => 'DISINFORMASI',
+            'region' => 'Surabaya',
+            'sentiment' => 'NEGATIF',
+            'severity' => 'TINGGI',
+            'captured_at' => now(),
+            'is_simulation' => false,
+        ]);
+
+        $this->actingAs($operator, 'web')
+            ->post("/early-warning/narratives/{$narrative->id}/escalate")
+            ->assertRedirect();
+
+        $narrative->refresh();
+        $this->assertNotNull($narrative->case_id);
+        $case = InvestigationCase::findOrFail($narrative->case_id);
+        $this->assertSame('TINGGI', $case->priority);
+
+        // 2. Tambah 2 bukti POST berbeda akun pada narasi seragam, lalu jalankan Klasterisasi Spread Network
+        $this->actingAs($operator, 'web')->post("/cases/{$case->id}/evidence/import", [
+            'title' => 'Unggahan @akun_relay_a',
+            'publisher' => '@akun_relay_a',
+            'platform' => 'X',
+            'role' => 'POST',
+            'type' => 'TEXT',
+            'extracted_text' => 'Subsidi tarif penyeberangan dihentikan mulai besok pagi secara mendadak di seluruh pelabuhan.',
+            'published_at' => now()->subMinutes(20)->toDateTimeString(),
+        ])->assertRedirect();
+
+        $this->actingAs($operator, 'web')->post("/cases/{$case->id}/evidence/import", [
+            'title' => 'Unggahan kanal telegram B',
+            'publisher' => 'Info_Pelabuhan_Viral',
+            'platform' => 'TELEGRAM',
+            'role' => 'POST',
+            'type' => 'TEXT',
+            'extracted_text' => 'Tarif penyeberangan pelabuhan seluruh Indonesia naik karena subsidi dihentikan mulai besok pagi.',
+            'published_at' => now()->subMinutes(10)->toDateTimeString(),
+        ])->assertRedirect();
+
+        $this->actingAs($operator, 'web')
+            ->post('/network/cluster', ['case_id' => $case->id])
+            ->assertRedirect("/network?case_id={$case->id}");
+
+        $this->assertGreaterThanOrEqual(1, $case->clusters()->count());
+        $this->assertGreaterThanOrEqual(2, $case->actors()->count());
+
+        // 3. Catat observasi pola akun & ubah status kasus menjadi IN_REVIEW
+        $this->actingAs($operator, 'web')->post('/network/actors', [
+            'case_id' => $case->id,
+            'username' => '@akun_observasi_manual',
+            'platform' => 'TIKTOK',
+            'post_rate' => 4.2,
+            'account_age_days' => 14,
+            'automation_indicator' => 'SEDANG',
+            'indicator_basis' => 'Akun baru berusia 14 hari menyalin redaksi unggahan identik.',
+        ])->assertRedirect("/network?case_id={$case->id}");
+
+        $this->actingAs($operator, 'web')->post("/cases/{$case->id}/status", [
+            'status' => 'IN_REVIEW',
+            'priority' => 'KRITIS',
+        ])->assertRedirect();
+
+        $case->refresh();
+        $this->assertSame('IN_REVIEW', $case->status);
+        $this->assertSame('KRITIS', $case->priority);
+    }
 }

@@ -178,18 +178,22 @@ class OpenAICompatibleDriver extends OllamaDriver
         ];
     }
 
-    private function completion(array $messages, float $temperature): array
+    private function completion(array $messages, float $temperature, ?int $maxTokens = null): array
     {
         $model = $this->modelName();
         if (!$model) {
             throw new AiUnavailableException('Model AI aktif belum dipilih. Konfigurasikan di menu Server AI Lokal.', 'OFFLINE');
         }
-        $r = $this->call(fn () => $this->http()->post($this->baseUrl . '/v1/chat/completions', [
+        $payload = [
             'model' => $model,
             'messages' => $messages,
             'temperature' => $temperature,
             'stream' => false,
-        ])->throw());
+        ];
+        if ($maxTokens !== null && $maxTokens > 0) {
+            $payload['max_tokens'] = $maxTokens;
+        }
+        $r = $this->call(fn () => $this->http()->post($this->baseUrl . '/v1/chat/completions', $payload)->throw());
 
         $message = $r->json('choices.0.message', []);
         $raw = (string) ($message['content'] ?? '');
@@ -204,7 +208,7 @@ class OpenAICompatibleDriver extends OllamaDriver
 
     public function chat(array $messages, array $options = []): array
     {
-        $res = $this->completion($messages, $options['temperature'] ?? 0.2);
+        $res = $this->completion($messages, $options['temperature'] ?? 0.2, isset($options['max_tokens']) ? (int) $options['max_tokens'] : 1000);
         return [
             'content' => JsonExtractor::stripThinking($res['raw']),
             'thinking' => $res['thinking'],
@@ -215,7 +219,7 @@ class OpenAICompatibleDriver extends OllamaDriver
 
     public function analyze(array $request): string
     {
-        $res = $this->completion($request['messages'], 0.0);
+        $res = $this->completion($request['messages'], 0.0, 1100);
         return $res['raw'];
     }
 

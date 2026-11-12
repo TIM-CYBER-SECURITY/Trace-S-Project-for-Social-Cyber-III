@@ -143,4 +143,34 @@ class CaseController extends Controller
 
         return back()->with($item->access_status === 'OK' ? 'success' : 'warning', $msg);
     }
+
+    public function updateStatus(Request $request, $id)
+    {
+        $case = InvestigationCase::findOrFail($id);
+        $validated = $request->validate([
+            'status' => 'required|in:OPEN,IN_REVIEW,VALIDATED,CLOSED',
+            'priority' => 'nullable|in:RENDAH,SEDANG,TINGGI,KRITIS',
+            'operator_notes' => 'nullable|string|max:2000',
+        ]);
+
+        $previousStatus = $case->status;
+        $updates = ['status' => $validated['status']];
+        if (!empty($validated['priority'])) {
+            $updates['priority'] = $validated['priority'];
+        }
+        if (array_key_exists('operator_notes', $validated) && $validated['operator_notes'] !== null) {
+            $updates['operator_notes'] = $validated['operator_notes'];
+        }
+
+        $case->update($updates);
+
+        $this->audit->log('CASE_STATUS_UPDATED', $case, [
+            'case_code' => $case->case_code,
+            'previous_status' => $previousStatus,
+            'new_status' => $case->status,
+            'priority' => $case->priority,
+        ]);
+
+        return back()->with('success', "Status kasus {$case->case_code} diperbarui menjadi {$case->status}.");
+    }
 }

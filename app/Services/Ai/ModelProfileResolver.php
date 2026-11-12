@@ -244,10 +244,10 @@ class ModelProfileResolver
             if ($paramB >= 6.5) {
                 return $isReasoning ? 210 : 180;
             }
-            if ($paramB >= 2.5) {
-                return 90;
+            if ($paramB >= 1.0) {
+                return 120; // 1B-4B JSON terstruktur butuh margin lebih longgar pada inferensi CPU
             }
-            return 60; // <= 2B ultra-lightweight (e.g. 0.5B, 1.5B)
+            return 60; // < 1B ultra-ringan (mis. 0.5B)
         }
         return $isReasoning ? 240 : 180;
     }

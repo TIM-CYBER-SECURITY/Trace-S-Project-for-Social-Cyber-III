@@ -156,6 +156,41 @@ class DashboardController extends Controller
             ->with('success', "Narasi operasional berhasil dicatat ({$narrative->region} • {$narrative->severity}/{$narrative->sentiment}).");
     }
 
+    public function escalateNarrative(int $id, AuditLogger $audit)
+    {
+        $narrative = Narrative::findOrFail($id);
+        if ($narrative->case_id && ($existing = InvestigationCase::find($narrative->case_id))) {
+            return redirect()->route('cases.show', $existing->id)
+                ->with('success', "Narasi sudah terhubung dengan kasus {$existing->case_code}.");
+        }
+
+        $sev = strtoupper((string) ($narrative->severity ?: 'SEDANG'));
+        $priority = in_array($sev, ['RENDAH', 'SEDANG', 'TINGGI', 'KRITIS'], true) ? $sev : 'SEDANG';
+
+        $case = InvestigationCase::create([
+            'case_code' => InvestigationCase::nextCode(),
+            'title' => mb_substr(trim((string) $narrative->title), 0, 140),
+            'claim_text' => (string) $narrative->title,
+            'category' => $narrative->category ?: 'DISINFORMASI STRATEGIS / KOGNITIF',
+            'priority' => $priority,
+            'description' => "Dieskalasi dari Early Warning (Wilayah: " . ($narrative->region ?: 'Nasional') . ", Sentimen: " . ($narrative->sentiment ?: 'NETRAL') . ").",
+            'status' => 'OPEN',
+            'is_simulation' => (bool) $narrative->is_simulation,
+            'created_by' => Auth::id(),
+        ]);
+
+        $narrative->update(['case_id' => $case->id]);
+
+        $audit->log('CASE_ESCALATED_FROM_NARRATIVE', $case, [
+            'narrative_id' => $narrative->id,
+            'case_code' => $case->case_code,
+            'region' => $narrative->region,
+        ], Auth::id());
+
+        return redirect()->route('cases.show', $case->id)
+            ->with('success', "Narasi dieskalasi menjadi kasus investigasi {$case->case_code}.");
+    }
+
     public function syncRss(RssIngestionService $rss)
     {
         $result = $rss->syncActiveFeeds(Auth::user());

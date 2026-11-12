@@ -18,9 +18,9 @@ class PromptBuilder
   "verification_status": "TERVERIFIKASI|TERBANTAHKAN|BELUM TERVERIFIKASI|TIDAK CUKUP BUKTI",
   "content_indicator": "ASLI|HASIL EDIT|MISLEADING|INDIKASI HOAKS|BELUM DAPAT DIPASTIKAN",
   "classification": "VERIFIED|UNVERIFIED|MISLEADING|MANIPULATED_CONTENT|DISINFORMATION|PROPAGANDA",
-  "credibility_score": 0,
+  "credibility_score": 50,
   "threat_level": "RENDAH|SEDANG|TINGGI|KRITIS",
-  "confidence": 0.0,
+  "confidence": 0.7,
   "linguistic_analysis": {"emotion": "string", "fallacy": "string", "source_verification": "string"},
   "findings": [{"statement": "string", "type": "INTERPRETASI_AI|REKOMENDASI|FAKTA|KLAIM_SUMBER", "evidence_ids": []}],
   "evidence": [],
@@ -48,7 +48,7 @@ ATURAN WAJIB:
    - threat_level: RENDAH | SEDANG | TINGGI | KRITIS
    - findings[].type: FAKTA | KLAIM_SUMBER | INTERPRETASI_AI | REKOMENDASI
    - sources[].access_status: OK | GAGAL | TIDAK TERSEDIA
-5. credibility_score adalah bilangan bulat 0..100; confidence adalah desimal 0.0..1.0.
+5. credibility_score adalah bilangan bulat 0..100 (0-25: hoaks/terbantahkan jelas oleh bukti primer; 26-65: menyesatkan/dugaan/belum cukup bukti; 66-100: terdukung bukti primer); confidence adalah desimal 0.0..1.0 sesuai kecukupan bukti (misal 0.3..0.9).
 6. Dilarang menyatakan benar/palsu hanya dari gaya tulisan, jumlah interaksi, atau reputasi akun.
 7. Bila bukti pembanding belum tersedia atau tidak cukup -> verification_status "TIDAK CUKUP BUKTI" atau "BELUM TERVERIFIKASI".
 8. Temuan bertipe FAKTA atau KLAIM_SUMBER wajib menyertakan minimal satu evidence_ids yang benar-benar ada dalam daftar BUKTI TERSEDIA. Jika BUKTI TERSEDIA kosong, isi "evidence": [], "sources": [], dan gunakan hanya findings bertipe "INTERPRETASI_AI" atau "REKOMENDASI" dengan "evidence_ids": [].

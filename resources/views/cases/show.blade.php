@@ -5,6 +5,9 @@
   $canImportEvidence = Auth::user()->hasPermission('evidence.import');
   $canGenerateReport = Auth::user()->hasPermission('report.generate');
   $canRunAnalysis = Auth::user()->hasPermission('analysis.run');
+  $canWriteCase = Auth::user()->hasPermission('case.write');
+  $canSpreadView = Auth::user()->hasPermission('spread.view');
+  $canConsoleUse = Auth::user()->hasPermission('console.use');
 @endphp
 
 @section('title', $case->case_code . ' // TRACE-S')
@@ -33,8 +36,23 @@
         <span class="badge {{ $case->priority === 'KRITIS' ? 'badge-danger' : ($case->priority === 'TINGGI' ? 'badge-warn' : 'badge-neutral') }}">
           {{ $case->priority }}
         </span>
+        <span class="badge badge-neutral">{{ $case->status }}</span>
         @if($case->is_simulation)
           <span class="badge badge-warn">SIMULATION</span>
+        @endif
+
+        @if($canWriteCase)
+        <form action="{{ route('cases.update-status', $case->id) }}" method="POST" class="flex items-center gap-1.5">
+          @csrf
+          <select name="status" aria-label="Case status" class="input-mil py-1 px-2 text-[11px] font-mono w-auto">
+            @foreach(['OPEN', 'IN_REVIEW', 'VALIDATED', 'CLOSED'] as $stOpt)
+              <option value="{{ $stOpt }}" {{ $case->status === $stOpt ? 'selected' : '' }}>{{ $stOpt }}</option>
+            @endforeach
+          </select>
+          <button type="submit" class="btn-secondary py-1 px-2 text-[11px]">
+            {{ $isId ? 'Ubah Status' : 'Set Status' }}
+          </button>
+        </form>
         @endif
 
         @if($canGenerateReport)
@@ -57,37 +75,63 @@
   </div>
 
   <!-- Module Links -->
-  @if($canRunAnalysis)
-  <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+  @if($canRunAnalysis || $canSpreadView || $canConsoleUse)
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+    @if($canRunAnalysis)
     <a href="{{ route('scanner.index', ['case_id' => $case->id, 'tab' => 'scan']) }}" class="panel p-3 flex items-center gap-3 hover:border-[#586B47]">
-      <div class="w-9 h-9 rounded bg-[var(--bg-subtle)] border border-[var(--border-color)] flex items-center justify-center text-[var(--accent-olive)]">
+      <div class="w-9 h-9 rounded bg-[var(--bg-subtle)] border border-[var(--border-color)] flex items-center justify-center text-[var(--accent-olive)] shrink-0">
         <i class="fa-solid fa-magnifying-glass"></i>
       </div>
-      <div>
-        <div class="text-xs font-semibold font-mono">1. Credibility Scanner</div>
-        <div class="text-[11px] text-[var(--text-muted)]">{{ $isId ? 'Ekstraksi klaim & indikator' : 'Claim extraction & scoring' }}</div>
+      <div class="min-w-0">
+        <div class="text-xs font-semibold font-mono truncate">1. Credibility Scanner</div>
+        <div class="text-[11px] text-[var(--text-muted)] truncate">{{ $isId ? 'Ekstraksi klaim & indikator' : 'Claim extraction & scoring' }}</div>
       </div>
     </a>
 
     <a href="{{ route('scanner.index', ['case_id' => $case->id, 'tab' => 'compare']) }}" class="panel p-3 flex items-center gap-3 hover:border-[#586B47]">
-      <div class="w-9 h-9 rounded bg-[var(--bg-subtle)] border border-[var(--border-color)] flex items-center justify-center text-[var(--accent-olive)]">
+      <div class="w-9 h-9 rounded bg-[var(--bg-subtle)] border border-[var(--border-color)] flex items-center justify-center text-[var(--accent-olive)] shrink-0">
         <i class="fa-solid fa-scale-balanced"></i>
       </div>
-      <div>
-        <div class="text-xs font-semibold font-mono">2. Authenticity Comparator</div>
-        <div class="text-[11px] text-[var(--text-muted)]">{{ $isId ? 'Diff kata-per-kata dokumen' : 'Word-by-word doc diff' }}</div>
+      <div class="min-w-0">
+        <div class="text-xs font-semibold font-mono truncate">2. Authenticity Compare</div>
+        <div class="text-[11px] text-[var(--text-muted)] truncate">{{ $isId ? 'Diff kata-per-kata dokumen' : 'Word-by-word doc diff' }}</div>
       </div>
     </a>
 
     <a href="{{ route('scanner.index', ['case_id' => $case->id, 'tab' => 'crosssource']) }}" class="panel p-3 flex items-center gap-3 hover:border-[#586B47]">
-      <div class="w-9 h-9 rounded bg-[var(--bg-subtle)] border border-[var(--border-color)] flex items-center justify-center text-[var(--accent-olive)]">
+      <div class="w-9 h-9 rounded bg-[var(--bg-subtle)] border border-[var(--border-color)] flex items-center justify-center text-[var(--accent-olive)] shrink-0">
         <i class="fa-solid fa-code-compare"></i>
       </div>
-      <div>
-        <div class="text-xs font-semibold font-mono">3. Cross-Source Workspace</div>
-        <div class="text-[11px] text-[var(--text-muted)]">{{ $isId ? 'Leksikal vs semantik terpisah' : 'Lexical vs semantic check' }}</div>
+      <div class="min-w-0">
+        <div class="text-xs font-semibold font-mono truncate">3. Cross-Source Check</div>
+        <div class="text-[11px] text-[var(--text-muted)] truncate">{{ $isId ? 'Leksikal vs semantik terpisah' : 'Lexical vs semantic check' }}</div>
       </div>
     </a>
+    @endif
+
+    @if($canSpreadView)
+    <a href="{{ route('network.index', ['case_id' => $case->id]) }}" class="panel p-3 flex items-center gap-3 hover:border-[#586B47]">
+      <div class="w-9 h-9 rounded bg-[var(--bg-subtle)] border border-[var(--border-color)] flex items-center justify-center text-[var(--accent-olive)] shrink-0">
+        <i class="fa-solid fa-share-nodes"></i>
+      </div>
+      <div class="min-w-0">
+        <div class="text-xs font-semibold font-mono truncate">4. Spread Network</div>
+        <div class="text-[11px] text-[var(--text-muted)] truncate">{{ $isId ? 'Klasterisasi & pola akun' : 'Clusters & account patterns' }}</div>
+      </div>
+    </a>
+    @endif
+
+    @if($canConsoleUse)
+    <a href="{{ route('console.index', ['case_id' => $case->id]) }}" class="panel p-3 flex items-center gap-3 hover:border-[#586B47]">
+      <div class="w-9 h-9 rounded bg-[var(--bg-subtle)] border border-[var(--border-color)] flex items-center justify-center text-[var(--accent-olive)] shrink-0">
+        <i class="fa-solid fa-terminal"></i>
+      </div>
+      <div class="min-w-0">
+        <div class="text-xs font-semibold font-mono truncate">5. AI Analyst Console</div>
+        <div class="text-[11px] text-[var(--text-muted)] truncate">{{ $isId ? 'Dialog bukti terkunci kasus' : 'Case-locked analyst Q&A' }}</div>
+      </div>
+    </a>
+    @endif
   </div>
   @endif
 
@@ -183,6 +227,48 @@
           @endforelse
         </tbody>
       </table>
+    </div>
+  </div>
+
+  <!-- Linked Threat Analyses & Intel Briefs -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div class="panel p-4 space-y-2.5">
+      <div class="font-mono text-xs font-semibold uppercase tracking-wider border-b border-[var(--border-color)] pb-2">
+        {{ $isId ? 'Riwayat Analisis Kredibilitas (' . $case->analyses->count() . ')' : 'Credibility Analyses (' . $case->analyses->count() . ')' }}
+      </div>
+      @forelse($case->analyses->take(5) as $an)
+      <div class="panel-subtle p-2.5 flex items-center justify-between gap-2 text-xs">
+        <div class="min-w-0">
+          <div class="font-mono font-semibold">{{ $an->classification }} ({{ $an->credibility_score }}/100)</div>
+          <div class="text-[11px] text-[var(--text-muted)] font-mono truncate">{{ $an->driver }} &middot; {{ $an->model_name ?? '-' }}</div>
+        </div>
+        <span class="badge {{ $an->validation_status === 'VALIDATED' ? 'badge-olive' : 'badge-warn' }} shrink-0">{{ $an->validation_status }}</span>
+      </div>
+      @empty
+      <p class="text-xs text-[var(--text-muted)]">{{ $isId ? 'Belum ada pemindaian kredibilitas.' : 'No credibility scans yet.' }}</p>
+      @endforelse
+    </div>
+
+    <div class="panel p-4 space-y-2.5">
+      <div class="font-mono text-xs font-semibold uppercase tracking-wider border-b border-[var(--border-color)] pb-2">
+        {{ $isId ? 'Intel Brief Terbit (' . $case->reports->count() . ')' : 'Issued Intel Briefs (' . $case->reports->count() . ')' }}
+      </div>
+      @forelse($case->reports->take(5) as $rp)
+      <div class="panel-subtle p-2.5 flex items-center justify-between gap-2 text-xs">
+        <div class="min-w-0">
+          <a href="{{ route('reports.show', $rp->id) }}" class="font-mono font-semibold text-[var(--accent-olive)] dark:text-[#C5B89C] hover:underline">{{ $rp->report_code }}</a>
+          <div class="text-[11px] text-[var(--text-muted)] truncate">{{ $rp->created_at->format('Y-m-d H:i') }} UTC</div>
+        </div>
+        <div class="flex items-center gap-1.5 shrink-0">
+          <a href="{{ route('reports.show', $rp->id) }}" class="btn-secondary py-1 px-2 text-[11px]">{{ $isId ? 'Buka' : 'View' }}</a>
+          @if(Auth::user()->hasPermission('report.export'))
+          <a href="{{ route('reports.pdf', $rp->id) }}" class="btn-primary py-1 px-2 text-[11px]">PDF</a>
+          @endif
+        </div>
+      </div>
+      @empty
+      <p class="text-xs text-[var(--text-muted)]">{{ $isId ? 'Belum ada Intel Brief diterbitkan.' : 'No Intel Briefs issued yet.' }}</p>
+      @endforelse
     </div>
   </div>
 

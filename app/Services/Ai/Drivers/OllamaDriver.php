@@ -210,7 +210,7 @@ class OllamaDriver implements AiDriver
             'messages' => $request['messages'],
             'stream' => false,
             'format' => 'json',
-            'options' => ['temperature' => 0],
+            'options' => ['temperature' => 0, 'num_predict' => 1100],
         ])->throw());
         return (string) $r->json('message.content', '');
     }

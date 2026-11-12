@@ -31,16 +31,43 @@
       </p>
     </div>
 
-    <form action="{{ route('network.index') }}" method="GET" class="flex items-center gap-2 text-xs font-mono">
-      <label class="label-meta">{{ $isId ? 'Kasus:' : 'Case:' }}</label>
-      <select name="case_id" onchange="this.form.submit()" aria-label="Select case for spread network" class="input-mil py-1.5 font-mono text-xs w-auto max-w-xs">
-        @foreach($cases as $c)
-          <option value="{{ $c->id }}" {{ $selectedCase && $selectedCase->id === $c->id ? 'selected' : '' }}>
-            {{ $c->case_code }} — {{ Str::limit($c->title, 35) }}
-          </option>
-        @endforeach
-      </select>
-    </form>
+    <div class="flex flex-wrap items-center gap-2">
+      <form action="{{ route('network.index') }}" method="GET" class="flex items-center gap-2 text-xs font-mono">
+        <label class="label-meta">{{ $isId ? 'Kasus:' : 'Case:' }}</label>
+        <select name="case_id" onchange="this.form.submit()" aria-label="Select case for spread network" class="input-mil py-1.5 font-mono text-xs w-auto max-w-xs">
+          @foreach($cases as $c)
+            <option value="{{ $c->id }}" {{ $selectedCase && $selectedCase->id === $c->id ? 'selected' : '' }}>
+              {{ $c->case_code }} — {{ Str::limit($c->title, 35) }}
+            </option>
+          @endforeach
+        </select>
+      </form>
+
+      @if($selectedCase && Auth::user()->hasPermission('analysis.run'))
+      <form action="{{ route('network.cluster') }}" method="POST" class="inline">
+        @csrf
+        <input type="hidden" name="case_id" value="{{ $selectedCase->id }}">
+        <button type="submit" class="btn-primary py-1.5 px-3 text-xs">
+          <i class="fa-solid fa-diagram-project"></i>
+          <span>{{ $isId ? 'Jalankan Klasterisasi' : 'Run Clustering' }}</span>
+        </button>
+      </form>
+      @endif
+
+      @if($selectedCase && Auth::user()->hasPermission('case.write'))
+      <button type="button" onclick="document.getElementById('record-actor-modal')?.classList.remove('hidden')" class="btn-secondary py-1.5 px-3 text-xs">
+        <i class="fa-solid fa-user-plus"></i>
+        <span>{{ $isId ? 'Catat Pola Akun' : 'Log Public Handle' }}</span>
+      </button>
+      @endif
+
+      @if($selectedCase)
+      <a href="{{ route('cases.show', $selectedCase->id) }}" class="btn-secondary py-1.5 px-3 text-xs">
+        <i class="fa-solid fa-folder-open"></i>
+        <span>{{ $isId ? 'Dossier Kasus' : 'Case Dossier' }}</span>
+      </a>
+      @endif
+    </div>
   </div>
 
   <!-- Earliest Publication Disclaimer Banner -->
@@ -251,6 +278,67 @@
   </div>
 
 </div>
+
+@if($selectedCase && Auth::user()->hasPermission('case.write'))
+<div id="record-actor-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+  <div class="panel w-full max-w-lg shadow-2xl">
+    <div class="panel-header">
+      <h2 class="font-mono text-xs font-semibold uppercase tracking-wider">
+        {{ $isId ? 'Catat Pola Akun Publik (Non-PII)' : 'Record Public Account Pattern (Non-PII)' }}
+      </h2>
+      <button type="button" onclick="document.getElementById('record-actor-modal')?.classList.add('hidden')" class="btn-secondary py-1 px-2 text-xs" aria-label="Close modal">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <form action="{{ route('network.actors.store') }}" method="POST" class="p-4 space-y-3 text-xs">
+      @csrf
+      <input type="hidden" name="case_id" value="{{ $selectedCase->id }}">
+      <div class="grid grid-cols-2 gap-3">
+        <div class="space-y-1">
+          <label class="label-meta">{{ $isId ? 'Handle Publik' : 'Public Handle' }}</label>
+          <input type="text" name="username" required placeholder="@kanal_publik" class="input-mil font-mono">
+        </div>
+        <div class="space-y-1">
+          <label class="label-meta">Platform</label>
+          <input type="text" name="platform" required value="X" class="input-mil font-mono">
+        </div>
+      </div>
+      <div class="grid grid-cols-3 gap-3">
+        <div class="space-y-1">
+          <label class="label-meta">{{ $isId ? 'Laju (/jam)' : 'Rate (/hr)' }}</label>
+          <input type="number" step="0.1" min="0" name="post_rate" placeholder="1.5" class="input-mil font-mono">
+        </div>
+        <div class="space-y-1">
+          <label class="label-meta">{{ $isId ? 'Umur (hari)' : 'Age (days)' }}</label>
+          <input type="number" min="0" name="account_age_days" placeholder="120" class="input-mil font-mono">
+        </div>
+        <div class="space-y-1">
+          <label class="label-meta">Automation</label>
+          <select name="automation_indicator" required class="input-mil font-mono text-xs">
+            <option value="RENDAH">RENDAH</option>
+            <option value="SEDANG">SEDANG</option>
+            <option value="TINGGI">TINGGI</option>
+            <option value="TIDAK DINILAI">TIDAK DINILAI</option>
+          </select>
+        </div>
+      </div>
+      <div class="space-y-1">
+        <label class="label-meta">{{ $isId ? 'Dasar Observasi Pola' : 'Pattern Basis' }}</label>
+        <textarea name="indicator_basis" rows="2" placeholder="{{ $isId ? 'Mis. frekuensi pengulangan narasi identik lintas platform dalam 30 menit.' : 'Basis of observed automation indicator...' }}" class="input-mil"></textarea>
+      </div>
+      <label class="flex items-center gap-2 text-xs">
+        <input type="checkbox" name="is_earliest_in_dataset" value="1">
+        <span>{{ $isId ? 'Tandai sebagai titik publikasi paling awal di dataset kasus' : 'Mark as earliest publication point in case dataset' }}</span>
+      </label>
+      <div class="flex justify-end gap-2 pt-2 border-t border-[var(--border-color)]">
+        <button type="button" onclick="document.getElementById('record-actor-modal')?.classList.add('hidden')" class="btn-secondary">{{ $isId ? 'Batal' : 'Cancel' }}</button>
+        <button type="submit" class="btn-primary">{{ $isId ? 'Simpan Pola Akun' : 'Save Pattern' }}</button>
+      </div>
+    </form>
+  </div>
+</div>
+@endif
 @endsection
 
 @push('scripts')

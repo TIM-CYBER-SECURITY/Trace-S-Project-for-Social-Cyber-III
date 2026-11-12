@@ -115,6 +115,9 @@ Route::middleware(['auth.trace'])->group(function () {
     Route::post('/early-warning/narratives', [DashboardController::class, 'storeNarrative'])
         ->middleware('permission:case.write')
         ->name('early-warning.narratives.store');
+    Route::post('/early-warning/narratives/{id}/escalate', [DashboardController::class, 'escalateNarrative'])
+        ->middleware('permission:case.write')
+        ->name('early-warning.narratives.escalate');
     Route::post('/early-warning/sync-rss', [DashboardController::class, 'syncRss'])
         ->middleware('permission:connector.use')
         ->name('early-warning.sync-rss');
@@ -147,6 +150,12 @@ Route::middleware(['auth.trace'])->group(function () {
     Route::get('/network', [SpreadAnalysisController::class, 'index'])
         ->middleware('permission:spread.view')
         ->name('network.index');
+    Route::post('/network/cluster', [SpreadAnalysisController::class, 'cluster'])
+        ->middleware('permission:analysis.run')
+        ->name('network.cluster');
+    Route::post('/network/actors', [SpreadAnalysisController::class, 'storeActor'])
+        ->middleware('permission:case.write')
+        ->name('network.actors.store');
 
     Route::get('/reports', [ReportController::class, 'index'])
         ->middleware('permission:report.view')
@@ -177,6 +186,9 @@ Route::middleware(['auth.trace'])->group(function () {
     Route::get('/cases/{id}', [CaseController::class, 'show'])
         ->middleware('permission:case.view')
         ->name('cases.show');
+    Route::post('/cases/{id}/status', [CaseController::class, 'updateStatus'])
+        ->middleware('permission:case.write')
+        ->name('cases.update-status');
     Route::post('/cases/{id}/evidence/import', [CaseController::class, 'importEvidence'])
         ->middleware('permission:evidence.import')
         ->name('cases.import-evidence');

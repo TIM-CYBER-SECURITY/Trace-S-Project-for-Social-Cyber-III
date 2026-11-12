@@ -328,8 +328,12 @@ class AiManager
     public function analyze(string $module, array $payload, array $validEvidenceIds): array
     {
         $driver = $this->driver();
+        $cfg = $this->resolvedConfig();
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(max(120, ((int) ($cfg['timeout'] ?? 180)) + 60));
+        }
         $messages = $this->prompts->analysis($module, $payload);
-        $max = max(1, 1 + (int) ($this->resolvedConfig()['max_retries'] ?? 2));
+        $max = max(1, 1 + (int) ($cfg['max_retries'] ?? 2));
         $lastErrors = [];
         $lastRaw = null;
 
@@ -346,7 +350,7 @@ class AiManager
                 continue;
             }
 
-            $data = $this->normalizeAnalysisData($data, $module, $driver);
+            $data = $this->normalizeAnalysisData($data, $module, $driver, $validEvidenceIds);
 
             $errors = $this->validator->validateAnalysis($data, $validEvidenceIds);
             if (!$errors) {
@@ -375,28 +379,71 @@ class AiManager
         );
     }
 
-    /** Normalisasi halus variasi kapitalisasi/separator LLM open-weights tanpa melonggarkan kontrak enum/bukti. */
-    private function normalizeAnalysisData(array $data, string $module, AiDriver $driver): array
+    /** Normalisasi variasi enum bilingual & struktur LLM open-weights tanpa mengarang Evidence ID fiktif. */
+    private function normalizeAnalysisData(array $data, string $module, AiDriver $driver, array $validEvidenceIds = []): array
     {
         $data['module'] = $module;
         $data['is_simulation'] = $driver->isSimulation();
         $data['model_name'] = !empty($data['model_name']) ? (string) $data['model_name'] : $driver->modelName();
         $data['model_version'] = $data['model_version'] ?? null;
 
-        $normUpperSpaced = fn (?string $val) => $val === null ? '' : strtoupper(trim(str_replace('_', ' ', $val)));
-        $normUpperUnderscore = fn (?string $val) => $val === null ? '' : strtoupper(trim(str_replace(' ', '_', $val)));
+        $normUpperSpaced = fn (?string $val) => $val === null ? '' : trim((string) preg_replace('/\s+/', ' ', strtoupper(str_replace(['_', '-'], ' ', $val))));
+        $normUpperUnderscore = fn (?string $val) => $val === null ? '' : trim((string) preg_replace('/\s+/', '_', strtoupper(str_replace('-', '_', $val))));
+
+        $mapCheckStatus = function (string $val) use ($normUpperSpaced): string {
+            $n = $normUpperSpaced($val);
+            return match ($n) {
+                'VERIFIED', 'TRUE', 'VALID', 'CONFIRMED', 'TERKONFIRMASI' => 'TERVERIFIKASI',
+                'REFUTED', 'FALSE', 'HOAX', 'HOAKS', 'DISPROVED', 'DEBUNKED', 'CONTRADICTED', 'SALAH' => 'TERBANTAHKAN',
+                'UNVERIFIED', 'PENDING', 'UNKNOWN', 'TIDAK TERVERIFIKASI' => 'BELUM TERVERIFIKASI',
+                'INSUFFICIENT', 'INSUFFICIENT EVIDENCE', 'NOT ENOUGH EVIDENCE', 'TIDAK CUKUP' => 'TIDAK CUKUP BUKTI',
+                default => $n,
+            };
+        };
+
+        $mapClaimType = function (string $val): string {
+            $n = strtoupper(trim($val));
+            return match ($n) {
+                'FACT' => 'FAKTA',
+                'OPINION' => 'OPINI',
+                'ALLEGATION', 'RUMOR', 'CLAIM', 'SPECULATION' => 'DUGAAN',
+                'QUOTE', 'CITATION' => 'KUTIPAN',
+                default => in_array($n, ['FAKTA', 'OPINI', 'DUGAAN', 'KUTIPAN'], true) ? $n : 'FAKTA',
+            };
+        };
 
         if (isset($data['verification_status']) && is_string($data['verification_status'])) {
-            $data['verification_status'] = $normUpperSpaced($data['verification_status']);
+            $data['verification_status'] = $mapCheckStatus($data['verification_status']);
         }
         if (isset($data['content_indicator']) && is_string($data['content_indicator'])) {
-            $data['content_indicator'] = $normUpperSpaced($data['content_indicator']);
+            $ci = $normUpperSpaced($data['content_indicator']);
+            $data['content_indicator'] = match ($ci) {
+                'AUTHENTIC', 'ORIGINAL', 'GENUINE', 'TRUE', 'VERIFIED' => 'ASLI',
+                'EDITED', 'ALTERED', 'MANIPULATED', 'MANIPULATED CONTENT' => 'HASIL EDIT',
+                'HOAX', 'HOAKS', 'FAKE', 'DISINFORMATION', 'FALSE' => 'INDIKASI HOAKS',
+                'UNVERIFIED', 'UNCERTAIN', 'UNKNOWN', 'UNCONFIRMED' => 'BELUM DAPAT DIPASTIKAN',
+                default => $ci,
+            };
         }
         if (isset($data['classification']) && is_string($data['classification'])) {
-            $data['classification'] = $normUpperUnderscore($data['classification']);
+            $cl = $normUpperUnderscore($data['classification']);
+            $data['classification'] = match ($cl) {
+                'AUTHENTIC', 'TRUE', 'TERVERIFIKASI' => 'VERIFIED',
+                'HOAX', 'HOAKS', 'FAKE', 'FALSE', 'SCAM', 'PHISHING', 'INDIKASI_HOAKS', 'TERBANTAHKAN' => 'DISINFORMATION',
+                'MANIPULATED', 'HASIL_EDIT' => 'MANIPULATED_CONTENT',
+                'BELUM_TERVERIFIKASI', 'TIDAK_CUKUP_BUKTI' => 'UNVERIFIED',
+                default => $cl,
+            };
         }
         if (isset($data['threat_level']) && is_string($data['threat_level'])) {
-            $data['threat_level'] = strtoupper(trim($data['threat_level']));
+            $tl = strtoupper(trim($data['threat_level']));
+            $data['threat_level'] = match ($tl) {
+                'LOW' => 'RENDAH',
+                'MEDIUM', 'MODERATE' => 'SEDANG',
+                'HIGH' => 'TINGGI',
+                'CRITICAL', 'SEVERE' => 'KRITIS',
+                default => $tl,
+            };
         }
         if (isset($data['credibility_score']) && is_numeric($data['credibility_score'])) {
             $data['credibility_score'] = max(0, min(100, (int) round((float) $data['credibility_score'])));
@@ -407,45 +454,186 @@ class AiManager
                 $conf = round($conf / 100.0, 3);
             }
             $data['confidence'] = max(0.0, min(1.0, $conf));
+        } else {
+            $data['confidence'] = 0.5;
         }
 
+        // Bangun peta ID bukti sah secara case-insensitive (tanpa mengarang ID baru)
+        $validIdLookup = [];
+        foreach ($validEvidenceIds as $vid) {
+            $vStr = (string) $vid;
+            $validIdLookup[strtolower($vStr)] = $vStr;
+            $validIdLookup[strtolower(str_replace('-', '', $vStr))] = $vStr;
+        }
+        $resolveValidId = function ($candidate) use ($validIdLookup): ?string {
+            if (!is_string($candidate) && !is_numeric($candidate)) {
+                return null;
+            }
+            $raw = trim((string) $candidate);
+            if ($raw === '') {
+                return null;
+            }
+            $k1 = strtolower($raw);
+            if (isset($validIdLookup[$k1])) {
+                return $validIdLookup[$k1];
+            }
+            $k2 = strtolower(str_replace('-', '', $raw));
+            return $validIdLookup[$k2] ?? null;
+        };
+
+        $normalizedClaims = [];
         if (isset($data['claims']) && is_array($data['claims'])) {
-            foreach ($data['claims'] as $i => $c) {
+            foreach (array_values($data['claims']) as $i => $c) {
+                if (is_string($c) && trim($c) !== '') {
+                    $normalizedClaims[] = [
+                        'id' => 'c' . ($i + 1),
+                        'text' => mb_substr(trim($c), 0, 2000),
+                        'type' => 'FAKTA',
+                        'check_status' => $data['verification_status'] ?? 'BELUM TERVERIFIKASI',
+                    ];
+                    continue;
+                }
                 if (!is_array($c)) {
                     continue;
                 }
-                if (isset($c['type']) && is_string($c['type'])) {
-                    $data['claims'][$i]['type'] = strtoupper(trim($c['type']));
+                $txt = trim((string) ($c['text'] ?? $c['claim'] ?? $c['statement'] ?? ''));
+                if ($txt === '') {
+                    continue;
                 }
-                if (isset($c['check_status']) && is_string($c['check_status'])) {
-                    $data['claims'][$i]['check_status'] = $normUpperSpaced($c['check_status']);
-                }
+                $normalizedClaims[] = [
+                    'id' => !empty($c['id']) ? mb_substr((string) $c['id'], 0, 20) : 'c' . ($i + 1),
+                    'text' => mb_substr($txt, 0, 2000),
+                    'type' => $mapClaimType((string) ($c['type'] ?? 'FAKTA')),
+                    'check_status' => $mapCheckStatus((string) ($c['check_status'] ?? ($data['verification_status'] ?? 'BELUM TERVERIFIKASI'))),
+                ];
+            }
+        }
+        if ($normalizedClaims === [] && !empty($data['summary']) && is_string($data['summary'])) {
+            $normalizedClaims[] = [
+                'id' => 'c1',
+                'text' => mb_substr(trim($data['summary']), 0, 500),
+                'type' => 'FAKTA',
+                'check_status' => is_string($data['verification_status'] ?? null) ? $data['verification_status'] : 'BELUM TERVERIFIKASI',
+            ];
+        }
+        $data['claims'] = $normalizedClaims;
+
+        // Pastikan linguistic_analysis lengkap bila model meringkas sebagian sub-field
+        if (isset($data['summary']) && is_string($data['summary']) && trim($data['summary']) !== '') {
+            $la = is_array($data['linguistic_analysis'] ?? null) ? $data['linguistic_analysis'] : [];
+            $data['linguistic_analysis'] = [
+                'emotion' => !empty($la['emotion']) && is_string($la['emotion']) ? mb_substr(trim($la['emotion']), 0, 1000) : 'Belum teridentifikasi indikasi manipulasi emosi dominan oleh model.',
+                'fallacy' => !empty($la['fallacy']) && is_string($la['fallacy']) ? mb_substr(trim($la['fallacy']), 0, 1000) : 'Tidak terdapat kesesatan logika spesifik yang dicatat.',
+                'source_verification' => !empty($la['source_verification']) && is_string($la['source_verification']) ? mb_substr(trim($la['source_verification']), 0, 1000) : 'Memerlukan verifikasi rujukan silang operator.',
+            ];
+            if (empty($data['tactical_summary']) || !is_string($data['tactical_summary'])) {
+                $data['tactical_summary'] = mb_substr(trim($data['summary']), 0, 1500);
             }
         }
 
+        $normalizedFindings = [];
         if (isset($data['findings']) && is_array($data['findings'])) {
-            foreach ($data['findings'] as $i => $f) {
+            foreach ($data['findings'] as $f) {
+                if (is_string($f) && trim($f) !== '') {
+                    $normalizedFindings[] = [
+                        'statement' => mb_substr(trim($f), 0, 2000),
+                        'type' => 'INTERPRETASI_AI',
+                        'evidence_ids' => [],
+                    ];
+                    continue;
+                }
                 if (!is_array($f)) {
                     continue;
                 }
-                if (isset($f['type']) && is_string($f['type'])) {
-                    $data['findings'][$i]['type'] = $normUpperUnderscore($f['type']);
+                $stmt = trim((string) ($f['statement'] ?? $f['text'] ?? ''));
+                if ($stmt === '') {
+                    continue;
                 }
-                if (!array_key_exists('evidence_ids', $f) || !is_array($f['evidence_ids'])) {
-                    $data['findings'][$i]['evidence_ids'] = [];
+                $ftype = $normUpperUnderscore((string) ($f['type'] ?? 'INTERPRETASI_AI'));
+                $ftype = match ($ftype) {
+                    'FACT' => 'FAKTA',
+                    'SOURCE_CLAIM', 'CLAIM', 'BUKTI' => 'KLAIM_SUMBER',
+                    'AI_INTERPRETATION', 'INTERPRETATION', 'ANALYSIS', 'OPINION', 'OPINI' => 'INTERPRETASI_AI',
+                    'RECOMMENDATION', 'RECOMENDATION' => 'REKOMENDASI',
+                    default => in_array($ftype, ['FAKTA', 'KLAIM_SUMBER', 'INTERPRETASI_AI', 'REKOMENDASI'], true) ? $ftype : 'INTERPRETASI_AI',
+                };
+                $filteredIds = [];
+                foreach (is_array($f['evidence_ids'] ?? null) ? $f['evidence_ids'] : [] as $rawId) {
+                    $matched = $resolveValidId($rawId);
+                    if ($matched !== null && !in_array($matched, $filteredIds, true)) {
+                        $filteredIds[] = $matched;
+                    }
                 }
+                // Bila model menyebut FAKTA/KLAIM_SUMBER tanpa Evidence ID sah, turunkan jujur menjadi INTERPRETASI_AI
+                if (in_array($ftype, ['FAKTA', 'KLAIM_SUMBER'], true) && $filteredIds === []) {
+                    $ftype = 'INTERPRETASI_AI';
+                }
+                $normalizedFindings[] = [
+                    'statement' => mb_substr($stmt, 0, 2000),
+                    'type' => $ftype,
+                    'evidence_ids' => $filteredIds,
+                ];
             }
         }
+        if ($normalizedFindings === [] && !empty($data['summary']) && is_string($data['summary'])) {
+            $normalizedFindings[] = [
+                'statement' => mb_substr(trim($data['summary']), 0, 2000),
+                'type' => 'INTERPRETASI_AI',
+                'evidence_ids' => [],
+            ];
+        }
+        $data['findings'] = $normalizedFindings;
 
-        $data['evidence'] = is_array($data['evidence'] ?? null) ? $data['evidence'] : [];
-        $data['sources'] = is_array($data['sources'] ?? null) ? $data['sources'] : [];
-        foreach ($data['sources'] as $i => $s) {
-            if (is_array($s) && isset($s['access_status']) && is_string($s['access_status'])) {
-                $data['sources'][$i]['access_status'] = $normUpperSpaced($s['access_status']);
+        // Bersihkan daftar evidence & sources dari entri fiktif/malformed
+        $cleanEvidence = [];
+        if ($validEvidenceIds !== [] && is_array($data['evidence'] ?? null)) {
+            foreach ($data['evidence'] as $e) {
+                if (!is_array($e)) {
+                    continue;
+                }
+                $matched = $resolveValidId($e['id'] ?? null);
+                $excerpt = trim((string) ($e['excerpt'] ?? $e['text'] ?? ''));
+                if ($matched !== null && $excerpt !== '') {
+                    $cleanEvidence[] = [
+                        'id' => $matched,
+                        'excerpt' => mb_substr($excerpt, 0, 3000),
+                    ];
+                }
             }
         }
-        $data['recommendations'] = is_array($data['recommendations'] ?? null) ? array_values(array_map('strval', $data['recommendations'])) : [];
-        $data['limitations'] = is_array($data['limitations'] ?? null) ? array_values(array_map('strval', $data['limitations'])) : [];
+        $data['evidence'] = $cleanEvidence;
+
+        $cleanSources = [];
+        if ($validEvidenceIds !== [] && is_array($data['sources'] ?? null)) {
+            foreach ($data['sources'] as $idx => $s) {
+                if (!is_array($s)) {
+                    continue;
+                }
+                $sid = trim((string) ($s['id'] ?? ''));
+                if ($sid === '') {
+                    $sid = 's' . ($idx + 1);
+                }
+                $st = $normUpperSpaced((string) ($s['access_status'] ?? 'TIDAK TERSEDIA'));
+                $st = match ($st) {
+                    'AVAILABLE', 'SUCCESS', 'ACCESSIBLE', 'VALID', '200' => 'OK',
+                    'FAILED', 'ERROR', 'BLOCKED' => 'GAGAL',
+                    'UNAVAILABLE', 'UNKNOWN', 'NOT AVAILABLE', '' => 'TIDAK TERSEDIA',
+                    default => in_array($st, ['OK', 'GAGAL', 'TIDAK TERSEDIA'], true) ? $st : 'TIDAK TERSEDIA',
+                };
+                $cleanSources[] = [
+                    'id' => mb_substr($sid, 0, 30),
+                    'access_status' => $st,
+                ];
+            }
+        }
+        $data['sources'] = $cleanSources;
+
+        $data['recommendations'] = is_array($data['recommendations'] ?? null)
+            ? array_values(array_filter(array_map(fn ($v) => is_scalar($v) ? mb_substr(trim((string) $v), 0, 1000) : '', $data['recommendations']), fn ($v) => $v !== ''))
+            : [];
+        $data['limitations'] = is_array($data['limitations'] ?? null)
+            ? array_values(array_filter(array_map(fn ($v) => is_scalar($v) ? mb_substr(trim((string) $v), 0, 1000) : '', $data['limitations']), fn ($v) => $v !== ''))
+            : [];
 
         return $data;
     }

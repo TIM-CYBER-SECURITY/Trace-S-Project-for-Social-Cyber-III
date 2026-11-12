@@ -396,4 +396,100 @@ XML;
         $this->assertSame('qwen3-14b-claude-4.5-opus-high-reasoning-distill', $cfgAfterEmbed['model']);
         $this->assertSame('text-embedding-nomic-embed-text-v1.5', $cfgAfterEmbed['embedding_model']);
     }
+
+    public function test_open_weights_bilingual_enum_normalization_strips_fictional_evidence_without_fabricating(): void
+    {
+        $admin = $this->makeUser('ADMINISTRATOR');
+
+        $noisyLlmJson = json_encode([
+            'module' => 'credibility_scan',
+            'summary' => 'Klaim tarif PPN sembako bertentangan dengan bukti resmi Kemenkeu.',
+            'is_simulation' => false,
+            'claims' => [
+                ['text' => 'Beras dikenakan PPN 12%.', 'type' => 'FACT', 'check_status' => 'REFUTED'],
+            ],
+            'verification_status' => 'FALSE',
+            'content_indicator' => 'HOAX',
+            'classification' => 'HOAX',
+            'credibility_score' => 15,
+            'threat_level' => 'HIGH',
+            'confidence' => 0.85,
+            'linguistic_analysis' => [
+                'emotion' => 'Nada mendesak.',
+                'fallacy' => 'Generalisasi.',
+                'source_verification' => 'Bertentangan dengan bukti primer.',
+            ],
+            'findings' => [
+                ['statement' => 'Kemenkeu memastikan beras bebas PPN.', 'type' => 'FACT', 'evidence_ids' => ['e-001', 'E-999-FIKTIF']],
+                ['statement' => 'Perlu edukasi publik lebih lanjut.', 'type' => 'FACT', 'evidence_ids' => ['E-888-FIKTIF']],
+            ],
+            'evidence' => [
+                ['id' => 'E-001', 'excerpt' => 'Beras dan kebutuhan pokok dibebaskan dari PPN.'],
+                ['id' => 'E-999-FIKTIF', 'excerpt' => 'Kutipan fiktif dari model.'],
+            ],
+            'sources' => [
+                ['id' => 'S-1', 'access_status' => 'AVAILABLE'],
+            ],
+            'recommendations' => ['Publikasikan klarifikasi Kemenkeu.'],
+            'limitations' => ['Analisis berbasis satu dokumen primer.'],
+            'tactical_summary' => 'Narasi terbantahkan oleh dokumen UU HPP (E-001).',
+        ], JSON_UNESCAPED_UNICODE);
+
+        Http::fake([
+            'http://127.0.0.1:1234/api/v0/models' => Http::response([
+                'data' => [
+                    ['id' => 'qwen2.5-coder-1.5b-instruct', 'type' => 'llm', 'state' => 'loaded', 'max_context_length' => 32768],
+                ],
+            ], 200),
+            'http://127.0.0.1:1234/v1/chat/completions' => Http::response([
+                'choices' => [['message' => ['content' => $noisyLlmJson]]],
+            ], 200),
+        ]);
+
+        $this->actingAs($admin, 'web')->post('/admin/ai/configure', [
+            'driver' => 'openai_compatible',
+            'base_url' => 'http://127.0.0.1:1234',
+            'model' => 'qwen2.5-coder-1.5b-instruct',
+        ])->assertRedirect();
+
+        $case = InvestigationCase::create([
+            'case_code' => 'TS-2026-599',
+            'title' => 'Kasus Uji Normalisasi Enum',
+            'claim_text' => 'Beras dikenakan PPN 12%.',
+            'priority' => 'TINGGI',
+            'status' => 'OPEN',
+            'is_simulation' => false,
+            'created_by' => $admin->id,
+        ]);
+
+        $this->actingAs($admin, 'web')->post("/cases/{$case->id}/evidence/import", [
+            'title' => 'Siaran Resmi Kemenkeu',
+            'publisher' => 'Kemenkeu RI',
+            'platform' => 'PORTAL_RESMI',
+            'role' => 'REFERENCE',
+            'type' => 'DOCUMENT',
+            'extracted_text' => 'Beras dan bahan pokok dibebaskan dari pengenaan PPN.',
+        ])->assertRedirect();
+
+        $scan = $this->actingAs($admin, 'web')->postJson('/scanner/scan', [
+            'case_id' => $case->id,
+            'text' => 'Beras dikenakan PPN 12%.',
+        ]);
+
+        $scan->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('threat.credibility_score', 15)
+            ->assertJsonPath('threat.verification_status', 'TERBANTAHKAN')
+            ->assertJsonPath('threat.classification', 'DISINFORMATION')
+            ->assertJsonPath('threat.threat_level', 'TINGGI');
+
+        // Evidence fiktif terbuang & temuan tanpa bukti sah diturunkan jujur ke INTERPRETASI_AI
+        $result = $scan->json('analysis');
+        $this->assertCount(1, $result['evidence']);
+        $this->assertSame('E-001', $result['evidence'][0]['id']);
+        $this->assertSame(['E-001'], $result['findings'][0]['evidence_ids']);
+        $this->assertSame('FAKTA', $result['findings'][0]['type']);
+        $this->assertSame([], $result['findings'][1]['evidence_ids']);
+        $this->assertSame('INTERPRETASI_AI', $result['findings'][1]['type']);
+    }
 }
