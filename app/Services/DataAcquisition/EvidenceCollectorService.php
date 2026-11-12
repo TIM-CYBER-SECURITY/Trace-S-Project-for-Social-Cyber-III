@@ -122,6 +122,7 @@ class EvidenceCollectorService
     ): EvidenceItem {
         $extractedText = trim((string) ($data['extracted_text'] ?? ''));
         $rawPath = null;
+        $notes = (string) ($data['collection_notes'] ?? '');
 
         if ($file && $file->isValid()) {
             self::assertSafeUpload($file);
@@ -146,6 +147,13 @@ class EvidenceCollectorService
                     $cleaned = preg_replace('/<(script|style|nav|header|footer|aside)[^>]*>.*?<\/\\1>/is', '', $extractedText);
                     $extractedText = trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($cleaned))));
                 }
+            } elseif (empty($extractedText) && $ext === 'pdf') {
+                $extractedText = PdfTextExtractor::extractFromFile((string) $file->getRealPath());
+                if ($extractedText !== '') {
+                    $notes .= "\n[PDF Extractor]: Teks diekstrak otomatis dari berkas PDF (" . mb_strlen($extractedText) . ' karakter).';
+                } else {
+                    $notes .= "\n[PDF Extractor]: Berkas PDF berhasil disimpan, tetapi tidak ada teks tersemat yang dapat diekstrak otomatis (kemungkinan PDF hasil scan/gambar atau terenkripsi).";
+                }
             }
         }
 
@@ -153,7 +161,6 @@ class EvidenceCollectorService
 
         // Cek prompt injection
         $guard = PromptGuard::scan($extractedText);
-        $notes = $data['collection_notes'] ?? '';
         if ($guard['flagged']) {
             $notes .= "\n[PERINGATAN KEAMANAN]: Teks mengandung indikasi prompt injection: " . implode(', ', $guard['patterns']);
         }

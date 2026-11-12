@@ -50,7 +50,7 @@
       </div>
 
       <div class="flex flex-wrap items-center gap-2 text-[11px]">
-        <span class="badge badge-neutral">ALLOWLIST: extract_claims, compare_numeric_entities, analyze_citations</span>
+        <span class="badge badge-neutral">ALLOWLIST: extract_claims, compare_numeric_entities, calculate_text_similarity, analyze_spread, analyze_source_relationships, cluster_narratives, generate_case_summary</span>
         <span class="badge badge-neutral">DRIVER: {{ $aiDriver }}</span>
         @if(!empty($aiStatus['is_simulation']))
           <span class="badge badge-warn">{{ $isId ? 'SIMULASI' : 'SIMULATION' }}</span>
@@ -205,6 +205,10 @@
           if (msg.sources && msg.sources.length) {
             sourcesHtml = `<div class="flex flex-wrap items-center gap-1.5 pt-1"><span class="label-meta">CITATIONS:</span>${msg.sources.map(s => `<span class="badge badge-olive">${escapeHtml(s)}</span>`).join('')}</div>`;
           }
+          let toolsHtml = '';
+          if (msg.tool_calls && msg.tool_calls.length) {
+            toolsHtml = `<div class="panel-subtle p-2 text-[11px] font-mono space-y-0.5"><div class="label-meta">ALLOWLISTED TOOL EXECUTION:</div>${msg.tool_calls.map(tc => `<div>&middot; Tool: <b>${escapeHtml(tc && tc.tool ? tc.tool : String(tc))}</b></div>`).join('')}</div>`;
+          }
           const simTag = msg.is_simulation ? `<span class="badge badge-warn">SIMULATION</span>` : '';
           assistDiv.innerHTML = `
             <div class="panel p-3.5 max-w-2xl border-l-4 border-l-[#46514C] space-y-2">
@@ -214,6 +218,7 @@
               </div>
               <p class="leading-relaxed whitespace-pre-wrap">${escapeHtml(msg.content)}</p>
               ${sourcesHtml}
+              ${toolsHtml}
             </div>
           `;
           msgContainer.appendChild(assistDiv);

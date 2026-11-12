@@ -23,12 +23,13 @@ class SystemController extends Controller
     {
         $checks = $this->health->checks();
         $connectors = Connector::orderBy('key')->get();
+        $rssFeeds = \App\Models\RssFeed::orderBy('name')->get();
         $security = SystemLog::whereIn('action', ['LOGIN_FAILURE', 'LOGIN_LOCKED', 'LOGIN_DENIED', 'ACCESS_DENIED', 'CREDENTIAL_RESET', 'ACCOUNT_SUSPENDED', 'ACCOUNT_REVOKED'])
             ->orderByDesc('id')->limit(20)->get();
         $definitions = AppSettings::DEFINITIONS;
         $values = collect($definitions)->map(fn ($d, $k) => $this->settings->get($k))->all();
 
-        return view('admin.system', compact('checks', 'connectors', 'security', 'definitions', 'values'));
+        return view('admin.system', compact('checks', 'connectors', 'rssFeeds', 'security', 'definitions', 'values'));
     }
 
     public function update(Request $request)

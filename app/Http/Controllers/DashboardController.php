@@ -224,6 +224,34 @@ class DashboardController extends Controller
         return back()->with('success', "Sumber RSS '{$feed->name}' berhasil ditambahkan.");
     }
 
+    public function toggleRssFeed(int $id, AuditLogger $audit)
+    {
+        $feed = RssFeed::findOrFail($id);
+        $feed->update(['is_active' => !$feed->is_active]);
+
+        $audit->log('RSS_FEED_TOGGLED', $feed, [
+            'name' => $feed->name,
+            'is_active' => $feed->is_active,
+        ], Auth::id());
+
+        return back()->with('success', "Sumber RSS '{$feed->name}' kini " . ($feed->is_active ? 'AKTIF' : 'NONAKTIF') . '.');
+    }
+
+    public function destroyRssFeed(int $id, AuditLogger $audit)
+    {
+        $feed = RssFeed::findOrFail($id);
+        $name = $feed->name;
+
+        $audit->log('RSS_FEED_DELETED', $feed, [
+            'name' => $name,
+            'url' => $feed->feed_url,
+        ], Auth::id());
+
+        $feed->delete();
+
+        return back()->with('success', "Sumber RSS '{$name}' telah dihapus.");
+    }
+
     public function sentiment()
     {
         $narrativesCount = Narrative::count();

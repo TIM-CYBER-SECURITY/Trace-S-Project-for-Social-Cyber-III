@@ -124,6 +124,12 @@ Route::middleware(['auth.trace'])->group(function () {
     Route::post('/early-warning/rss-feeds', [DashboardController::class, 'storeRssFeed'])
         ->middleware('permission:connector.manage')
         ->name('early-warning.rss-feeds.store');
+    Route::post('/early-warning/rss-feeds/{id}/toggle', [DashboardController::class, 'toggleRssFeed'])
+        ->middleware('permission:connector.manage')
+        ->name('early-warning.rss-feeds.toggle');
+    Route::delete('/early-warning/rss-feeds/{id}', [DashboardController::class, 'destroyRssFeed'])
+        ->middleware('permission:connector.manage')
+        ->name('early-warning.rss-feeds.destroy');
     Route::get('/api/threat-feed', [DashboardController::class, 'threatFeed'])
         ->middleware('permission:dashboard.view')
         ->name('api.threat-feed');
@@ -195,6 +201,9 @@ Route::middleware(['auth.trace'])->group(function () {
     Route::post('/cases/{id}/evidence/fetch-url', [CaseController::class, 'fetchUrlEvidence'])
         ->middleware('permission:evidence.import')
         ->name('cases.fetch-url');
+    Route::get('/cases/{id}/evidence/{evidenceId}/download', [CaseController::class, 'downloadEvidence'])
+        ->middleware('permission:case.view')
+        ->name('cases.evidence.download');
 
     // Area Tata Kelola Administrator
     Route::prefix('admin')->name('admin.')->group(function () {

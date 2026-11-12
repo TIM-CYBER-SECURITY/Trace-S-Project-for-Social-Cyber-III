@@ -81,21 +81,60 @@ class ConsoleController extends Controller
             ])->all() ?? [],
         ];
 
-        // Eksekusi tool otomatis bila user menanyakan kesamaan atau ringkasan
+        // Eksekusi tool allowlist secara kontekstual sesuai kueri analis
         $toolCalls = [];
         $contextSummary = [];
 
-        if (stripos($userMsgText, 'ringkasan') !== false || stripos($userMsgText, 'summary') !== false) {
+        if (preg_match('/ringkas|summary|ikhtisar/i', $userMsgText)) {
             if ($case) {
                 $toolCalls[] = $this->tools->execute('generate_case_summary', ['case_id' => $case->id]);
                 $contextSummary['ringkasan_kasus'] = "Kasus {$case->case_code} memuat {$case->evidence->count()} bukti.";
             }
         }
-        if (stripos($userMsgText, 'klaim') !== false) {
+        if (preg_match('/klaim|claim/i', $userMsgText)) {
             $textToExtract = $case?->claim_text ?: $userMsgText;
             $toolRes = $this->tools->execute('extract_claims', ['text' => $textToExtract]);
             $toolCalls[] = $toolRes;
             $contextSummary['klaim_terdeteksi'] = count($toolRes['claims']) . ' klaim utama teridentifikasi.';
+        }
+        if ($case && $case->evidence->count() >= 2 && preg_match('/angka|nominal|numerik|statistik|entitas|numeric/i', $userMsgText)) {
+            $ref = $case->evidence->whereIn('role', ['REFERENCE', 'PRIMARY'])->first() ?? $case->evidence->first();
+            $cmp = $case->evidence->where('id', '!=', $ref->id)->first();
+            if ($ref && $cmp) {
+                $numRes = $this->tools->execute('compare_numeric_entities', [
+                    'text_a' => (string) $ref->extracted_text,
+                    'text_b' => (string) $cmp->extracted_text,
+                ]);
+                $toolCalls[] = $numRes;
+                $contextSummary['konsistensi_numerik'] = $numRes['result']['numeric_consistency'] ?? 'CHECKED';
+            }
+        }
+        if ($case && $case->evidence->count() >= 2 && preg_match('/mirip|kemiripan|banding|diff|similarity|persamaan/i', $userMsgText)) {
+            $ref = $case->evidence->whereIn('role', ['REFERENCE', 'PRIMARY'])->first() ?? $case->evidence->first();
+            $cmp = $case->evidence->where('id', '!=', $ref->id)->first();
+            if ($ref && $cmp) {
+                $simRes = $this->tools->execute('calculate_text_similarity', [
+                    'text_a' => (string) $ref->extracted_text,
+                    'text_b' => (string) $cmp->extracted_text,
+                ]);
+                $toolCalls[] = $simRes;
+                $contextSummary['kemiripan_leksikal'] = ($simRes['result']['score'] ?? 0) . '% (' . ($ref->evidence_code) . ' vs ' . ($cmp->evidence_code) . ')';
+            }
+        }
+        if ($case && preg_match('/sebar|jaringan|spread|aktor|platform/i', $userMsgText)) {
+            $spreadRes = $this->tools->execute('analyze_spread', ['case_id' => $case->id]);
+            $toolCalls[] = $spreadRes;
+            $contextSummary['analisis_sebaran'] = "{$spreadRes['total_posts']} unggahan, {$spreadRes['actors_observed']} pola akun terpantau.";
+        }
+        if ($case && preg_match('/sumber|lintas|sindikasi|cross/i', $userMsgText)) {
+            $relRes = $this->tools->execute('analyze_source_relationships', ['case_id' => $case->id]);
+            $toolCalls[] = $relRes;
+            $contextSummary['relasi_sumber'] = $relRes['status'] ?? 'CHECKED';
+        }
+        if ($case && preg_match('/klaster|cluster/i', $userMsgText)) {
+            $clRes = $this->tools->execute('cluster_narratives', ['case_id' => $case->id]);
+            $toolCalls[] = $clRes;
+            $contextSummary['klaster_narasi'] = count($clRes['result']['clusters'] ?? []) . ' klaster teridentifikasi.';
         }
 
         // Histori pesan

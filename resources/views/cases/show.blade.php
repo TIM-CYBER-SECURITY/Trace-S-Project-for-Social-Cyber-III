@@ -191,6 +191,7 @@
             <th>{{ $isId ? 'Penerbit / Platform' : 'Publisher / Platform' }}</th>
             <th>{{ $isId ? 'Akses' : 'Access' }}</th>
             <th>SHA-256 Hash</th>
+            <th class="text-right">{{ $isId ? 'Berkas / Teks' : 'File / Text' }}</th>
           </tr>
         </thead>
         <tbody>
@@ -219,10 +220,24 @@
             <td class="font-mono text-[11px] select-all text-[var(--text-muted)]">
               {{ $e->content_hash ? substr($e->content_hash, 0, 16) . '...' : 'N/A' }}
             </td>
+            <td class="text-right whitespace-nowrap space-x-1">
+              <button type="button"
+                      onclick='openEvidenceDetail(@json($e->evidence_code), @json($e->title), @json($e->publisher ?? "-"), @json($e->platform), @json($e->url ?? "-"), @json($e->content_hash ?? "N/A"), @json($e->extracted_text ?? ""), @json($e->collection_notes ?? ""), @json($e->raw_path ? route("cases.evidence.download", [$case->id, $e->id]) : null))'
+                      class="btn-secondary py-1 px-2 text-[11px]">
+                <i class="fa-regular fa-eye"></i>
+                <span>{{ $isId ? 'Teks' : 'Text' }}</span>
+              </button>
+              @if($e->raw_path)
+                <a href="{{ route('cases.evidence.download', [$case->id, $e->id]) }}" class="btn-primary py-1 px-2 text-[11px]">
+                  <i class="fa-solid fa-download"></i>
+                  <span>{{ $isId ? 'Unduh' : 'File' }}</span>
+                </a>
+              @endif
+            </td>
           </tr>
           @empty
           <tr>
-            <td colspan="6" class="text-center text-[var(--text-muted)] py-6">—</td>
+            <td colspan="7" class="text-center text-[var(--text-muted)] py-6">—</td>
           </tr>
           @endforelse
         </tbody>
@@ -379,4 +394,59 @@
   </div>
 </div>
 @endif
+
+<!-- Evidence Full Verbatim Detail Modal -->
+<div id="evidence-detail-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+  <div class="panel w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col">
+    <div class="panel-header shrink-0">
+      <div>
+        <h2 class="font-mono text-xs font-semibold uppercase tracking-wider" id="evDetailTitle">Evidence Detail</h2>
+        <div class="text-[11px] font-mono text-[var(--text-muted)]" id="evDetailMeta">-</div>
+      </div>
+      <button type="button" onclick="document.getElementById('evidence-detail-modal').classList.add('hidden')" class="btn-secondary py-1 px-2 text-xs" aria-label="Close modal">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <div class="p-4 space-y-3 overflow-y-auto text-xs">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 font-mono text-[11px]">
+        <div class="panel-subtle p-2 break-all"><span class="label-meta block">URL:</span><span id="evDetailUrl">-</span></div>
+        <div class="panel-subtle p-2 break-all"><span class="label-meta block">SHA-256:</span><span id="evDetailHash">-</span></div>
+      </div>
+      <div>
+        <div class="label-meta mb-1">{{ $isId ? 'Teks Ekstraksi Verbatim' : 'Verbatim Extracted Text' }}</div>
+        <pre id="evDetailText" class="panel-subtle p-3 font-mono text-xs whitespace-pre-wrap max-h-64 overflow-y-auto">-</pre>
+      </div>
+      <div>
+        <div class="label-meta mb-1">{{ $isId ? 'Catatan Akuisisi & Guard' : 'Collection & Security Notes' }}</div>
+        <pre id="evDetailNotes" class="panel-subtle p-2.5 font-mono text-[11px] text-[var(--text-muted)] whitespace-pre-wrap">-</pre>
+      </div>
+    </div>
+    <div class="p-4 border-t border-[var(--border-color)] flex items-center justify-end gap-2 shrink-0">
+      <a id="evDetailDownload" href="#" class="hidden btn-primary text-xs"><i class="fa-solid fa-download"></i><span>{{ $isId ? 'Unduh Berkas Asli' : 'Download Raw File' }}</span></a>
+      <button type="button" onclick="document.getElementById('evidence-detail-modal').classList.add('hidden')" class="btn-secondary text-xs">{{ $isId ? 'Tutup' : 'Close' }}</button>
+    </div>
+  </div>
+</div>
+
+@push('scripts')
+<script>
+  function openEvidenceDetail(code, title, pub, plat, url, hash, text, notes, downloadUrl) {
+    document.getElementById('evDetailTitle').textContent = '[' + code + '] ' + title;
+    document.getElementById('evDetailMeta').textContent = pub + ' • ' + plat;
+    document.getElementById('evDetailUrl').textContent = url || '-';
+    document.getElementById('evDetailHash').textContent = hash || 'N/A';
+    document.getElementById('evDetailText').textContent = text || '-';
+    document.getElementById('evDetailNotes').textContent = notes || '-';
+    const dl = document.getElementById('evDetailDownload');
+    if (downloadUrl) {
+      dl.href = downloadUrl;
+      dl.classList.remove('hidden');
+    } else {
+      dl.href = '#';
+      dl.classList.add('hidden');
+    }
+    document.getElementById('evidence-detail-modal').classList.remove('hidden');
+  }
+</script>
+@endpush
 @endsection

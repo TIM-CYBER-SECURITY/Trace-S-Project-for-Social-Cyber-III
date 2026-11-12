@@ -38,13 +38,13 @@ class JsonExtractor
 
         // Hapus pembungkus markdown ```json ... ``` di awal/akhir atau di dalam teks
         $unwrapped = preg_replace('/^```(?:json)?\s*|\s*```$/i', '', $raw) ?? $raw;
-        $decoded = json_decode(trim($unwrapped), true);
+        $decoded = self::decodeLenient(trim($unwrapped));
         if (is_array($decoded)) {
             return $decoded;
         }
 
         if (preg_match('/```(?:json)?\s*(\{.*\})\s*```/is', $raw, $matches)) {
-            $decoded = json_decode(trim($matches[1]), true);
+            $decoded = self::decodeLenient(trim($matches[1]));
             if (is_array($decoded)) {
                 return $decoded;
             }
@@ -85,7 +85,7 @@ class JsonExtractor
                     $depth--;
                     if ($depth === 0 && $start !== null) {
                         $candidate = substr($raw, $start, $i - $start + 1);
-                        $decoded = json_decode($candidate, true);
+                        $decoded = self::decodeLenient($candidate);
                         if (is_array($decoded)) {
                             return $decoded;
                         }
@@ -95,6 +95,26 @@ class JsonExtractor
             }
         }
 
+        return null;
+    }
+
+    /** Decode JSON secara ketat terlebih dahulu, lalu perbaiki trailing comma sintaksis jika perlu. */
+    private static function decodeLenient(string $json): ?array
+    {
+        if ($json === '') {
+            return null;
+        }
+        $decoded = json_decode($json, true);
+        if (is_array($decoded)) {
+            return $decoded;
+        }
+        $cleaned = preg_replace('/,\s*([}\]])/', '$1', $json);
+        if ($cleaned !== null && $cleaned !== $json) {
+            $decoded = json_decode($cleaned, true);
+            if (is_array($decoded)) {
+                return $decoded;
+            }
+        }
         return null;
     }
 }

@@ -42,11 +42,26 @@ if (-not (Test-Path "public\build\manifest.json")) {
     }
 }
 
+$tracePort = 8000
+foreach ($candidatePort in @(8000, 8080, 8081, 8082)) {
+    $busy = $false
+    try {
+        $conns = Get-NetTCPConnection -LocalPort $candidatePort -ErrorAction SilentlyContinue
+        if ($conns) { $busy = $true }
+    } catch { }
+    if (-not $busy) {
+        $tracePort = $candidatePort
+        break
+    } else {
+        Write-Host "[WARN] Port $candidatePort sedang terpakai/gantung di Windows. Memilih port alternatif..." -ForegroundColor Yellow
+    }
+}
+
 Write-Host ""
 Write-Host "=========================================================================" -ForegroundColor DarkGreen
 Write-Host " Sistem siap dijalankan (Mode Operasional Lokal)" -ForegroundColor White
-Write-Host " URL Utama         : http://127.0.0.1:8000/login" -ForegroundColor Green
-Write-Host " Cek Kesehatan     : http://127.0.0.1:8000/health" -ForegroundColor Gray
+Write-Host " URL Utama         : http://127.0.0.1:$tracePort/login" -ForegroundColor Green
+Write-Host " Cek Kesehatan     : http://127.0.0.1:$tracePort/health" -ForegroundColor Gray
 Write-Host ""
 Write-Host " Catatan Keamanan & Provisioning Akun (Khusus Developer):" -ForegroundColor Yellow
 Write-Host "   Tidak ada pendaftaran publik maupun akun/kata sandi demo." -ForegroundColor Gray
@@ -57,6 +72,6 @@ Write-Host "     $phpBin artisan trace:validate-accounts" -ForegroundColor Gray
 Write-Host "     $phpBin artisan trace:provision-accounts" -ForegroundColor Gray
 Write-Host "=========================================================================" -ForegroundColor DarkGreen
 Write-Host ""
-Write-Host "Menjalankan Laravel Development Server (Ctrl+C untuk berhenti)..." -ForegroundColor White
+Write-Host "Menjalankan Laravel Development Server pada port $tracePort (Ctrl+C untuk berhenti)..." -ForegroundColor White
 
-& $phpBin artisan serve --host=127.0.0.1 --port=8000
+& $phpBin artisan serve --host=127.0.0.1 --port=$tracePort

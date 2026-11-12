@@ -67,11 +67,23 @@ if not exist "public\build\manifest.json" (
     )
 )
 
+set TRACE_PORT=8000
+for %%P in (8000 8080 8081 8082) do (
+    netstat -ano -p tcp | findstr /R ":%%P .*LISTENING :%%P .*CLOSE_WAIT" >nul 2>nul
+    if !ERRORLEVEL! neq 0 (
+        set TRACE_PORT=%%P
+        goto port_found
+    ) else (
+        echo [WARN] Port %%P sedang terpakai/gantung di Windows. Memeriksa port alternatif...
+    )
+)
+:port_found
+
 echo.
 echo =========================================================================
 echo  Sistem siap dijalankan (Mode Operasional Lokal)
-echo  URL Utama         : http://127.0.0.1:8000/login
-echo  Cek Kesehatan     : http://127.0.0.1:8000/health
+echo  URL Utama         : http://127.0.0.1:!TRACE_PORT!/login
+echo  Cek Kesehatan     : http://127.0.0.1:!TRACE_PORT!/health
 echo.
 echo  Catatan Keamanan ^& Provisioning Akun (Khusus Developer):
 echo    Tidak ada pendaftaran publik maupun akun/kata sandi demo.
@@ -82,5 +94,5 @@ echo      %PHP_BIN% artisan trace:validate-accounts
 echo      %PHP_BIN% artisan trace:provision-accounts
 echo =========================================================================
 echo.
-echo Menjalankan server pengembangan Laravel... Tekan Ctrl+C untuk berhenti.
-%PHP_BIN% artisan serve --host=127.0.0.1 --port=8000
+echo Menjalankan server pengembangan Laravel pada port !TRACE_PORT!... Tekan Ctrl+C untuk berhenti.
+%PHP_BIN% artisan serve --host=127.0.0.1 --port=!TRACE_PORT!

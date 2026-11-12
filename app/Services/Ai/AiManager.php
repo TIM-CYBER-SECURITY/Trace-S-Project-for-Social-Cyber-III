@@ -390,64 +390,84 @@ class AiManager
         $normUpperSpaced = fn (?string $val) => $val === null ? '' : trim((string) preg_replace('/\s+/', ' ', strtoupper(str_replace(['_', '-'], ' ', $val))));
         $normUpperUnderscore = fn (?string $val) => $val === null ? '' : trim((string) preg_replace('/\s+/', '_', strtoupper(str_replace('-', '_', $val))));
 
-        $mapCheckStatus = function (string $val) use ($normUpperSpaced): string {
+        $mapCheckStatus = function (?string $val) use ($normUpperSpaced): string {
             $n = $normUpperSpaced($val);
             return match ($n) {
-                'VERIFIED', 'TRUE', 'VALID', 'CONFIRMED', 'TERKONFIRMASI' => 'TERVERIFIKASI',
-                'REFUTED', 'FALSE', 'HOAX', 'HOAKS', 'DISPROVED', 'DEBUNKED', 'CONTRADICTED', 'SALAH' => 'TERBANTAHKAN',
-                'UNVERIFIED', 'PENDING', 'UNKNOWN', 'TIDAK TERVERIFIKASI' => 'BELUM TERVERIFIKASI',
-                'INSUFFICIENT', 'INSUFFICIENT EVIDENCE', 'NOT ENOUGH EVIDENCE', 'TIDAK CUKUP' => 'TIDAK CUKUP BUKTI',
-                default => $n,
+                'VERIFIED', 'TRUE', 'VALID', 'CONFIRMED', 'TERKONFIRMASI', 'BENAR', 'FAKTA' => 'TERVERIFIKASI',
+                'REFUTED', 'FALSE', 'HOAX', 'HOAKS', 'DISPROVED', 'DEBUNKED', 'CONTRADICTED', 'SALAH', 'PALSU', 'DIBANTAH', 'DISINFORMATION' => 'TERBANTAHKAN',
+                'UNVERIFIED', 'PENDING', 'UNKNOWN', 'TIDAK TERVERIFIKASI', 'BELUM DIPASTIKAN', 'BELUM BISA DIPASTIKAN', 'BELUM DAPAT DIPASTIKAN', 'UNCONFIRMED' => 'BELUM TERVERIFIKASI',
+                'INSUFFICIENT', 'INSUFFICIENT EVIDENCE', 'NOT ENOUGH EVIDENCE', 'TIDAK CUKUP', 'BELUM CUKUP BUKTI', 'BELUM CUKUP', 'TIDAK ADA BUKTI', 'NO EVIDENCE', '' => 'TIDAK CUKUP BUKTI',
+                default => in_array($n, ['TERVERIFIKASI', 'TERBANTAHKAN', 'BELUM TERVERIFIKASI', 'TIDAK CUKUP BUKTI'], true) ? $n : 'BELUM TERVERIFIKASI',
             };
         };
 
-        $mapClaimType = function (string $val): string {
-            $n = strtoupper(trim($val));
+        $mapClaimType = function (?string $val): string {
+            $n = strtoupper(trim((string) $val));
             return match ($n) {
-                'FACT' => 'FAKTA',
-                'OPINION' => 'OPINI',
-                'ALLEGATION', 'RUMOR', 'CLAIM', 'SPECULATION' => 'DUGAAN',
+                'FACT', 'BENAR', 'EVENT' => 'FAKTA',
+                'OPINION', 'PERNYATAAN' => 'OPINI',
+                'ALLEGATION', 'RUMOR', 'CLAIM', 'SPECULATION', 'KLAIM', 'TUDUHAN', 'HOAX', 'HOAKS' => 'DUGAAN',
                 'QUOTE', 'CITATION' => 'KUTIPAN',
                 default => in_array($n, ['FAKTA', 'OPINI', 'DUGAAN', 'KUTIPAN'], true) ? $n : 'FAKTA',
             };
         };
 
-        if (isset($data['verification_status']) && is_string($data['verification_status'])) {
-            $data['verification_status'] = $mapCheckStatus($data['verification_status']);
-        }
-        if (isset($data['content_indicator']) && is_string($data['content_indicator'])) {
-            $ci = $normUpperSpaced($data['content_indicator']);
-            $data['content_indicator'] = match ($ci) {
-                'AUTHENTIC', 'ORIGINAL', 'GENUINE', 'TRUE', 'VERIFIED' => 'ASLI',
-                'EDITED', 'ALTERED', 'MANIPULATED', 'MANIPULATED CONTENT' => 'HASIL EDIT',
-                'HOAX', 'HOAKS', 'FAKE', 'DISINFORMATION', 'FALSE' => 'INDIKASI HOAKS',
-                'UNVERIFIED', 'UNCERTAIN', 'UNKNOWN', 'UNCONFIRMED' => 'BELUM DAPAT DIPASTIKAN',
-                default => $ci,
-            };
-        }
-        if (isset($data['classification']) && is_string($data['classification'])) {
-            $cl = $normUpperUnderscore($data['classification']);
-            $data['classification'] = match ($cl) {
-                'AUTHENTIC', 'TRUE', 'TERVERIFIKASI' => 'VERIFIED',
-                'HOAX', 'HOAKS', 'FAKE', 'FALSE', 'SCAM', 'PHISHING', 'INDIKASI_HOAKS', 'TERBANTAHKAN' => 'DISINFORMATION',
-                'MANIPULATED', 'HASIL_EDIT' => 'MANIPULATED_CONTENT',
-                'BELUM_TERVERIFIKASI', 'TIDAK_CUKUP_BUKTI' => 'UNVERIFIED',
-                default => $cl,
-            };
-        }
-        if (isset($data['threat_level']) && is_string($data['threat_level'])) {
-            $tl = strtoupper(trim($data['threat_level']));
-            $data['threat_level'] = match ($tl) {
-                'LOW' => 'RENDAH',
-                'MEDIUM', 'MODERATE' => 'SEDANG',
-                'HIGH' => 'TINGGI',
-                'CRITICAL', 'SEVERE' => 'KRITIS',
-                default => $tl,
-            };
-        }
+        $toScalarText = function ($val, int $maxLen = 1000, string $fallback = ''): string {
+            if (is_array($val)) {
+                $parts = array_filter(array_map(fn ($v) => is_scalar($v) ? trim((string) $v) : '', $val), fn ($v) => $v !== '');
+                $txt = implode('; ', $parts);
+            } elseif (is_scalar($val)) {
+                $txt = trim((string) $val);
+            } else {
+                $txt = '';
+            }
+            if ($txt === '') {
+                $txt = $fallback;
+            }
+            return mb_substr($txt, 0, $maxLen);
+        };
+
+        $data['verification_status'] = $mapCheckStatus(is_string($data['verification_status'] ?? null) ? $data['verification_status'] : null);
+
+        $ciRaw = is_string($data['content_indicator'] ?? null) ? $normUpperSpaced($data['content_indicator']) : '';
+        $data['content_indicator'] = match ($ciRaw) {
+            'AUTHENTIC', 'ORIGINAL', 'GENUINE', 'TRUE', 'VERIFIED', 'VALID', 'TERVERIFIKASI' => 'ASLI',
+            'EDITED', 'ALTERED', 'MANIPULATED', 'MANIPULATED CONTENT', 'MANIPULASI', 'DEEPFAKE', 'AI GENERATED' => 'HASIL EDIT',
+            'MENYESATKAN', 'MISLEAD', 'CLICKBAIT', 'SEBAGIAN SALAH' => 'MISLEADING',
+            'HOAX', 'HOAKS', 'FAKE', 'DISINFORMATION', 'FALSE', 'TERBANTAHKAN', 'PALSU', 'INDIKASI HOAX', 'INDIKASI PALSU' => 'INDIKASI HOAKS',
+            'UNVERIFIED', 'UNCERTAIN', 'UNKNOWN', 'UNCONFIRMED', 'BELUM TERVERIFIKASI', 'TIDAK CUKUP BUKTI', 'BELUM CUKUP BUKTI', 'BELUM BISA DIPASTIKAN', '' => 'BELUM DAPAT DIPASTIKAN',
+            default => in_array($ciRaw, ['ASLI', 'HASIL EDIT', 'MISLEADING', 'INDIKASI HOAKS', 'BELUM DAPAT DIPASTIKAN'], true) ? $ciRaw : 'BELUM DAPAT DIPASTIKAN',
+        };
+
+        $clRaw = is_string($data['classification'] ?? null) ? $normUpperUnderscore($data['classification']) : '';
+        $data['classification'] = match ($clRaw) {
+            'AUTHENTIC', 'TRUE', 'VALID', 'BENAR', 'TERVERIFIKASI' => 'VERIFIED',
+            'HOAX', 'HOAKS', 'FAKE', 'FAKE_NEWS', 'FALSE', 'FABRICATED', 'SCAM', 'PHISHING', 'PENIPUAN', 'MISINFORMATION', 'INDIKASI_HOAKS', 'TERBANTAHKAN', 'FITNAH' => 'DISINFORMATION',
+            'MANIPULATED', 'HASIL_EDIT', 'DEEPFAKE' => 'MANIPULATED_CONTENT',
+            'MENYESATKAN', 'SEBAGIAN_SALAH' => 'MISLEADING',
+            'BELUM_TERVERIFIKASI', 'TIDAK_CUKUP_BUKTI', 'BELUM_CUKUP_BUKTI', 'UNKNOWN', 'UNCERTAIN', '' => 'UNVERIFIED',
+            default => in_array($clRaw, ['VERIFIED', 'UNVERIFIED', 'MISLEADING', 'MANIPULATED_CONTENT', 'DISINFORMATION', 'PROPAGANDA'], true) ? $clRaw : 'UNVERIFIED',
+        };
+
+        $tlRaw = is_string($data['threat_level'] ?? null) ? $normUpperSpaced($data['threat_level']) : '';
+        $data['threat_level'] = match ($tlRaw) {
+            'LOW', 'AMAN', 'MINIMAL', 'TIDAK ADA', 'NONE', 'SAFE' => 'RENDAH',
+            'MEDIUM', 'MODERATE', 'WASPADA', 'MENENGAH', '' => 'SEDANG',
+            'HIGH', 'BAHAYA', 'BERBAHAYA', 'SERIUS' => 'TINGGI',
+            'CRITICAL', 'SEVERE', 'DARURAT', 'SANGAT TINGGI', 'EKSTREM' => 'KRITIS',
+            default => in_array($tlRaw, ['RENDAH', 'SEDANG', 'TINGGI', 'KRITIS'], true) ? $tlRaw : 'SEDANG',
+        };
+
         if (isset($data['credibility_score']) && is_numeric($data['credibility_score'])) {
             $data['credibility_score'] = max(0, min(100, (int) round((float) $data['credibility_score'])));
+        } else {
+            $data['credibility_score'] = match ($data['verification_status']) {
+                'TERVERIFIKASI' => 80,
+                'TERBANTAHKAN' => 15,
+                default => 50,
+            };
         }
+
         if (isset($data['confidence']) && is_numeric($data['confidence'])) {
             $conf = (float) $data['confidence'];
             if ($conf > 1.0 && $conf <= 100.0) {
@@ -456,6 +476,17 @@ class AiManager
             $data['confidence'] = max(0.0, min(1.0, $conf));
         } else {
             $data['confidence'] = 0.5;
+        }
+
+        $summaryText = $toScalarText($data['summary'] ?? null, 4000);
+        if ($summaryText === '') {
+            $summaryText = $toScalarText($data['tactical_summary'] ?? null, 4000);
+        }
+        if ($summaryText === '' && !empty($data['claims'][0]) && is_array($data['claims'][0])) {
+            $summaryText = $toScalarText($data['claims'][0]['text'] ?? null, 4000);
+        }
+        if ($summaryText !== '') {
+            $data['summary'] = $summaryText;
         }
 
         // Bangun peta ID bukti sah secara case-insensitive (tanpa mengarang ID baru)
@@ -516,19 +547,18 @@ class AiManager
                 'check_status' => is_string($data['verification_status'] ?? null) ? $data['verification_status'] : 'BELUM TERVERIFIKASI',
             ];
         }
-        $data['claims'] = $normalizedClaims;
+        $data['claims'] = array_slice($normalizedClaims, 0, 30);
 
-        // Pastikan linguistic_analysis lengkap bila model meringkas sebagian sub-field
+        // Pastikan linguistic_analysis & tactical_summary lengkap & bertipe string
         if (isset($data['summary']) && is_string($data['summary']) && trim($data['summary']) !== '') {
             $la = is_array($data['linguistic_analysis'] ?? null) ? $data['linguistic_analysis'] : [];
             $data['linguistic_analysis'] = [
-                'emotion' => !empty($la['emotion']) && is_string($la['emotion']) ? mb_substr(trim($la['emotion']), 0, 1000) : 'Belum teridentifikasi indikasi manipulasi emosi dominan oleh model.',
-                'fallacy' => !empty($la['fallacy']) && is_string($la['fallacy']) ? mb_substr(trim($la['fallacy']), 0, 1000) : 'Tidak terdapat kesesatan logika spesifik yang dicatat.',
-                'source_verification' => !empty($la['source_verification']) && is_string($la['source_verification']) ? mb_substr(trim($la['source_verification']), 0, 1000) : 'Memerlukan verifikasi rujukan silang operator.',
+                'emotion' => $toScalarText($la['emotion'] ?? null, 1000, 'Belum teridentifikasi indikasi manipulasi emosi dominan oleh model.'),
+                'fallacy' => $toScalarText($la['fallacy'] ?? null, 1000, 'Tidak terdapat kesesatan logika spesifik yang dicatat.'),
+                'source_verification' => $toScalarText($la['source_verification'] ?? null, 1000, 'Memerlukan verifikasi rujukan silang operator.'),
             ];
-            if (empty($data['tactical_summary']) || !is_string($data['tactical_summary'])) {
-                $data['tactical_summary'] = mb_substr(trim($data['summary']), 0, 1500);
-            }
+            $tact = $toScalarText($data['tactical_summary'] ?? null, 1500);
+            $data['tactical_summary'] = $tact !== '' ? $tact : mb_substr(trim($data['summary']), 0, 1500);
         }
 
         $normalizedFindings = [];
@@ -582,7 +612,7 @@ class AiManager
                 'evidence_ids' => [],
             ];
         }
-        $data['findings'] = $normalizedFindings;
+        $data['findings'] = array_slice($normalizedFindings, 0, 40);
 
         // Bersihkan daftar evidence & sources dari entri fiktif/malformed
         $cleanEvidence = [];

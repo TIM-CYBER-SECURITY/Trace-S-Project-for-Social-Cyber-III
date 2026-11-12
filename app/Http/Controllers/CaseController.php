@@ -173,4 +173,54 @@ class CaseController extends Controller
 
         return back()->with('success', "Status kasus {$case->case_code} diperbarui menjadi {$case->status}.");
     }
+
+    public function downloadEvidence(int $id, int $evidenceId)
+    {
+        $case = InvestigationCase::findOrFail($id);
+        $item = \App\Models\EvidenceItem::where('case_id', $case->id)->findOrFail($evidenceId);
+
+        if (empty($item->raw_path)) {
+            abort(404, 'Berkas fisik bukti tidak tersedia (diimpor sebagai teks/URL).');
+        }
+
+        $diskRoot = (string) config('filesystems.disks.local.root', storage_path('app/private'));
+        $rootReal = realpath($diskRoot);
+        $targetPath = $diskRoot . DIRECTORY_SEPARATOR . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, ltrim($item->raw_path, '/\\'));
+        $targetReal = realpath($targetPath);
+
+        if (!$rootReal || !$targetReal || !str_starts_with($targetReal, $rootReal . DIRECTORY_SEPARATOR) || !is_file($targetReal)) {
+            abort(404, 'Berkas bukti fisik tidak ditemukan di penyimpanan privat.');
+        }
+
+        $ext = strtolower((string) pathinfo($targetReal, PATHINFO_EXTENSION));
+        $mime = match ($ext) {
+            'pdf' => 'application/pdf',
+            'txt', 'md' => 'text/plain; charset=UTF-8',
+            'html' => 'text/html; charset=UTF-8',
+            'png' => 'image/png',
+            'jpg', 'jpeg' => 'image/jpeg',
+            default => 'application/octet-stream',
+        };
+        $safeBase = preg_replace('/[^A-Za-z0-9_-]+/', '-', $item->evidence_code) ?: 'evidence';
+        $downloadName = $safeBase . ($ext ? '.' . $ext : '');
+
+        $this->audit->log('EVIDENCE_FILE_DOWNLOADED', $item, [
+            'case_code' => $case->case_code,
+            'evidence_code' => $item->evidence_code,
+            'filename' => $downloadName,
+        ]);
+
+        return response()->streamDownload(function () use ($targetReal) {
+            $stream = fopen($targetReal, 'rb');
+            if ($stream !== false) {
+                fpassthru($stream);
+                fclose($stream);
+            }
+        }, $downloadName, [
+            'Content-Type' => $mime,
+            'Content-Length' => (string) filesize($targetReal),
+            'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control' => 'no-store, private',
+        ]);
+    }
 }
