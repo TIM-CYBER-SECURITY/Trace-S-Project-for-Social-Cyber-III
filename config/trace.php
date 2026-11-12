@@ -11,29 +11,81 @@
 return [
 
     'name' => 'TRACE-S',
+    'version' => '2.0.0',
     'tagline' => 'COGNITIVE DEFENSE INITIATIVE',
     'classification_label' => env('TRACE_CLASSIFICATION_LABEL', 'PROTOTIPE - TIDAK UNTUK DISTRIBUSI'),
 
     // ------------------------------------------------------------------
     // RBAC: kemampuan => peran yang diizinkan (Supplemental §3)
     // ------------------------------------------------------------------
-    'abilities' => [
-        'dashboard.view'   => ['operator', 'analis', 'komandan', 'admin'],
-        'case.view'        => ['operator', 'analis', 'komandan', 'admin'],
-        'case.write'       => ['operator', 'analis'],
-        'evidence.import'  => ['operator', 'analis'],
-        'analysis.run'     => ['operator', 'analis'],
-        'analysis.review'  => ['analis'],
-        'spread.view'      => ['operator', 'analis', 'komandan'],
-        'report.view'      => ['operator', 'analis', 'komandan'],
-        'report.generate'  => ['operator', 'analis'],
-        'report.export'    => ['analis', 'komandan'],
-        'console.use'      => ['operator', 'analis', 'komandan'],
-        'connector.use'    => ['operator', 'analis'],
-        'connector.manage' => ['admin'],
-        'ai.manage'        => ['admin'],
-        'audit.view'       => ['admin'],
-        'users.manage'     => ['admin'],
+    // Dua peran operasional (ADMINISTRATOR, OPERATOR). Matriks ini adalah sumber
+    // seeder RBAC; otorisasi aktual dibaca dari tabel roles/permissions (deny-by-default).
+    'roles' => [
+        'ADMINISTRATOR' => 'Mengelola aplikasi, akun Operator, Skills, konfigurasi, dan review informasi.',
+        'OPERATOR'      => 'Menggunakan aplikasi dan mengajukan informasi dalam lingkup yang diizinkan.',
+    ],
+
+    'permissions' => [
+        // key => [deskripsi, [peran]]
+        'dashboard.view'     => ['Melihat dashboard intelijen', ['ADMINISTRATOR', 'OPERATOR']],
+        'case.view'          => ['Melihat arsip kasus', ['ADMINISTRATOR', 'OPERATOR']],
+        'case.write'         => ['Membuat/mengubah kasus', ['ADMINISTRATOR', 'OPERATOR']],
+        'evidence.import'    => ['Mengimpor bukti', ['ADMINISTRATOR', 'OPERATOR']],
+        'analysis.run'       => ['Menjalankan analisis', ['ADMINISTRATOR', 'OPERATOR']],
+        'analysis.review'    => ['Memvalidasi hasil analisis (VALIDATE/REJECT/RECLASSIFY)', ['ADMINISTRATOR']],
+        'spread.view'        => ['Melihat jaringan sebaran', ['ADMINISTRATOR', 'OPERATOR']],
+        'report.view'        => ['Melihat laporan', ['ADMINISTRATOR', 'OPERATOR']],
+        'report.generate'    => ['Membuat laporan', ['ADMINISTRATOR', 'OPERATOR']],
+        'report.export'      => ['Mengekspor laporan PDF', ['ADMINISTRATOR']],
+        'console.use'        => ['Menggunakan konsol analis AI', ['ADMINISTRATOR', 'OPERATOR']],
+        'connector.use'      => ['Menggunakan konektor data', ['ADMINISTRATOR', 'OPERATOR']],
+        'connector.manage'   => ['Mengelola konektor', ['ADMINISTRATOR']],
+        'ai.manage'          => ['Mengelola AI server/model lokal', ['ADMINISTRATOR']],
+
+        'info.view'          => ['Melihat informasi yang diizinkan', ['ADMINISTRATOR', 'OPERATOR']],
+        'info.submit'        => ['Membuat dan mengajukan informasi', ['ADMINISTRATOR', 'OPERATOR']],
+        'info.update'        => ['Memperbarui informasi yang diizinkan', ['ADMINISTRATOR', 'OPERATOR']],
+        'info.review'        => ['Mereview pengajuan informasi', ['ADMINISTRATOR']],
+        'info.approve'       => ['Menyetujui/menolak pengajuan informasi', ['ADMINISTRATOR']],
+        'info.delete'        => ['Mengarsipkan/menghapus (soft delete) rekaman terlindungi', ['ADMINISTRATOR']],
+        'history.view_own'   => ['Melihat riwayat aktivitas pribadi', ['ADMINISTRATOR', 'OPERATOR']],
+
+        'accounts.manage'    => ['Mengelola akun Operator', ['ADMINISTRATOR']],
+        'trace_id.manage'    => ['Mengelola rekaman Trace-ID', ['ADMINISTRATOR']],
+        'registrations.view' => ['Melihat status permohonan Trace-ID (hanya baca)', ['ADMINISTRATOR']],
+
+        'skills.use'         => ['Menjalankan Skills yang diizinkan', ['ADMINISTRATOR', 'OPERATOR']],
+        'skills.install'     => ['Memasang/menghapus Skills', ['ADMINISTRATOR']],
+        'skills.configure'   => ['Mengonfigurasi dan menugaskan Skills', ['ADMINISTRATOR']],
+
+        'system.configure'   => ['Mengubah konfigurasi sistem', ['ADMINISTRATOR']],
+        'system.health'      => ['Melihat kesehatan sistem', ['ADMINISTRATOR']],
+        'audit.view'         => ['Melihat audit log penuh', ['ADMINISTRATOR']],
+    ],
+
+    'record_categories' => [
+        'narrative_observation' => 'Observasi Narasi',
+        'source_assessment'     => 'Penilaian Sumber',
+        'situational_note'      => 'Catatan Situasional',
+        'general'               => 'Umum',
+    ],
+
+    // ------------------------------------------------------------------
+    // Registry Trace-ID eksternal (di luar kode aplikasi & web root)
+    // ------------------------------------------------------------------
+    'provisioning' => [
+        'path'         => env('TRACE_PROVISIONING_PATH', base_path('provisioning')),
+        'registry'     => env('TRACE_REGISTRY_PATH'),              // default: {path}/registry
+        'issued_path'  => env('TRACE_ISSUED_PATH'),                // default: {path}/issued
+        'password_length' => 16,
+    ],
+
+    'security' => [
+        'login_max_attempts'   => (int) env('TRACE_LOGIN_MAX_ATTEMPTS', 5),
+        'login_decay_seconds'  => (int) env('TRACE_LOGIN_DECAY', 300),
+        'password_min_length'  => 12,
+        'owner_password_min_length' => 14,
+        'idle_timeout_minutes' => (int) env('SESSION_LIFETIME', 120),
     ],
 
     // ------------------------------------------------------------------

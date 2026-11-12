@@ -1,0 +1,20 @@
+{
+  "accounts": [
+    {
+      "trace_id": "TRS-AB12-CD34",
+      "full_name": "CONTOH NAMA LENGKAP",
+      "organization": "CONTOH ORGANISASI (DATA UJI)",
+      "unit": "Contoh Unit",
+      "position": "Contoh Jabatan",
+      "requested_role": "OPERATOR",
+      "approved_role": "OPERATOR",
+      "approval_status": "APPROVED",
+      "account_status": "PROVISIONED",
+      "approved_by": "owner-handle",
+      "approved_at": "2026-01-15T09:00:00+07:00",
+      "provisioned_at": null,
+      "expires_at": null,
+      "registration_reference": null
+    }
+  ]
+}

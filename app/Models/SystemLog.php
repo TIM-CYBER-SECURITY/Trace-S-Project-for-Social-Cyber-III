@@ -8,7 +8,7 @@ use LogicException;
 
 /**
  * Audit log append-only: tidak boleh diubah atau dihapus lewat aplikasi
- * (Supplemental §3.4: administrator tidak boleh mengubah/menghapus secara diam-diam).
+ * (guard model) maupun langsung di database (trigger, lihat migrasi hardening).
  */
 class SystemLog extends Model
 {

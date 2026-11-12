@@ -3,96 +3,160 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\Identity\AccountLifecycle;
 use App\Services\Support\AuditLogger;
+use App\Services\Support\Notifier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rules\Password;
 
 class AuthController extends Controller
 {
-    public function __construct(private AuditLogger $audit)
+    public function __construct(private AuditLogger $audit, private AccountLifecycle $lifecycle, private Notifier $notifier)
     {
     }
 
     public function showLogin()
     {
-        $locale = session('locale', 'en');
-        if (in_array($locale, ['en', 'id'], true)) {
-            app()->setLocale($locale);
-        }
-
-        if (Auth::check()) {
+        $this->applyLocale();
+        if (Auth::guard('web')->check()) {
             return redirect()->route('dashboard');
         }
-
-        $demoUsers = User::orderBy('id')->get();
-        return view('auth.login', compact('demoUsers'));
+        return view('auth.login');
     }
 
     public function login(Request $request)
     {
-        $credentials = $request->validate([
-            'email' => 'required|email',
-            'password' => 'required',
+        $this->applyLocale();
+        $data = $request->validate([
+            'trace_id' => ['required', 'string', 'max:20'],
+            'password' => ['required', 'string', 'max:200'],
         ]);
 
-        if (Auth::attempt($credentials, (bool) $request->boolean('remember'))) {
-            $request->session()->regenerate();
-            $user = Auth::user();
-            $user->update(['last_login_at' => now()]);
+        $traceId = strtoupper(trim($data['trace_id']));
+        $key = 'login:' . $traceId . '|' . $request->ip();
+        $max = (int) config('trace.security.login_max_attempts', 5);
 
-            $this->audit->log('AUTH_LOGIN_SUCCESS', $user, [
-                'role' => $user->role,
-                'clearance' => $user->clearance_level,
-            ], $user->id);
-
-            return redirect()->intended(route('dashboard'))
-                ->with('success', 'Selamat bertugas, ' . $user->name . ' [' . strtoupper($user->role) . '].');
+        if (RateLimiter::tooManyAttempts($key, $max)) {
+            $this->audit->log('LOGIN_LOCKED', ['type' => 'TraceID', 'id' => $this->safeLabel($traceId)], [], null, 'DENIED', ['type' => 'ANON']);
+            return back()->withErrors([
+                'trace_id' => 'Terlalu banyak percobaan. Coba lagi dalam ' . RateLimiter::availableIn($key) . ' detik.',
+            ])->onlyInput('trace_id');
         }
 
-        $this->audit->log('AUTH_LOGIN_FAILED', null, [
-            'attempted_email' => $request->input('email'),
-        ]);
+        $user = User::where('trace_id', $traceId)->first();
+        $valid = $this->passwordMatches($user, $data['password']);
 
-        return back()->withErrors([
-            'email' => 'Identitas kredensial tidak cocok dengan arsip personel siber.',
-        ])->onlyInput('email');
-    }
-
-    /**
-     * Quick Switch login untuk evaluasi juri / pengembang
-     */
-    public function quickLogin(Request $request)
-    {
-        $role = $request->input('role', 'operator');
-        $user = User::where('role', $role)->first();
-        if (!$user) {
-            return back()->with('error', "User dengan peran {$role} belum terdaftar.");
+        if (! $valid) {
+            RateLimiter::hit($key, (int) config('trace.security.login_decay_seconds', 300));
+            $this->audit->log('LOGIN_FAILURE', ['type' => 'TraceID', 'id' => $this->safeLabel($traceId)], ['reason' => 'invalid_credentials'], null, 'FAILURE', ['type' => 'ANON']);
+            return back()->withErrors(['trace_id' => 'Trace-ID atau kata sandi tidak valid.'])->onlyInput('trace_id');
         }
 
-        Auth::login($user);
+        if (! $user->canAuthenticate()) {
+            $reason = $user->isExpired() ? 'EXPIRED' : $user->account_status;
+            $this->audit->log('LOGIN_DENIED', $user, ['reason' => $reason], $user->id, 'DENIED');
+            return back()->withErrors(['trace_id' => 'Akun tidak aktif (' . $reason . '). Hubungi administrator.'])->onlyInput('trace_id');
+        }
+
+        RateLimiter::clear($key);
+        Auth::guard('web')->login($user, false);
         $request->session()->regenerate();
-        $user->update(['last_login_at' => now()]);
+        $user->forceFill(['last_login_at' => now()])->save();
 
-        $this->audit->log('AUTH_QUICK_LOGIN', $user, [
-            'role' => $user->role,
-            'mode' => 'DEMO_EVALUATION',
-        ], $user->id);
+        $this->audit->log('LOGIN_SUCCESS', $user, ['role' => $user->roleLabel()], $user->id);
 
-        return redirect()->route('dashboard')
-            ->with('success', 'Beralih peran ke: ' . strtoupper($user->role) . ' (' . $user->name . ')');
+        if ($user->must_change_password) {
+            return redirect()->route('password.change')->with('warning', 'Anda wajib mengganti kata sandi sementara sebelum melanjutkan.');
+        }
+
+        return redirect()->intended(route('dashboard'));
     }
 
     public function logout(Request $request)
     {
-        $user = Auth::user();
+        $user = Auth::guard('web')->user();
         if ($user) {
-            $this->audit->log('AUTH_LOGOUT', $user, [], $user->id);
+            $this->audit->log('LOGOUT', $user, [], $user->id);
         }
-
-        Auth::logout();
+        Auth::guard('web')->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect()->route('login')->with('info', 'Sesi terminal ditutup dengan aman.');
+        return redirect()->route('login')->with('info', 'Sesi ditutup dengan aman.');
+    }
+
+    public function showChangePassword()
+    {
+        return view('auth.change-password', ['forced' => (bool) Auth::user()->must_change_password]);
+    }
+
+    public function updatePassword(Request $request)
+    {
+        $user = $request->user();
+        $request->validate([
+            'current_password' => ['required', 'string'],
+            'password' => ['required', 'confirmed', Password::min((int) config('trace.security.password_min_length', 12))->mixedCase()->numbers()->symbols()],
+        ]);
+
+        if (! Hash::check($request->input('current_password'), $user->password)) {
+            $this->audit->log('PASSWORD_CHANGE_FAILED', $user, ['reason' => 'wrong_current'], $user->id, 'FAILURE');
+            return back()->withErrors(['current_password' => 'Kata sandi saat ini tidak benar.']);
+        }
+        if (Hash::check($request->input('password'), $user->password)) {
+            return back()->withErrors(['password' => 'Kata sandi baru harus berbeda dari yang lama.']);
+        }
+        if (stripos($request->input('password'), (string) $user->trace_id) !== false) {
+            return back()->withErrors(['password' => 'Kata sandi tidak boleh memuat Trace-ID.']);
+        }
+
+        $user->forceFill([
+            'password' => $request->input('password'),
+            'must_change_password' => false,
+            'password_changed_at' => now(),
+        ])->save();
+
+        // Cabut sesi lain milik akun ini; pertahankan sesi sekarang.
+        DB::table('sessions')->where('user_id', $user->id)->where('id', '!=', $request->session()->getId())->delete();
+        $request->session()->regenerate();
+
+        $this->audit->log('PASSWORD_CHANGED', $user, [], $user->id);
+        $this->notifier->notify($user, 'SECURITY', 'Kata sandi diganti', 'Kata sandi akun Anda berhasil diganti.');
+        $this->lifecycle->markFirstLoginComplete($user);
+
+        return redirect()->route('dashboard')->with('success', 'Kata sandi berhasil diganti.');
+    }
+
+    private function passwordMatches(?User $user, string $plain): bool
+    {
+        static $dummy = null;
+        try {
+            if (! $user) {
+                $dummy ??= Hash::make(Str::random(24)); // menyamakan waktu respons
+                Hash::check($plain, $dummy);
+                return false;
+            }
+            return Hash::check($plain, $user->password);
+        } catch (\RuntimeException) {
+            return false;
+        }
+    }
+
+    /** Mencegah kata sandi yang salah ketik di kolom Trace-ID tersimpan di audit log. */
+    private function safeLabel(string $traceId): string
+    {
+        return preg_match('/^TRS-[A-Z0-9]{4}-[A-Z0-9]{4}$/', $traceId) ? $traceId : '[format-tidak-valid]';
+    }
+
+    private function applyLocale(): void
+    {
+        $locale = session('locale', 'en');
+        if (in_array($locale, ['en', 'id'], true)) {
+            app()->setLocale($locale);
+        }
     }
 }

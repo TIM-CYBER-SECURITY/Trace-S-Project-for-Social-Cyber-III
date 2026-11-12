@@ -1,0 +1,13 @@
+{
+  "skill_key": "numeric-entity-check",
+  "name": "Numeric Entity Check",
+  "description": "Membandingkan angka dan entitas bernilai numerik antara dua versi teks untuk mendeteksi perubahan data.",
+  "version": "1.0.0",
+  "tool": "compare_numeric_entities",
+  "requires": { "trace_s": ">=2.0.0" },
+  "input_schema": [
+    { "name": "text_a", "label": "Versi acuan", "type": "textarea", "required": true, "max": 5000 },
+    { "name": "text_b", "label": "Versi pembanding", "type": "textarea", "required": true, "max": 5000 }
+  ],
+  "fixed_params": {}
+}

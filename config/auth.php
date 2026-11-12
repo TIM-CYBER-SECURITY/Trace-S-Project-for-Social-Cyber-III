@@ -40,6 +40,11 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+        // Identitas platform (Developer/Owner) terpisah dari pengguna operasional.
+        'platform' => [
+            'driver' => 'session',
+            'provider' => 'platform_owners',
+        ],
     ],
 
     /*
@@ -63,6 +68,10 @@ return [
         'users' => [
             'driver' => 'eloquent',
             'model' => env('AUTH_MODEL', App\Models\User::class),
+        ],
+        'platform_owners' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\PlatformOwner::class,
         ],
 
         // 'users' => [

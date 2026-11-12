@@ -1,0 +1,13 @@
+{
+  "skill_key": "claim-matcher",
+  "name": "Claim Matcher",
+  "description": "Membandingkan dua klaim (status, cakupan, tindakan, angka, entitas) dan melaporkan MATCH/PARTIAL_MATCH/CONFLICT/UNKNOWN.",
+  "version": "1.0.0",
+  "tool": "compare_claims",
+  "requires": { "trace_s": ">=2.0.0" },
+  "input_schema": [
+    { "name": "claim_a", "label": "Klaim A", "type": "textarea", "required": true, "max": 1000 },
+    { "name": "claim_b", "label": "Klaim B", "type": "textarea", "required": true, "max": 1000 }
+  ],
+  "fixed_params": {}
+}

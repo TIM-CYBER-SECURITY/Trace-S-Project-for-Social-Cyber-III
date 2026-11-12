@@ -1,0 +1,13 @@
+{
+  "skill_key": "lexical-similarity",
+  "name": "Lexical Similarity",
+  "description": "Menghitung kemiripan leksikal dua teks (TF-IDF cosine, unigram+bigram). Menyertakan metode dan versi pada hasil.",
+  "version": "1.0.0",
+  "tool": "calculate_text_similarity",
+  "requires": { "trace_s": ">=2.0.0" },
+  "input_schema": [
+    { "name": "text_a", "label": "Teks A", "type": "textarea", "required": true, "max": 5000 },
+    { "name": "text_b", "label": "Teks B", "type": "textarea", "required": true, "max": 5000 }
+  ],
+  "fixed_params": {}
+}

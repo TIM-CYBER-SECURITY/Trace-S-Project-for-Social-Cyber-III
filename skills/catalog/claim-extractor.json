@@ -1,0 +1,12 @@
+{
+  "skill_key": "claim-extractor",
+  "name": "Claim Extractor",
+  "description": "Mengekstrak kalimat klaim dari teks narasi (aturan sintaksis; tanpa model AI).",
+  "version": "1.0.0",
+  "tool": "extract_claims",
+  "requires": { "trace_s": ">=2.0.0" },
+  "input_schema": [
+    { "name": "text", "label": "Teks narasi", "type": "textarea", "required": true, "max": 5000 }
+  ],
+  "fixed_params": { "max": 8 }
+}

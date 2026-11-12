@@ -3,45 +3,92 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable;
+    use HasFactory;
 
-    public const ROLES = ['operator', 'analis', 'komandan', 'admin'];
+    public const LOGIN_STATUSES = ['PROVISIONED', 'ACTIVE'];
 
     protected $fillable = [
-        'name', 'email', 'password', 'role', 'clearance_level', 'rank_title', 'unit', 'is_active', 'last_login_at',
+        'name', 'email', 'password', 'trace_id', 'organization_id', 'unit_id', 'position',
+        'role_id', 'account_status', 'approval_status', 'must_change_password',
+        'password_changed_at', 'expires_at', 'last_login_at',
     ];
 
     protected $hidden = ['password', 'remember_token'];
+
+    /** @var array<string,bool>|null */
+    private ?array $permissionCache = null;
 
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
             'last_login_at' => 'datetime',
-            'is_active' => 'boolean',
+            'password_changed_at' => 'datetime',
+            'expires_at' => 'datetime',
+            'must_change_password' => 'boolean',
             'password' => 'hashed',
         ];
     }
 
-    public function hasRole(string ...$roles): bool
+    public function roleRef(): BelongsTo { return $this->belongsTo(Role::class, 'role_id'); }
+    public function organization(): BelongsTo { return $this->belongsTo(Organization::class); }
+    public function unit(): BelongsTo { return $this->belongsTo(Unit::class); }
+
+    /** Nama peran huruf kecil ('administrator' | 'operator'); kosong bila belum ditetapkan. */
+    public function getRoleAttribute(): string
     {
-        return in_array($this->role, $roles, true);
+        return strtolower((string) $this->roleRef?->name);
     }
 
-    /** Hak akses per kemampuan (RBAC terpusat; dipakai middleware, Gate, dan view). */
+    public function hasRole(string ...$roles): bool
+    {
+        $mine = strtoupper((string) $this->roleRef?->name);
+        foreach ($roles as $r) {
+            if (strtoupper($r) === $mine) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public function isAdministrator(): bool { return $this->hasRole('ADMINISTRATOR'); }
+
+    /** Deny-by-default: izin hanya ada bila terdaftar pada peran akun. */
+    public function hasPermission(string $key): bool
+    {
+        if ($this->permissionCache === null) {
+            $this->permissionCache = $this->roleRef
+                ? $this->roleRef->permissions()->pluck('permission_key')->flip()->map(fn () => true)->all()
+                : [];
+        }
+        return isset($this->permissionCache[$key]);
+    }
+
+    /** Alias historis yang dipakai view/middleware lama. */
     public function can_(string $ability): bool
     {
-        $matrix = config('trace.abilities', []);
-        return in_array($this->role, $matrix[$ability] ?? [], true);
+        return $this->hasPermission($ability);
+    }
+
+    public function isExpired(): bool
+    {
+        return $this->expires_at !== null && $this->expires_at->isPast();
+    }
+
+    public function canAuthenticate(): bool
+    {
+        return in_array($this->account_status, self::LOGIN_STATUSES, true)
+            && $this->approval_status === 'APPROVED'
+            && ! $this->isExpired();
     }
 
     public function roleLabel(): string
     {
-        return strtoupper($this->role);
+        return strtoupper((string) $this->roleRef?->name ?: 'NO ROLE');
     }
 }

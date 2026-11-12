@@ -24,3 +24,24 @@ yarn-error.log
 
 # Portable runtime tools (Windows standalone binaries)
 /.tools
+
+# ---- Trace-S: data privat (JANGAN di-commit) ----
+/.env.*
+!/.env.example
+/database/*.sqlite
+/database/*.sqlite-journal
+/logs
+/storage/logs/*.log
+/storage/app/evidence
+/storage/framework/testing
+
+# Registry Trace-ID nyata, kredensial awal, impor, arsip
+/provisioning/registry/*
+!/provisioning/registry/.gitkeep
+/provisioning/imports/*
+!/provisioning/imports/.gitkeep
+/provisioning/archive/*
+!/provisioning/archive/.gitkeep
+/provisioning/issued/*
+!/provisioning/issued/.gitkeep
+*.credential.txt

@@ -28,50 +28,26 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        // 1. User & Clearance 4 Peran (Supplemental §3)
+        // 0. Data referensi otorisasi (peran & izin). Bukan akun; aman untuk semua lingkungan.
+        $this->call(RbacSeeder::class);
+
+        // Fixture simulasi TIDAK PERNAH dimuat di produksi (tanpa akun/data demo).
+        if (app()->environment('production')) {
+            return;
+        }
+
+        // 1. Pemilik fixture simulasi: akun sistem yang tidak dapat login
+        //    (status SYSTEM, kata sandi acak yang tidak pernah diungkap). Tidak ada kredensial demo.
         $operator = User::create([
-            'name' => 'Serda Rama Danu',
-            'email' => 'operator@traces.mil.id',
-            'password' => Hash::make('operator123'),
-            'role' => 'operator',
-            'clearance_level' => 'RAHASIA',
-            'rank_title' => 'Operator Intelijen Siber',
-            'unit' => 'Unit Deteksi Dini & Akuisisi Data',
-            'is_active' => true,
+            'name' => 'SIMULATION FIXTURE OWNER',
+            'trace_id' => null,
+            'password' => Str::random(64),
+            'role_id' => \App\Models\Role::where('name', 'OPERATOR')->value('id'),
+            'account_status' => 'SYSTEM',
+            'approval_status' => 'APPROVED',
+            'must_change_password' => true,
         ]);
-
-        $analis = User::create([
-            'name' => 'Lettu Chb Aris Munandar',
-            'email' => 'analis@traces.mil.id',
-            'password' => Hash::make('analis123'),
-            'role' => 'analis',
-            'clearance_level' => 'SANGAT RAHASIA',
-            'rank_title' => 'Analis Siber Sosial (OSINT/Cognitive)',
-            'unit' => 'Subdit Analisis Propaganda & Narasi',
-            'is_active' => true,
-        ]);
-
-        $komandan = User::create([
-            'name' => 'Kolonel Inf Hendra Wijaya',
-            'email' => 'komandan@traces.mil.id',
-            'password' => Hash::make('komandan123'),
-            'role' => 'komandan',
-            'clearance_level' => 'TOP SECRET',
-            'rank_title' => 'Komandan Satuan Siber Sosial',
-            'unit' => 'Command Center PUSSIBERAD TNI AD',
-            'is_active' => true,
-        ]);
-
-        $admin = User::create([
-            'name' => 'Mayor Chb Dimas Pratama',
-            'email' => 'admin@traces.mil.id',
-            'password' => Hash::make('admin123'),
-            'role' => 'admin',
-            'clearance_level' => 'TOP SECRET',
-            'rank_title' => 'Administrator Infrastruktur & AI',
-            'unit' => 'Bagian Pemeliharaan Sistem & Keamanan Siber',
-            'is_active' => true,
-        ]);
+        $analis = $komandan = $admin = $operator;
 
         // 2. AI Server & Model Registry (Master §8)
         $mockServer = AiServer::create([
