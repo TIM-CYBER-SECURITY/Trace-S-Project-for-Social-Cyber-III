@@ -19,53 +19,52 @@
 @theme {
     --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
     --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
-    --color-forest: #17251F;
-    --color-olive: #586B47;
-    --color-charcoal: #202622;
-    --color-slate-mil: #46514C;
-    --color-sand: #C5B89C;
-    --color-offwhite: #F2F2EC;
-    --color-gray-mil: #8C9690;
+    --color-forest: #121C17;
+    --color-olive: #4F633F;
+    --color-charcoal: #1A211D;
+    --color-slate-mil: #434E48;
+    --color-sand: #B9AA88;
+    --color-offwhite: #EFEDE6;
+    --color-gray-mil: #7D8781;
 }
 
 /* ==========================================================================
-   TRACE-S Institutional Military Design Tokens (§2.2)
-   Palette: #17251F, #586B47, #202622, #46514C, #C5B89C, #F2F2EC, #8C9690
+   TRACE-S Military C4ISR Design System (Light & Dark Mode — Precision UI)
    ========================================================================== */
 :root {
-    --bg-canvas: #F2F2EC;
+    --bg-canvas: #EFEDE6;
     --bg-surface: #FFFFFF;
-    --bg-subtle: #E7E7DE;
-    --bg-topbar: #17251F;
-    --bg-sidebar: #202622;
-    --text-primary: #202622;
-    --text-secondary: #46514C;
-    --text-muted: #5F6963;
-    --text-inverse: #F2F2EC;
-    --border-color: #CFCFC4;
-    --border-strong: #8C9690;
-    --accent-olive: #586B47;
-    --accent-olive-hover: #475739;
-    --accent-sand: #C5B89C;
-    --accent-forest: #17251F;
+    --bg-subtle: #E6E3D9;
+    --bg-topbar: #121B16;
+    --bg-sidebar: #18201B;
+    --text-primary: #141A17;
+    --text-secondary: #39443E;
+    --text-muted: #5A645E;
+    --text-inverse: #F2F1EC;
+    --border-color: #CCC8BA;
+    --border-strong: #8D958E;
+    --accent-olive: #465B38;
+    --accent-olive-hover: #38492C;
+    --accent-sand: #B9AA88;
+    --accent-forest: #121B16;
 }
 
 .dark {
-    --bg-canvas: #17251F;
-    --bg-surface: #202622;
-    --bg-subtle: #1B221E;
-    --bg-topbar: #111B17;
-    --bg-sidebar: #1B231E;
-    --text-primary: #F2F2EC;
-    --text-secondary: #C5B89C;
-    --text-muted: #8C9690;
-    --text-inverse: #F2F2EC;
-    --border-color: #36413C;
-    --border-strong: #46514C;
-    --accent-olive: #586B47;
-    --accent-olive-hover: #677D54;
-    --accent-sand: #C5B89C;
-    --accent-forest: #17251F;
+    --bg-canvas: #0A0E0C;
+    --bg-surface: #111714;
+    --bg-subtle: #161E1A;
+    --bg-topbar: #070B09;
+    --bg-sidebar: #0E1411;
+    --text-primary: #E8EAE6;
+    --text-secondary: #C7C3B2;
+    --text-muted: #849089;
+    --text-inverse: #F2F1EC;
+    --border-color: #242E28;
+    --border-strong: #3B4940;
+    --accent-olive: #688A4D;
+    --accent-olive-hover: #56743E;
+    --accent-sand: #B9AA88;
+    --accent-forest: #0E1411;
 }
 
 @layer base {
@@ -78,11 +77,12 @@
     body {
         background-color: var(--bg-canvas);
         color: var(--text-primary);
+        font-feature-settings: "cv02", "cv03", "cv04";
     }
 
     ::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
+        width: 5px;
+        height: 5px;
     }
     ::-webkit-scrollbar-track {
         background: var(--bg-subtle);
@@ -96,18 +96,18 @@
     .panel {
         background-color: var(--bg-surface);
         border: 1px solid var(--border-color);
-        border-radius: 0.25rem;
+        border-radius: 0.125rem;
     }
 
     .panel-subtle {
         background-color: var(--bg-subtle);
         border: 1px solid var(--border-color);
-        border-radius: 0.25rem;
+        border-radius: 0.125rem;
     }
 
     .panel-header {
         border-bottom: 1px solid var(--border-color);
-        padding: 0.75rem 1rem;
+        padding: 0.65rem 1rem;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -116,10 +116,15 @@
 
     .label-meta {
         font-family: var(--font-mono);
-        font-size: 0.6875rem;
-        letter-spacing: 0.08em;
+        font-size: 0.65rem;
+        font-weight: 600;
+        letter-spacing: 0.09em;
         text-transform: uppercase;
         color: var(--text-muted);
+    }
+
+    .tabular-nums {
+        font-variant-numeric: tabular-nums;
     }
 
     .input-mil {
@@ -127,59 +132,59 @@
         background-color: var(--bg-surface);
         border: 1px solid var(--border-strong);
         color: var(--text-primary);
-        border-radius: 0.25rem;
-        padding: 0.5rem 0.75rem;
+        border-radius: 0.125rem;
+        padding: 0.45rem 0.7rem;
         font-size: 0.8125rem;
         line-height: 1.4;
-        transition: border-color 150ms ease;
+        transition: border-color 120ms ease;
     }
 
     .input-mil:focus {
         outline: none;
         border-color: var(--accent-olive);
-        box-shadow: 0 0 0 2px rgba(88, 107, 71, 0.18);
+        box-shadow: 0 0 0 1px var(--accent-olive);
     }
 
     .btn-primary {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: 0.5rem;
-        padding: 0.5rem 0.875rem;
-        background-color: #586B47;
-        color: #F2F2EC;
-        border: 1px solid #475739;
-        border-radius: 0.25rem;
+        gap: 0.45rem;
+        padding: 0.45rem 0.85rem;
+        background-color: var(--accent-olive);
+        color: #F4F3EE;
+        border: 1px solid var(--accent-olive-hover);
+        border-radius: 0.125rem;
         font-family: var(--font-mono);
-        font-size: 0.75rem;
+        font-size: 0.72rem;
         font-weight: 600;
-        letter-spacing: 0.04em;
+        letter-spacing: 0.05em;
         text-transform: uppercase;
         cursor: pointer;
-        transition: background-color 150ms ease;
+        transition: background-color 120ms ease;
     }
 
     .btn-primary:hover {
-        background-color: #475739;
+        background-color: var(--accent-olive-hover);
     }
 
     .btn-secondary {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: 0.5rem;
-        padding: 0.5rem 0.875rem;
+        gap: 0.45rem;
+        padding: 0.45rem 0.85rem;
         background-color: var(--bg-subtle);
         color: var(--text-primary);
         border: 1px solid var(--border-strong);
-        border-radius: 0.25rem;
+        border-radius: 0.125rem;
         font-family: var(--font-mono);
-        font-size: 0.75rem;
+        font-size: 0.72rem;
         font-weight: 600;
-        letter-spacing: 0.04em;
+        letter-spacing: 0.05em;
         text-transform: uppercase;
         cursor: pointer;
-        transition: background-color 150ms ease;
+        transition: border-color 120ms ease;
     }
 
     .btn-secondary:hover {
@@ -190,16 +195,16 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: 0.5rem;
-        padding: 0.5rem 0.875rem;
+        gap: 0.45rem;
+        padding: 0.45rem 0.85rem;
         background-color: #7F1D1D;
         color: #FEF2F2;
         border: 1px solid #991B1B;
-        border-radius: 0.25rem;
+        border-radius: 0.125rem;
         font-family: var(--font-mono);
-        font-size: 0.75rem;
+        font-size: 0.72rem;
         font-weight: 600;
-        letter-spacing: 0.04em;
+        letter-spacing: 0.05em;
         text-transform: uppercase;
         cursor: pointer;
     }
@@ -211,36 +216,37 @@
     .badge {
         display: inline-flex;
         align-items: center;
-        gap: 0.35rem;
-        padding: 0.15rem 0.5rem;
-        border-radius: 0.2rem;
+        gap: 0.3rem;
+        padding: 0.12rem 0.45rem;
+        border-radius: 0.125rem;
         font-family: var(--font-mono);
-        font-size: 0.6875rem;
+        font-size: 0.65rem;
         font-weight: 600;
-        letter-spacing: 0.04em;
+        letter-spacing: 0.05em;
         text-transform: uppercase;
         border: 1px solid transparent;
         white-space: nowrap;
     }
 
     .badge-olive {
-        background-color: rgba(88, 107, 71, 0.14);
-        border-color: rgba(88, 107, 71, 0.45);
-        color: #3E4D31;
+        background-color: rgba(70, 91, 56, 0.13);
+        border-color: rgba(70, 91, 56, 0.45);
+        color: #2E3D23;
     }
     .dark .badge-olive {
-        color: #D5E2C8;
-        background-color: rgba(88, 107, 71, 0.28);
+        color: #CFE2BF;
+        background-color: rgba(104, 138, 77, 0.22);
+        border-color: rgba(104, 138, 77, 0.5);
     }
 
     .badge-sand {
-        background-color: rgba(197, 184, 156, 0.25);
-        border-color: rgba(197, 184, 156, 0.65);
-        color: #46514C;
+        background-color: rgba(185, 170, 136, 0.24);
+        border-color: rgba(185, 170, 136, 0.65);
+        color: #3E463F;
     }
     .dark .badge-sand {
-        color: #C5B89C;
-        background-color: rgba(197, 184, 156, 0.14);
+        color: #D2C5A5;
+        background-color: rgba(185, 170, 136, 0.14);
     }
 
     .badge-neutral {
@@ -252,11 +258,11 @@
     .badge-warn {
         background-color: rgba(180, 120, 24, 0.14);
         border-color: rgba(180, 120, 24, 0.45);
-        color: #8A580B;
+        color: #825209;
     }
     .dark .badge-warn {
         color: #E7C37B;
-        background-color: rgba(180, 120, 24, 0.2);
+        background-color: rgba(180, 120, 24, 0.22);
     }
 
     .badge-danger {
@@ -266,7 +272,34 @@
     }
     .dark .badge-danger {
         color: #FCA5A5;
-        background-color: rgba(153, 27, 27, 0.25);
+        background-color: rgba(153, 27, 27, 0.28);
+    }
+
+    /* Inline Manipulation & Text-Overlay Highlights */
+    .hl-tamper {
+        background-color: rgba(153, 27, 27, 0.16);
+        color: #7F1D1D;
+        border-bottom: 2px solid #991B1B;
+        padding: 0 2px;
+        font-weight: 600;
+    }
+    .dark .hl-tamper {
+        background-color: rgba(220, 38, 38, 0.24);
+        color: #FECACA;
+        border-bottom-color: #EF4444;
+    }
+
+    .hl-overlay {
+        background-color: rgba(180, 120, 24, 0.2);
+        color: #784807;
+        border-bottom: 2px dashed #B47818;
+        padding: 0 2px;
+        font-weight: 500;
+    }
+    .dark .hl-overlay {
+        background-color: rgba(217, 119, 6, 0.22);
+        color: #FDE68A;
+        border-bottom-color: #F59E0B;
     }
 
     .table-mil {
@@ -280,9 +313,9 @@
         background-color: var(--bg-subtle);
         color: var(--text-muted);
         border-bottom: 1px solid var(--border-color);
-        padding: 0.55rem 0.75rem;
+        padding: 0.5rem 0.75rem;
         font-family: var(--font-mono);
-        font-size: 0.6875rem;
+        font-size: 0.65rem;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.06em;
@@ -290,12 +323,12 @@
     }
 
     .table-mil tbody td {
-        padding: 0.65rem 0.75rem;
+        padding: 0.6rem 0.75rem;
         border-bottom: 1px solid var(--border-color);
         vertical-align: top;
     }
 
     .table-mil tbody tr:hover {
-        background-color: rgba(88, 107, 71, 0.06);
+        background-color: rgba(70, 91, 56, 0.05);
     }
 }

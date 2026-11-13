@@ -45,14 +45,27 @@ class HardwareTelemetry
             'hostname' => gethostname() ?: 'localhost',
             'cpu_name' => PHP_OS_FAMILY . ' Host CPU',
             'cpu_cores' => 1,
+            'cpu_threads' => 1,
+            'cpu_clock_mhz' => null,
+            'cpu_load_pct' => null,
             'ram_total_gb' => null,
             'ram_free_gb' => null,
             'ram_used_gb' => null,
             'ram_used_pct' => null,
+            'ram_model' => null,
+            'ram_modules' => [],
             'gpu_name' => null,
             'gpu_vram_total_gb' => null,
             'gpu_vram_used_gb' => null,
             'gpu_type' => 'UNAVAILABLE',
+            'dgpu_name' => null,
+            'dgpu_vram_gb' => null,
+            'igpu_name' => null,
+            'igpu_vram_gb' => null,
+            'gpus' => [],
+            'ai_process_ram_gb' => 0.0,
+            'ai_active_process' => null,
+            'ai_process_breakdown' => [],
             'disk_free_gb' => null,
             'disk_total_gb' => null,
             'captured_at' => now()->toIso8601String(),
@@ -70,14 +83,27 @@ class HardwareTelemetry
             'hostname' => gethostname() ?: 'localhost',
             'cpu_name' => null,
             'cpu_cores' => null,
+            'cpu_threads' => null,
+            'cpu_clock_mhz' => null,
+            'cpu_load_pct' => null,
             'ram_total_gb' => null,
             'ram_free_gb' => null,
             'ram_used_gb' => null,
             'ram_used_pct' => null,
+            'ram_model' => null,
+            'ram_modules' => [],
             'gpu_name' => null,
             'gpu_vram_total_gb' => null,
             'gpu_vram_used_gb' => null,
             'gpu_type' => 'UNAVAILABLE',
+            'dgpu_name' => null,
+            'dgpu_vram_gb' => null,
+            'igpu_name' => null,
+            'igpu_vram_gb' => null,
+            'gpus' => [],
+            'ai_process_ram_gb' => 0.0,
+            'ai_active_process' => null,
+            'ai_process_breakdown' => [],
             'disk_free_gb' => $diskFree !== false ? round($diskFree / 1073741824, 1) : null,
             'disk_total_gb' => $diskTotal !== false ? round($diskTotal / 1073741824, 1) : null,
         ];
@@ -88,13 +114,39 @@ class HardwareTelemetry
             $base = array_merge($base, $this->probeUnix());
         }
 
-        // Cek nvidia-smi jika ada GPU NVIDIA diskret (e.g. workstation PUSSIBERAD)
+        // Overlay real-time nvidia-smi telemetry onto NVIDIA Discrete GPU if present
         $nv = $this->probeNvidiaSmi();
         if ($nv !== null) {
             $base['gpu_name'] = $nv['name'];
             $base['gpu_vram_total_gb'] = $nv['vram_total_gb'];
             $base['gpu_vram_used_gb'] = $nv['vram_used_gb'];
             $base['gpu_type'] = 'NVIDIA_DISCRETE';
+            $base['dgpu_name'] = $nv['name'];
+            $base['dgpu_vram_gb'] = $nv['vram_total_gb'];
+
+            $matched = false;
+            foreach ($base['gpus'] as &$g) {
+                if (($g['role'] ?? '') === 'dGPU' && stripos((string) ($g['name'] ?? ''), 'NVIDIA') !== false) {
+                    $g['name'] = $nv['name'];
+                    $g['vram_gb'] = $nv['vram_total_gb'];
+                    $g['vram_used_gb'] = $nv['vram_used_gb'];
+                    $g['utilization_pct'] = $nv['utilization_pct'] ?? null;
+                    $matched = true;
+                    break;
+                }
+            }
+            unset($g);
+            if (!$matched) {
+                array_unshift($base['gpus'], [
+                    'name' => $nv['name'],
+                    'role' => 'dGPU',
+                    'vram_gb' => $nv['vram_total_gb'],
+                    'vram_used_gb' => $nv['vram_used_gb'],
+                    'driver_version' => null,
+                    'status' => 'OK',
+                    'utilization_pct' => $nv['utilization_pct'] ?? null,
+                ]);
+            }
         }
 
         return $base;
@@ -104,21 +156,52 @@ class HardwareTelemetry
     {
         $res = [];
         if (getenv('NUMBER_OF_PROCESSORS')) {
+            $res['cpu_threads'] = (int) getenv('NUMBER_OF_PROCESSORS');
             $res['cpu_cores'] = (int) getenv('NUMBER_OF_PROCESSORS');
         }
 
         try {
-            $cmd = 'powershell -NoProfile -NonInteractive -Command ' . escapeshellarg(
-                '$cpu = (Get-ItemProperty "HKLM:\HARDWARE\DESCRIPTION\System\CentralProcessor\0" -ErrorAction SilentlyContinue).ProcessorNameString; '
-                . '$os = Get-CimInstance Win32_OperatingSystem | Select-Object TotalVisibleMemorySize,FreePhysicalMemory; '
-                . '$gpu = Get-CimInstance Win32_VideoController | Select-Object Name,AdapterRAM; '
-                . '[PSCustomObject]@{cpu=$cpu;os=$os;gpu=$gpu} | ConvertTo-Json -Compress -Depth 3'
-            );
+            $psScript = <<<'PS'
+$ProgressPreference = 'SilentlyContinue'
+$cpuReg = (Get-ItemProperty "HKLM:\HARDWARE\DESCRIPTION\System\CentralProcessor\0" -ErrorAction SilentlyContinue).ProcessorNameString
+$cpuCim = Get-CimInstance Win32_Processor -ErrorAction SilentlyContinue | Select-Object Name,NumberOfCores,NumberOfLogicalProcessors,MaxClockSpeed,LoadPercentage
+$os = Get-CimInstance Win32_OperatingSystem -ErrorAction SilentlyContinue | Select-Object TotalVisibleMemorySize,FreePhysicalMemory
+$ram = Get-CimInstance Win32_PhysicalMemory -ErrorAction SilentlyContinue | Select-Object Manufacturer,PartNumber,Capacity,ConfiguredClockSpeed,Speed,SMBIOSMemoryType
+$gpu = Get-CimInstance Win32_VideoController -ErrorAction SilentlyContinue | Select-Object Name,AdapterRAM,DriverVersion,Status,VideoProcessor
+$proc = Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -match 'LM Studio|lms|llama|ollama|bionic' } | Select-Object ProcessName,WorkingSet64
+[PSCustomObject]@{cpu_reg=$cpuReg;cpu=$cpuCim;os=$os;ram=$ram;gpu=$gpu;proc=$proc} | ConvertTo-Json -Compress -Depth 3
+PS;
+            $utf16 = mb_convert_encoding($psScript, 'UTF-16LE', 'UTF-8');
+            $encoded = base64_encode($utf16);
+            $cmd = 'powershell -NoProfile -NonInteractive -EncodedCommand ' . $encoded . ' 2>NUL';
             $raw = @shell_exec($cmd);
-            if ($raw && is_array($json = json_decode(trim($raw), true))) {
-                if (!empty($json['cpu'])) {
-                    $res['cpu_name'] = trim((string) $json['cpu']);
+
+            if ($raw && preg_match('/\{.*\}/s', $raw, $m) && is_array($json = json_decode($m[0], true))) {
+                // 1. CPU details (full name/series, cores, threads, clock, load%)
+                $cpuCim = $json['cpu'] ?? null;
+                if (is_array($cpuCim)) {
+                    $firstCpu = isset($cpuCim['Name']) ? $cpuCim : ($cpuCim[0] ?? []);
+                    $cpuName = trim((string) ($firstCpu['Name'] ?? $json['cpu_reg'] ?? ''));
+                    if ($cpuName !== '') {
+                        $res['cpu_name'] = $cpuName;
+                    }
+                    if (!empty($firstCpu['NumberOfCores'])) {
+                        $res['cpu_cores'] = (int) $firstCpu['NumberOfCores'];
+                    }
+                    if (!empty($firstCpu['NumberOfLogicalProcessors'])) {
+                        $res['cpu_threads'] = (int) $firstCpu['NumberOfLogicalProcessors'];
+                    }
+                    if (!empty($firstCpu['MaxClockSpeed'])) {
+                        $res['cpu_clock_mhz'] = (int) $firstCpu['MaxClockSpeed'];
+                    }
+                    if (isset($firstCpu['LoadPercentage']) && is_numeric($firstCpu['LoadPercentage'])) {
+                        $res['cpu_load_pct'] = (int) $firstCpu['LoadPercentage'];
+                    }
+                } elseif (!empty($json['cpu_reg'])) {
+                    $res['cpu_name'] = trim((string) $json['cpu_reg']);
                 }
+
+                // 2. OS Memory usage (usable/free/used)
                 if (!empty($json['os']['TotalVisibleMemorySize'])) {
                     $totalKb = (float) $json['os']['TotalVisibleMemorySize'];
                     $freeKb = (float) ($json['os']['FreePhysicalMemory'] ?? 0);
@@ -130,21 +213,154 @@ class HardwareTelemetry
                     $res['ram_used_gb'] = $usedGb;
                     $res['ram_used_pct'] = $totalGb > 0 ? round(($usedGb / $totalGb) * 100, 1) : null;
                 }
+
+                // 3. Physical RAM modules (Manufacturer, PartNumber, DDR Type, Speed, Module Capacity)
+                $ramRows = $json['ram'] ?? null;
+                if (is_array($ramRows)) {
+                    $dimms = isset($ramRows['Capacity']) ? [$ramRows] : $ramRows;
+                    $modules = [];
+                    $ddrNames = [];
+                    $speeds = [];
+                    $parts = [];
+                    $mfgList = [];
+                    $physicalSumGb = 0.0;
+
+                    foreach ($dimms as $d) {
+                        $capBytes = (float) ($d['Capacity'] ?? 0);
+                        if ($capBytes <= 0) {
+                            continue;
+                        }
+                        $capGb = round($capBytes / 1073741824, 1);
+                        $physicalSumGb += $capGb;
+                        $mfg = trim((string) ($d['Manufacturer'] ?? ''));
+                        $part = trim((string) ($d['PartNumber'] ?? ''));
+                        $speed = (int) ($d['ConfiguredClockSpeed'] ?: ($d['Speed'] ?? 0));
+                        $smbios = (int) ($d['SMBIOSMemoryType'] ?? 0);
+                        $ddr = match ($smbios) {
+                            20 => 'DDR',
+                            21 => 'DDR2',
+                            24 => 'DDR3',
+                            26 => 'DDR4',
+                            30 => 'LPDDR4',
+                            34 => 'DDR5',
+                            35 => 'LPDDR5',
+                            default => 'RAM',
+                        };
+                        $modules[] = [
+                            'manufacturer' => $mfg ?: 'Unknown',
+                            'part_number' => $part ?: '-',
+                            'capacity_gb' => $capGb,
+                            'type' => $ddr,
+                            'speed_mhz' => $speed ?: null,
+                        ];
+                        $ddrNames[$ddr] = true;
+                        if ($speed > 0) {
+                            $speeds[$speed] = true;
+                        }
+                        if ($part !== '' && $part !== '-') {
+                            $parts[$part] = true;
+                        }
+                        if ($mfg !== '' && stripos($mfg, 'Unknown') === false) {
+                            $mfgList[$mfg] = true;
+                        }
+                    }
+
+                    if ($modules !== []) {
+                        $res['ram_modules'] = $modules;
+                        $ddrStr = implode('/', array_keys($ddrNames));
+                        $spdStr = $speeds !== [] ? ('-' . max(array_keys($speeds)) . ' MHz') : '';
+                        $mfgStr = $mfgList !== [] ? implode(', ', array_keys($mfgList)) : '';
+                        $partStr = $parts !== [] ? implode(', ', array_keys($parts)) : '';
+                        $ident = trim($mfgStr . ' ' . $partStr);
+                        $countLabel = count($modules) . 'x ' . ($modules[0]['capacity_gb'] ?? '') . 'GB';
+                        $res['ram_model'] = trim("{$countLabel} {$ddrStr}{$spdStr}" . ($ident !== '' ? " ({$ident})" : ''));
+                        if (empty($res['ram_total_gb']) && $physicalSumGb > 0) {
+                            $res['ram_total_gb'] = round($physicalSumGb, 2);
+                        }
+                    }
+                }
+
+                // 4. All GPUs (Discrete GPU + Integrated GPU / iGPU)
                 $gpuRow = $json['gpu'] ?? null;
                 if (is_array($gpuRow)) {
-                    // Win32_VideoController bisa mengembalikan array objek bila ada >1 GPU, pilih non-Microsoft Basic
-                    $gpus = isset($gpuRow['Name']) ? [$gpuRow] : $gpuRow;
-                    foreach ($gpus as $g) {
+                    $rawGpus = isset($gpuRow['Name']) ? [$gpuRow] : $gpuRow;
+                    $gpus = [];
+                    foreach ($rawGpus as $g) {
                         $name = trim((string) ($g['Name'] ?? ''));
-                        if ($name !== '' && stripos($name, 'Basic Display') === false) {
-                            $res['gpu_name'] = $name;
-                            $adapterRam = (float) ($g['AdapterRAM'] ?? 0);
-                            $res['gpu_type'] = stripos($name, 'NVIDIA') !== false || stripos($name, 'Radeon RX') !== false ? 'DISCRETE' : 'INTEGRATED_SHARED';
-                            if ($adapterRam > 0 && $res['gpu_type'] === 'DISCRETE') {
-                                $res['gpu_vram_total_gb'] = round($adapterRam / 1073741824, 2);
-                            }
-                            break;
+                        if ($name === '' || stripos($name, 'Basic Display') !== false || stripos($name, 'Remote') !== false || stripos($name, 'Parsec') !== false) {
+                            continue;
                         }
+                        $adapterRam = (float) ($g['AdapterRAM'] ?? 0);
+                        $vramGb = $adapterRam > 0 ? round($adapterRam / 1073741824, 2) : null;
+                        $isDiscrete = stripos($name, 'NVIDIA') !== false
+                            || stripos($name, 'Radeon RX') !== false
+                            || stripos($name, 'Radeon PRO') !== false
+                            || stripos($name, 'Intel(R) Arc') !== false
+                            || stripos($name, 'RTX') !== false
+                            || stripos($name, 'GTX') !== false;
+                        $role = $isDiscrete ? 'dGPU' : 'iGPU';
+
+                        $gpus[] = [
+                            'name' => $name,
+                            'role' => $role,
+                            'vram_gb' => $isDiscrete ? $vramGb : ($vramGb ? "{$vramGb} (Shared)" : 'Shared'),
+                            'vram_raw_gb' => $vramGb,
+                            'driver_version' => trim((string) ($g['DriverVersion'] ?? '')),
+                            'status' => trim((string) ($g['Status'] ?? 'OK')),
+                            'processor' => trim((string) ($g['VideoProcessor'] ?? '')),
+                            'utilization_pct' => null,
+                        ];
+
+                        if ($isDiscrete && empty($res['dgpu_name'])) {
+                            $res['dgpu_name'] = $name;
+                            $res['dgpu_vram_gb'] = $vramGb;
+                        } elseif (!$isDiscrete && empty($res['igpu_name'])) {
+                            $res['igpu_name'] = $name;
+                            $res['igpu_vram_gb'] = $vramGb;
+                        }
+                    }
+
+                    $res['gpus'] = $gpus;
+                    if (!empty($res['dgpu_name'])) {
+                        $res['gpu_name'] = $res['dgpu_name'];
+                        $res['gpu_vram_total_gb'] = $res['dgpu_vram_gb'];
+                        $res['gpu_type'] = 'DISCRETE';
+                    } elseif (!empty($res['igpu_name'])) {
+                        $res['gpu_name'] = $res['igpu_name'];
+                        $res['gpu_vram_total_gb'] = $res['igpu_vram_gb'];
+                        $res['gpu_type'] = 'INTEGRATED_SHARED';
+                    }
+                }
+
+                // 5. Real-time Local AI Process RAM Usage (LM Studio, llama-server, Ollama, Bionic)
+                $procRow = $json['proc'] ?? null;
+                if (is_array($procRow)) {
+                    $procs = isset($procRow['ProcessName']) ? [$procRow] : $procRow;
+                    $byProc = [];
+                    $totalAiBytes = 0.0;
+                    foreach ($procs as $p) {
+                        $pname = trim((string) ($p['ProcessName'] ?? ''));
+                        $ws = (float) ($p['WorkingSet64'] ?? 0);
+                        if ($pname === '' || $ws <= 0) {
+                            continue;
+                        }
+                        $totalAiBytes += $ws;
+                        $byProc[$pname] = ($byProc[$pname] ?? 0.0) + $ws;
+                    }
+                    if ($totalAiBytes > 0) {
+                        arsort($byProc);
+                        $breakdown = [];
+                        $topLabels = [];
+                        foreach ($byProc as $pname => $bytes) {
+                            $gb = round($bytes / 1073741824, 2);
+                            $breakdown[] = ['process' => $pname, 'ram_gb' => $gb];
+                            if ($gb >= 0.05) {
+                                $topLabels[] = "{$pname} ({$gb} GB)";
+                            }
+                        }
+                        $res['ai_process_ram_gb'] = round($totalAiBytes / 1073741824, 2);
+                        $res['ai_process_breakdown'] = $breakdown;
+                        $res['ai_active_process'] = implode(' + ', array_slice($topLabels, 0, 3));
                     }
                 }
             }
@@ -165,6 +381,7 @@ class HardwareTelemetry
             }
             if (preg_match_all('/^processor\s*:/m', $cpuinfo, $matches)) {
                 $res['cpu_cores'] = count($matches[0]);
+                $res['cpu_threads'] = count($matches[0]);
             }
         }
         if (is_readable('/proc/meminfo')) {
@@ -186,7 +403,7 @@ class HardwareTelemetry
     private function probeNvidiaSmi(): ?array
     {
         try {
-            $out = @shell_exec('nvidia-smi --query-gpu=name,memory.total,memory.used --format=csv,noheader,nounits 2>' . (PHP_OS_FAMILY === 'Windows' ? 'NUL' : '/dev/null'));
+            $out = @shell_exec('nvidia-smi --query-gpu=name,memory.total,memory.used,utilization.gpu --format=csv,noheader,nounits 2>' . (PHP_OS_FAMILY === 'Windows' ? 'NUL' : '/dev/null'));
             if (!$out) {
                 return null;
             }
@@ -197,6 +414,7 @@ class HardwareTelemetry
                     'name' => $parts[0],
                     'vram_total_gb' => round(((float) $parts[1]) / 1024, 2),
                     'vram_used_gb' => round(((float) $parts[2]) / 1024, 2),
+                    'utilization_pct' => isset($parts[3]) && is_numeric($parts[3]) ? (int) $parts[3] : null,
                 ];
             }
         } catch (\Throwable) {
@@ -220,10 +438,13 @@ class HardwareTelemetry
         // 2. LM Studio default port 1234
         $endpoints[] = $this->probeOpenAiCompat('LM Studio', 'http://127.0.0.1:1234', $hw);
 
-        // 3. llama.cpp / vLLM local port 8080
-        $endpoints[] = $this->probeOpenAiCompat('llama.cpp / vLLM', 'http://127.0.0.1:8080', $hw);
+        // 3. Bionic local OpenAI-compatible port 8001
+        $endpoints[] = $this->probeOpenAiCompat('Bionic', 'http://127.0.0.1:8001', $hw);
 
-        // 4. Scan katalog LM Studio di host saat ini (lms ls --json / fallback direktori GGUF)
+        // 4. Bionic / llama.cpp local port 8080
+        $endpoints[] = $this->probeOpenAiCompat('Bionic / llama.cpp', 'http://127.0.0.1:8080', $hw);
+
+        // 5. Scan katalog LM Studio di host saat ini (lms ls --json / fallback direktori GGUF)
         $ggufFiles = $this->scanLmStudioModelsDir($hw);
 
         return [

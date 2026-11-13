@@ -140,9 +140,18 @@ Route::middleware(['auth.trace'])->group(function () {
     Route::get('/scanner', [ScannerController::class, 'index'])
         ->middleware('permission:analysis.run')
         ->name('scanner.index');
+    Route::post('/scanner/select-model', [ScannerController::class, 'selectModel'])
+        ->middleware('permission:analysis.run')
+        ->name('scanner.select-model');
     Route::post('/scanner/scan', [ScannerController::class, 'scan'])
         ->middleware('permission:analysis.run')
         ->name('scanner.scan');
+    Route::get('/scanner/analyses/{id}/export/pdf', [ScannerController::class, 'exportAnalysisPdf'])
+        ->middleware('permission:report.export')
+        ->name('scanner.export.pdf');
+    Route::get('/scanner/analyses/{id}/export/spreadsheet', [ScannerController::class, 'exportAnalysisSpreadsheet'])
+        ->middleware('permission:report.export')
+        ->name('scanner.export.spreadsheet');
     Route::post('/scanner/compare', [ScannerController::class, 'compare'])
         ->middleware('permission:analysis.run')
         ->name('scanner.compare');
@@ -175,6 +184,9 @@ Route::middleware(['auth.trace'])->group(function () {
     Route::get('/reports/{id}/pdf', [ReportController::class, 'exportPdf'])
         ->middleware('permission:report.export')
         ->name('reports.pdf');
+    Route::get('/reports/{id}/spreadsheet', [ReportController::class, 'exportSpreadsheet'])
+        ->middleware('permission:report.export')
+        ->name('reports.spreadsheet');
 
     Route::get('/console', [ConsoleController::class, 'index'])
         ->middleware('permission:console.use')

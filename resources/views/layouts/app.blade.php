@@ -69,19 +69,19 @@
 
       @php
         $aiShortModel = !empty($aiStatus['active_model']) ? \Illuminate\Support\Str::limit($aiStatus['active_model'], 26) : null;
-        $aiDisplayRuntime = match (strtolower((string) ($aiStatus['driver'] ?? 'mock'))) {
-            'openai_compatible' => str_contains(strtolower((string) ($aiStatus['runtime'] ?? '')), 'lm studio') ? 'LM STUDIO' : 'OPENAI-COMPAT',
-            default => $driverUpper,
-        };
+        $aiRamUsedGb = $aiStatus['ai_ram_used_gb'] ?? null;
       @endphp
-      <a href="{{ $user && $user->hasPermission('ai.manage') ? route('admin.ai.index') : '#' }}"
-         class="flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#202622] border border-[#46514C] hover:border-[#C5B89C] text-[#F2F2EC]"
+      <a href="{{ $user && $user->hasPermission('ai.manage') ? route('admin.ai.index') : route('scanner.index') }}"
+         class="flex items-center gap-1.5 px-2.5 py-1 rounded-sm bg-[#18201B] border border-[#3B4940] hover:border-[#B9AA88] text-[#F2F1EC]"
          title="AI Driver: {{ $driverUpper }}{{ $aiShortModel ? ' • Model: ' . $aiStatus['active_model'] : '' }}">
-        <span class="w-2 h-2 rounded-full {{ $isSimDriver ? 'bg-[#C5B89C]' : ($serverOnline ? 'bg-[#586B47]' : 'bg-[#991B1B]') }}"></span>
-        <span class="text-[10px] tracking-wider uppercase">
+        <span class="w-2 h-2 rounded-full {{ $isSimDriver ? 'bg-[#B9AA88]' : ($serverOnline ? 'bg-[#688A4D]' : 'bg-[#991B1B]') }}"></span>
+        <span class="text-[10px] tracking-wider uppercase tabular-nums">
           AI: <strong>{{ $driverUpper }}</strong>
           @if($aiShortModel && !$isSimDriver)
-            <span class="text-[#C5B89C] font-normal normal-case">&bull; {{ $aiShortModel }}</span>
+            <span class="text-[#C7C3B2] font-normal normal-case">&bull; {{ $aiShortModel }}</span>
+          @endif
+          @if(!$isSimDriver && $aiRamUsedGb !== null && $aiRamUsedGb > 0)
+            <span class="text-[#B9AA88] font-normal">&bull; {{ number_format((float) $aiRamUsedGb, 2) }} GB RAM</span>
           @endif
           @if($isSimDriver)
             ({{ $isId ? 'SIMULASI' : 'SIMULATION' }})

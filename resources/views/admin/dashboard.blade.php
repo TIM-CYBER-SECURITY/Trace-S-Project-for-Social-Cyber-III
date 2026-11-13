@@ -20,6 +20,8 @@
   </div>
 </div>
 
+@include('partials.tactical-launchpad')
+
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 font-mono">
   <div class="panel p-4">
     <div class="label-meta">{{ $isId ? 'AKUN AKTIF / TOTAL' : 'ACTIVE / TOTAL ACCOUNTS' }}</div>

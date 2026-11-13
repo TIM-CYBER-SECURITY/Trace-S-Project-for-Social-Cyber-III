@@ -124,8 +124,11 @@
     $id = $c['section_1_case_identity'] ?? [];
     $exec = $c['section_2_executive_summary'] ?? [];
     $claims = $c['section_4_main_claims'] ?? [];
+    $cross = $c['section_6_cross_source_verification'] ?? [];
     $indep = $c['section_7_source_independence'] ?? [];
     $auth = $c['section_8_authenticity_comparison'] ?? [];
+    $highlights = $auth['manipulation_highlights'] ?? [];
+    $crossMatches = $cross['cross_channel_matches'] ?? [];
     $findings = $c['section_11_key_findings'] ?? [];
     $threat = $c['section_12_threat_indicators'] ?? [];
     $validation = $c['section_13_analyst_validation'] ?? [];
@@ -161,11 +164,55 @@
   </div>
   @endforeach
 
-  <div class="section-title">3. Evidence &amp; Source Independence</div>
+  <div class="section-title">3. Evidence, Cross-Channel Sources &amp; Text-Overlay Highlights</div>
   <div class="grid-box">
     <b>Source Independence:</b> {{ $indep['assessment'] ?? '-' }}<br>
     <b>Authenticity Comparison:</b> {{ $auth['assessment'] ?? '-' }}
   </div>
+
+  @if(!empty($highlights))
+  <table class="data-table" style="margin-bottom: 6pt;">
+    <thead>
+      <tr>
+        <th style="width: 18%;">Anomaly Type</th>
+        <th style="width: 34%;">Highlighted Segment (Potential Edit/Overlay)</th>
+        <th style="width: 48%;">Diagnostic Reason</th>
+      </tr>
+    </thead>
+    <tbody>
+      @foreach($highlights as $hl)
+      <tr>
+        <td class="font-mono"><b>{{ $hl['type'] ?? '-' }}</b> ({{ $hl['severity'] ?? '-' }})</td>
+        <td style="color: #991B1B; font-weight: bold;">"{{ $hl['segment'] ?? '-' }}"</td>
+        <td>{{ $hl['reason'] ?? '-' }}</td>
+      </tr>
+      @endforeach
+    </tbody>
+  </table>
+  @endif
+
+  @if(!empty($crossMatches))
+  <table class="data-table" style="margin-bottom: 6pt;">
+    <thead>
+      <tr>
+        <th style="width: 16%;">Channel</th>
+        <th style="width: 34%;">Source Title</th>
+        <th style="width: 26%;">Publisher</th>
+        <th style="width: 24%;">Lexical Match</th>
+      </tr>
+    </thead>
+    <tbody>
+      @foreach($crossMatches as $cm)
+      <tr>
+        <td class="font-mono">{{ $cm['channel'] ?? '-' }}</td>
+        <td>{{ $cm['title'] ?? '-' }}</td>
+        <td>{{ $cm['publisher'] ?? '-' }}</td>
+        <td class="font-mono">{{ $cm['similarity_pct'] ?? 0 }}%</td>
+      </tr>
+      @endforeach
+    </tbody>
+  </table>
+  @endif
 
   <div class="section-title">4. Analyst Validation &amp; Credibility Indicators</div>
   <table style="width: 100%; font-size: 8pt; margin-bottom: 4pt;">

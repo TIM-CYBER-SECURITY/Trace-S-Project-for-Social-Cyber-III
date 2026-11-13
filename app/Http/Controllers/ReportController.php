@@ -61,4 +61,10 @@ class ReportController extends Controller
         $report = Report::with(['case.evidence', 'author'])->findOrFail($id);
         return $this->generator->exportPdf($report);
     }
+
+    public function exportSpreadsheet($id)
+    {
+        $report = Report::with(['case.evidence', 'author'])->findOrFail($id);
+        return $this->generator->exportSpreadsheet($report);
+    }
 }

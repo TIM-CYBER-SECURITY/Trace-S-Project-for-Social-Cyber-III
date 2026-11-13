@@ -94,8 +94,11 @@
                 {{ $isId ? 'Buka' : 'View' }}
               </a>
               @if($canExport)
+              <a href="{{ route('reports.spreadsheet', $rep->id) }}" class="btn-secondary py-1 px-2 text-[11px]">
+                SPREADSHEET
+              </a>
               <a href="{{ route('reports.pdf', $rep->id) }}" class="btn-primary py-1 px-2.5 text-[11px]">
-                EXPORT INTEL BRIEF (PDF)
+                PDF
               </a>
               @endif
             </td>

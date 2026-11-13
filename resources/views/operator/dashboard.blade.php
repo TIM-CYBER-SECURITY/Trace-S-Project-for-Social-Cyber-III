@@ -19,6 +19,8 @@
   </div>
 </div>
 
+@include('partials.tactical-launchpad')
+
 <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 font-mono">
   <div class="panel p-3.5"><div class="label-meta">DRAFT</div><div class="text-xl font-bold mt-1">{{ $counts['drafts'] }}</div></div>
   <div class="panel p-3.5"><div class="label-meta">PENDING REVIEW</div><div class="text-xl font-bold mt-1 text-[#8A580B] dark:text-[#E7C37B]">{{ $counts['pending'] }}</div></div>

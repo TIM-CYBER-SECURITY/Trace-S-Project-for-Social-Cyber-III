@@ -43,6 +43,10 @@
         <span>{{ $isId ? 'Cetak' : 'Print' }}</span>
       </button>
       @if($canExport)
+      <a href="{{ route('reports.spreadsheet', $report->id) }}" class="btn-secondary text-xs">
+        <i class="fa-solid fa-file-excel"></i>
+        <span>EXPORT SPREADSHEET (CSV)</span>
+      </a>
       <a href="{{ route('reports.pdf', $report->id) }}" class="btn-primary text-xs">
         <i class="fa-solid fa-file-pdf"></i>
         <span>EXPORT INTEL BRIEF (PDF)</span>

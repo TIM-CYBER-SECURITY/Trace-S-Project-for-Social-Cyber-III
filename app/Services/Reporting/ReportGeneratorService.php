@@ -93,6 +93,7 @@ class ReportGeneratorService
                 'comparisons_count' => count($crossRes['comparisons_detail'] ?? []),
                 'sources_compared' => $crossRes['sources'] ?? [],
                 'findings' => $crossRes['comparisons_detail'] ?? [],
+                'cross_channel_matches' => $credAnalysis?->result['cross_channel_matches'] ?? [],
             ],
             'section_7_source_independence' => [
                 'assessment' => $crossRes['independence_assessment'] ?? 'Belum dianalisis.',
@@ -104,6 +105,7 @@ class ReportGeneratorService
                 'changes' => $authRes['changes'] ?? [],
                 'numeric_consistency' => $authRes['numeric_entity']['numeric_consistency'] ?? 'NOT_APPLICABLE',
                 'context_consistency' => $authRes['context']['consistency'] ?? 'UNKNOWN',
+                'manipulation_highlights' => $credAnalysis?->result['manipulation_highlights'] ?? [],
             ],
             'section_9_narrative_clustering' => [
                 'clusters_count' => count($clusterRes['clusters'] ?? []),
@@ -210,5 +212,86 @@ class ReportGeneratorService
         ]);
 
         return $pdf->download("TRACE-S_INTEL_BRIEF_{$report->report_code}.pdf");
+    }
+
+    public function exportSpreadsheet(Report $report)
+    {
+        $this->audit->log('REPORT_EXPORT_SPREADSHEET', $report, [
+            'report_code' => $report->report_code,
+        ]);
+
+        $c = $report->content ?? [];
+        $idSec = $c['section_1_case_identity'] ?? [];
+        $exec = $c['section_2_executive_summary'] ?? [];
+        $claims = $c['section_4_main_claims'] ?? [];
+        $sources = $c['section_5_sources_and_evidence'] ?? [];
+        $cross = $c['section_6_cross_source_verification'] ?? [];
+        $auth = $c['section_8_authenticity_comparison'] ?? [];
+        $threat = $c['section_12_threat_indicators'] ?? [];
+        $validation = $c['section_13_analyst_validation'] ?? [];
+        $hashes = $c['section_16_evidence_hashes'] ?? [];
+
+        $filename = "TRACE-S_SPREADSHEET_{$report->report_code}.csv";
+
+        return response()->streamDownload(function () use ($report, $idSec, $exec, $claims, $sources, $cross, $auth, $threat, $validation, $hashes) {
+            $out = fopen('php://output', 'w');
+            // UTF-8 BOM so Excel renders Indonesian/Unicode cleanly
+            fwrite($out, "\xEF\xBB\xBF");
+
+            $row = fn (array $cols) => fputcsv($out, array_map(fn ($v) => is_scalar($v) ? (string) $v : json_encode($v), $cols));
+
+            $row(['TRACE-S INTEL BRIEF SPREADSHEET EXPORT']);
+            $row(['Report Code', $report->report_code]);
+            $row(['Classification', $report->classification_label]);
+            $row(['Case Code', $idSec['case_code'] ?? '-']);
+            $row(['Case Title', $idSec['title'] ?? $report->title]);
+            $row(['Generated At (UTC)', $report->created_at?->toIso8601String()]);
+            $row(['Credibility Score', ($threat['credibility_score'] ?? 50) . '/100']);
+            $row(['Verification Status', $threat['verification_status'] ?? 'BELUM TERVERIFIKASI']);
+            $row(['Threat Level', $threat['threat_level'] ?? 'SEDANG']);
+            $row(['Analyst Decision', $validation['status'] ?? 'PENDING REVIEW']);
+            $row(['Executive Conclusion', $exec['summary'] ?? '-']);
+            $row([]);
+
+            $row(['=== EXTRACTED CLAIMS ===']);
+            $row(['Claim ID', 'Claim Text', 'Type', 'Check Status']);
+            foreach ($claims['extracted_claims'] ?? [] as $cl) {
+                $row([$cl['id'] ?? '-', $cl['text'] ?? '-', $cl['type'] ?? '-', $cl['check_status'] ?? '-']);
+            }
+            $row([]);
+
+            $row(['=== POTENTIAL MANIPULATION / TEXT-OVERLAY HIGHLIGHTS (TIMPA TEKS) ===']);
+            $row(['Type', 'Severity', 'Highlighted Segment', 'Diagnostic Reason', 'Reference Code']);
+            foreach ($auth['manipulation_highlights'] ?? [] as $hl) {
+                $row([$hl['type'] ?? '-', $hl['severity'] ?? '-', $hl['segment'] ?? '-', $hl['reason'] ?? '-', $hl['reference_code'] ?? '-']);
+            }
+            $row([]);
+
+            $row(['=== CROSS-CHANNEL CORPUS MATCHES ===']);
+            $row(['Code', 'Channel', 'Title', 'Publisher', 'Similarity (%)', 'URL']);
+            foreach ($cross['cross_channel_matches'] ?? [] as $cm) {
+                $row([$cm['code'] ?? '-', $cm['channel'] ?? '-', $cm['title'] ?? '-', $cm['publisher'] ?? '-', $cm['similarity_pct'] ?? 0, $cm['url'] ?? '-']);
+            }
+            $row([]);
+
+            $row(['=== SOURCES & EVIDENCE SHA-256 INTEGRITY ===']);
+            $row(['Evidence Code', 'Role', 'Platform', 'Publisher', 'Access Status', 'SHA-256 Hash']);
+            $hashMap = collect($hashes)->keyBy('code');
+            foreach ($sources as $s) {
+                $code = $s['evidence_code'] ?? '-';
+                $row([
+                    $code,
+                    $s['role'] ?? '-',
+                    $s['platform'] ?? '-',
+                    $s['publisher'] ?? '-',
+                    $s['access_status'] ?? '-',
+                    $s['content_hash'] ?? ($hashMap[$code]['hash'] ?? 'N/A'),
+                ]);
+            }
+
+            fclose($out);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
     }
 }

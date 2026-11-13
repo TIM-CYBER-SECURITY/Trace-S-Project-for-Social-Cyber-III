@@ -413,4 +413,78 @@ class TracePlatformTest extends TestCase
         $this->assertSame('IN_REVIEW', $case->status);
         $this->assertSame('KRITIS', $case->priority);
     }
+
+    /** Hardware Telemetry Schema, Unified Auto-Case Scan, Timpa Teks Highlights & Direct PDF/Spreadsheet Export */
+    public function test_hardware_telemetry_auto_case_manipulation_highlights_and_spreadsheet_exports(): void
+    {
+        $admin = $this->makeUser('ADMINISTRATOR');
+
+        // 1. HardwareTelemetry snapshot exposes full CPU, GPU/iGPU, RAM model, and AI RAM usage keys
+        $hw = app(\App\Services\Ai\HardwareTelemetry::class)->snapshot();
+        foreach (['cpu_name', 'cpu_cores', 'cpu_threads', 'ram_model', 'gpus', 'ai_process_ram_gb'] as $key) {
+            $this->assertArrayHasKey($key, $hw);
+        }
+
+        // 2. Seed an official reference EvidenceItem in another case to trigger cross-channel match & numeric tamper detection
+        $refCase = InvestigationCase::create([
+            'case_code' => 'TS-2026-950',
+            'title' => 'Dokumen Resmi Subsidi Pangan Nasional',
+            'claim_text' => 'Program subsidi pangan nasional tetap dilanjutkan dengan anggaran 12 triliun rupiah pada 2026.',
+            'category' => 'Ekonomi',
+            'priority' => 'TINGGI',
+            'status' => 'VALIDATED',
+            'is_simulation' => true,
+            'created_by' => $admin->id,
+        ]);
+        \App\Models\EvidenceItem::create([
+            'case_id' => $refCase->id,
+            'evidence_code' => 'EV-TS-2026-950-1',
+            'type' => 'TEXT',
+            'role' => 'REFERENCE',
+            'title' => 'Siaran Pers Resmi Anggaran Subsidi Pangan',
+            'publisher' => 'Kementerian Keuangan RI',
+            'platform' => 'WEB',
+            'access_status' => 'OK',
+            'extracted_text' => 'Program subsidi pangan nasional tetap dilanjutkan dengan anggaran 12 triliun rupiah tahun 2026.',
+            'content_hash' => hash('sha256', 'ref'),
+            'is_simulation' => true,
+            'added_by' => $admin->id,
+        ]);
+
+        // 3. Auto-case unified scan with manipulated numbers & sensational cue ("timpa teks")
+        $scan = $this->actingAs($admin, 'web')->postJson('/scanner/scan', [
+            'case_id' => 'auto',
+            'text' => 'VIRAL!! Program subsidi pangan nasional resmi dibubarkan dan anggaran dipotong menjadi 99 triliun rupiah pada tahun 2026.',
+        ]);
+        $scan->assertStatus(200)->assertJsonPath('success', true);
+        $analysisId = $scan->json('threat.id');
+        $analysisData = $scan->json('analysis');
+
+        $this->assertNotEmpty($scan->json('case_id'));
+        $this->assertNotEmpty($analysisData['investigation_trace']);
+        $this->assertNotEmpty($analysisData['cross_channel_matches']);
+        $this->assertNotEmpty($analysisData['manipulation_highlights']);
+
+        // Ensure highlighted HTML renders safe <mark> tags
+        $detector = app(\App\Services\Analysis\ManipulationDetector::class);
+        $html = $detector->renderHighlightedHtml($scan->json('threat.source_text'), $analysisData['manipulation_highlights']);
+        $this->assertStringContainsString('<mark class=', $html);
+
+        // 4. Direct PDF & Spreadsheet exports from analysis result
+        $pdfRes = $this->actingAs($admin, 'web')->get("/scanner/analyses/{$analysisId}/export/pdf");
+        $pdfRes->assertStatus(200)->assertHeader('content-type', 'application/pdf');
+
+        $csvRes = $this->actingAs($admin, 'web')->get("/scanner/analyses/{$analysisId}/export/spreadsheet");
+        $csvRes->assertStatus(200);
+        $this->assertStringContainsString('text/csv', (string) $csvRes->headers->get('content-type'));
+        $csvBody = $csvRes->streamedContent();
+        $this->assertStringContainsString('TRACE-S INTEL BRIEF SPREADSHEET EXPORT', $csvBody);
+        $this->assertStringContainsString('POTENTIAL MANIPULATION', $csvBody);
+
+        // 5. Direct Spreadsheet export from Reports route
+        $report = Report::latest()->firstOrFail();
+        $repCsv = $this->actingAs($admin, 'web')->get("/reports/{$report->id}/spreadsheet");
+        $repCsv->assertStatus(200);
+        $this->assertStringContainsString($report->report_code, $repCsv->streamedContent());
+    }
 }

@@ -197,6 +197,7 @@ class AiManager
     public function status(): array
     {
         $cfg = $this->resolvedConfig();
+        $hw = $this->telemetry->snapshot();
         try {
             $d = $this->driver();
             $h = $d->checkHealth();
@@ -212,6 +213,8 @@ class AiManager
                 'loaded_models' => $h['loaded_models'] ?? [],
                 'is_simulation' => $d->isSimulation(),
                 'latency_ms' => $h['latency_ms'],
+                'ai_ram_used_gb' => $hw['ai_process_ram_gb'] ?? null,
+                'ai_active_process' => $hw['ai_active_process'] ?? null,
                 'error' => $h['error'] ?? null,
             ];
         } catch (\Throwable $e) {
@@ -227,6 +230,8 @@ class AiManager
                 'loaded_models' => [],
                 'is_simulation' => false,
                 'latency_ms' => null,
+                'ai_ram_used_gb' => $hw['ai_process_ram_gb'] ?? null,
+                'ai_active_process' => $hw['ai_active_process'] ?? null,
                 'error' => $e->getMessage(),
             ];
         }
@@ -794,13 +799,11 @@ class AiManager
             return ['ok' => false, 'count' => 0, 'models' => [], 'error' => $e->getMessage()];
         }
 
-        $remoteNames = array_column($remote, 'name');
+        $remoteNames = array_values(array_filter(array_column($remote, 'name'), fn ($n) => $n !== ''));
 
-        // Untuk server live yang mengembalikan daftar lengkap, hapus entri simulasi lama dan model Ollama yang sudah dihapus
+        // Untuk server live, hapus entri simulasi lama dan pangkas model yang tidak ada di mesin pengguna
         AiModel::where('server_id', $server->id)->where('is_simulation', true)->delete();
-        if ($server->driver === 'ollama' && $remoteNames !== []) {
-            AiModel::where('server_id', $server->id)->whereNotIn('name', $remoteNames)->delete();
-        }
+        $ownedNames = $remoteNames;
 
         $synced = [];
         $firstLlmName = null;
@@ -825,11 +828,17 @@ class AiManager
 
         // Gabungkan katalog disk LM Studio jika server hanya melaporkan sebagian (mis. /v1/models hanya loaded model)
         if ($server->driver === 'openai_compatible' && $this->isLocalLmStudioUrl($server->base_url)) {
-            $this->syncLocalLmStudioCatalog($server, $hw, null, false);
+            $diskKeys = $this->syncLocalLmStudioCatalog($server, $hw, null, false);
+            $ownedNames = array_values(array_unique(array_merge($ownedNames, $diskKeys)));
         }
 
-        // Hormati $preferredModel yang dipilih admin meskipun belum ter-load di /v1/models (JIT loading)
-        if ($preferredModel && !in_array($preferredModel, $remoteNames, true)) {
+        // Pangkas semua model lama yang sudah tidak dimiliki pada server/komputer pengguna
+        if ($ownedNames !== [] && ($server->driver === 'ollama' || $this->isLoopbackUrl($server->base_url))) {
+            AiModel::where('server_id', $server->id)->whereNotIn('name', $ownedNames)->delete();
+        }
+
+        // Hormati $preferredModel hanya bila bukan localhost atau memang terdaftar di daftar owned
+        if ($preferredModel && !in_array($preferredModel, $ownedNames, true) && !$this->isLoopbackUrl($server->base_url)) {
             $resolvedPref = $this->profiles->resolve($preferredModel, [], $hw);
             $this->upsertProfiledModel($server, $preferredModel, $resolvedPref, 'READY');
         }
@@ -840,8 +849,9 @@ class AiManager
         }
 
         // Pertahankan target model yang valid/eksplisit, atau pilih LLM pertama jika belum ada pilihan
-        $chosenName = $preferredModel
-            ?: (($targetName && in_array($targetName, $remoteNames, true)) ? $targetName : ($firstLlmName ?? ($remoteNames[0] ?? null)));
+        $chosenName = $preferredModel && ($ownedNames === [] || in_array($preferredModel, $ownedNames, true))
+            ? $preferredModel
+            : (($targetName && in_array($targetName, $ownedNames, true)) ? $targetName : ($firstLlmName ?? ($ownedNames[0] ?? null)));
 
         if ($chosenName !== null) {
             AiModel::where('server_id', $server->id)->update(['is_active' => false]);
@@ -854,8 +864,8 @@ class AiManager
     }
 
     /**
-     * Pindai semua engine AI lokal & intranet (Ollama, LM Studio, llama.cpp, dan server tersimpan lainnya),
-     * sinkronkan seluruh node & modelnya ke database dengan profil perbedaan per model.
+     * Pindai semua engine AI lokal & intranet (Ollama, LM Studio, Bionic, llama.cpp),
+     * sinkronkan seluruh node & model yang benar-benar dimiliki di komputer pengguna.
      *
      * @return array{servers:array,telemetry:array,discovery:array}
      */
@@ -870,6 +880,11 @@ class AiManager
         $activeDriver = (string) ($activeCfg['driver'] ?? 'mock');
         $activeBaseUrl = $activeDriver === 'mock' ? null : rtrim((string) ($activeCfg['base_url'] ?? ''), '/');
 
+        $lmsLocalKeys = array_values(array_filter(array_map(
+            fn ($item) => (string) ($item['suggested_key'] ?? ''),
+            $discovery['lmstudio_local_models'] ?? []
+        )));
+
         foreach ($discovery['endpoints'] as $ep) {
             $drv = (string) ($ep['driver'] ?? 'openai_compatible');
             $url = rtrim((string) ($ep['base_url'] ?? ''), '/');
@@ -878,6 +893,19 @@ class AiManager
             }
             $isActiveNode = ($activeDriver === $drv && $activeBaseUrl === $url);
             $isOnline = !empty($ep['online']);
+            $hasLiveModels = $isOnline && !empty($ep['models']);
+            $isLmsDefault = $this->isLocalLmStudioUrl($url);
+            $hasLmsCatalog = $isLmsDefault && $lmsLocalKeys !== [];
+
+            // Jangan buat/tampilkan node offline lokal yang tidak punya model apa pun kecuali sedang aktif dipilih
+            if (!$isOnline && !$hasLmsCatalog && !$isActiveNode) {
+                $stale = AiServer::where('driver', $drv)->where('base_url', $url)->first();
+                if ($stale) {
+                    AiModel::where('server_id', $stale->id)->delete();
+                    $stale->delete();
+                }
+                continue;
+            }
 
             $label = $ep['engine'] . ' (' . $url . ')';
             $server = AiServer::firstOrCreate(
@@ -896,36 +924,42 @@ class AiManager
                 'last_checked_at' => now(),
             ]);
 
-            if ($isOnline && !empty($ep['models'])) {
+            $ownedNames = [];
+            if ($hasLiveModels) {
                 foreach ($ep['models'] as $m) {
                     $mName = (string) ($m['id'] ?? '');
                     if ($mName === '') {
                         continue;
                     }
+                    $ownedNames[] = $mName;
                     $resolved = $this->profiles->resolve($mName, $m, $hw);
                     $this->upsertProfiledModel($server, $mName, $resolved, !empty($m['loaded']) ? 'LOADED' : 'READY');
                 }
             }
-        }
 
-        // Pastikan seluruh model LM Studio lokal terdaftar di server LM Studio (:1234) walaupun server belum dinyalakan
-        if (!empty($discovery['lmstudio_local_models'])) {
-            $lmsUrl = 'http://127.0.0.1:1234';
-            $lmsServer = AiServer::firstOrCreate(
-                ['driver' => 'openai_compatible', 'base_url' => $lmsUrl],
-                ['name' => "LM Studio ({$lmsUrl})", 'is_active' => ($activeDriver === 'openai_compatible' && $activeBaseUrl === $lmsUrl)]
-            );
-            $lmsOnline = $lmsServer->status === 'ONLINE';
-            foreach ($discovery['lmstudio_local_models'] as $localM) {
-                $key = (string) ($localM['suggested_key'] ?? '');
-                if ($key === '') {
-                    continue;
+            if ($isLmsDefault && !empty($discovery['lmstudio_local_models'])) {
+                foreach ($discovery['lmstudio_local_models'] as $localM) {
+                    $key = (string) ($localM['suggested_key'] ?? '');
+                    if ($key === '') {
+                        continue;
+                    }
+                    $ownedNames[] = $key;
+                    $existing = AiModel::where('server_id', $server->id)->where('name', $key)->first();
+                    $status = ($existing && $existing->status === 'LOADED' && $isOnline)
+                        ? 'LOADED'
+                        : ($isOnline ? 'READY' : 'OFFLINE');
+                    $this->upsertProfiledModel($server, $key, $localM, $status);
                 }
-                $existing = AiModel::where('server_id', $lmsServer->id)->where('name', $key)->first();
-                $status = ($existing && $existing->status === 'LOADED' && $lmsOnline)
-                    ? 'LOADED'
-                    : ($lmsOnline ? 'READY' : 'OFFLINE');
-                $this->upsertProfiledModel($lmsServer, $key, $localM, $status);
+            }
+
+            // Pangkas model yang tidak ada di host pada node lokal (anti-halusinasi model)
+            $ownedNames = array_values(array_unique($ownedNames));
+            if ($isOnline || $hasLmsCatalog) {
+                if ($ownedNames === []) {
+                    AiModel::where('server_id', $server->id)->delete();
+                } else {
+                    AiModel::where('server_id', $server->id)->whereNotIn('name', $ownedNames)->delete();
+                }
             }
         }
 
@@ -945,6 +979,15 @@ class AiManager
             'telemetry' => $hw,
             'discovery' => $discovery,
         ];
+    }
+
+    private function isLoopbackUrl(?string $url): bool
+    {
+        if (!$url) {
+            return false;
+        }
+        $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+        return in_array($host, ['127.0.0.1', 'localhost', '::1'], true);
     }
 
     /**
@@ -1078,24 +1121,27 @@ class AiManager
         ];
     }
 
-    private function syncLocalLmStudioCatalog(AiServer $server, array $hw, ?string $preferredModel = null, bool $markOffline = true): void
+    private function syncLocalLmStudioCatalog(AiServer $server, array $hw, ?string $preferredModel = null, bool $markOffline = true): array
     {
         $catalog = $this->telemetry->scanLmStudioModelsDir($hw);
+        $keys = [];
         foreach ($catalog as $item) {
             $key = (string) ($item['suggested_key'] ?? '');
             if ($key === '') {
                 continue;
             }
+            $keys[] = $key;
             $existing = AiModel::where('server_id', $server->id)->where('name', $key)->first();
             $status = ($existing && $existing->status === 'LOADED' && !$markOffline)
                 ? 'LOADED'
                 : ($markOffline ? 'OFFLINE' : 'READY');
             $this->upsertProfiledModel($server, $key, $item, $status);
         }
-        if ($preferredModel) {
+        if ($preferredModel && ($keys === [] || in_array($preferredModel, $keys, true))) {
             AiModel::where('server_id', $server->id)->update(['is_active' => false]);
             AiModel::where('server_id', $server->id)->where('name', $preferredModel)->update(['is_active' => true]);
         }
+        return $keys;
     }
 
     private function upsertProfiledModel(AiServer $server, string $name, array $resolved, string $status = 'READY'): AiModel
