@@ -367,8 +367,8 @@ class HardwareTelemetry
             ];
         }
 
-        // Load model target secara otomatis
-        @shell_exec(escapeshellarg($lms) . ' load -y --ttl 900 ' . escapeshellarg($modelKey) . ' 2>&1');
+        // Load model target secara otomatis dengan TTL 30 menit agar tidak mendadak unload di tengah sesi
+        @shell_exec(escapeshellarg($lms) . ' load -y --ttl 1800 ' . escapeshellarg($modelKey) . ' 2>&1');
 
         // Verifikasi status loaded terbaru
         try {
@@ -395,6 +395,34 @@ class HardwareTelemetry
             'warning' => "Server LM Studio ONLINE; model '{$modelKey}' terdaftar dan akan dimuat JIT saat inferensi.",
             'message' => "LM Studio ONLINE dengan model aktif '{$modelKey}'.",
         ];
+    }
+
+    /** Bebaskan memori RAM/VRAM dengan menurunkan model LM Studio saat berpindah ke engine lain. */
+    public function unloadAllLocalLmStudioModels(int $port = 1234): void
+    {
+        if (app()->environment('testing')) {
+            return;
+        }
+        $lms = $this->findLmsBinary();
+        if ($lms && $this->isLocalHttpAlive("http://127.0.0.1:{$port}")) {
+            @shell_exec(escapeshellarg($lms) . ' unload --all 2>&1');
+        }
+    }
+
+    /** Bebaskan memori RAM/VRAM Ollama (keep_alive: 0) saat berpindah ke engine/server lain. */
+    public function unloadOllamaModel(?string $baseUrl, ?string $model): void
+    {
+        if (app()->environment('testing') || !$baseUrl || !$model) {
+            return;
+        }
+        try {
+            Http::connectTimeout(1)->timeout(3)->acceptJson()->post(rtrim($baseUrl, '/') . '/api/generate', [
+                'model' => $model,
+                'keep_alive' => 0,
+            ]);
+        } catch (\Throwable) {
+            // abaikan jika Ollama sedang offline
+        }
     }
 
     private function isLocalHttpAlive(string $url): bool

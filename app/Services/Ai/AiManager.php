@@ -238,6 +238,9 @@ class AiManager
      */
     public function configureRuntime(array $params, ?User $by, AuditLogger $audit): array
     {
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(240);
+        }
         $driver = (string) ($params['driver'] ?? 'ollama');
         $baseUrl = isset($params['base_url']) && trim((string) $params['base_url']) !== ''
             ? rtrim(trim((string) $params['base_url']), '/')
@@ -293,6 +296,15 @@ class AiManager
             $this->settings->setInternal('ai.api_key_enc', Crypt::encryptString((string) $params['api_key']), $by);
         }
 
+        // Bebaskan RAM dari engine lokal sebelumnya bila berganti driver/endpoint agar tidak terjadi penumpukan memori
+        if ($prevDriver === 'openai_compatible' && $this->isLocalLmStudioUrl($prevUrl)
+            && ($driver !== 'openai_compatible' || !$this->isLocalLmStudioUrl($baseUrl))) {
+            $prevPort = (int) (parse_url((string) $prevUrl, PHP_URL_PORT) ?: 1234);
+            $this->telemetry->unloadAllLocalLmStudioModels($prevPort);
+        } elseif ($prevDriver === 'ollama' && $prevUrl && $prevModel && ($driver !== 'ollama' || rtrim((string) $prevUrl, '/') !== rtrim((string) $baseUrl, '/'))) {
+            $this->telemetry->unloadOllamaModel($prevUrl, $prevModel);
+        }
+
         $runtimeAction = null;
         if ($driver === 'openai_compatible' && $baseUrl && $this->isLocalLmStudioUrl($baseUrl)) {
             $port = (int) (parse_url($baseUrl, PHP_URL_PORT) ?: 1234);
@@ -329,11 +341,11 @@ class AiManager
     {
         $driver = $this->driver();
         $cfg = $this->resolvedConfig();
+        $max = max(1, 1 + (int) ($cfg['max_retries'] ?? 2));
         if (function_exists('set_time_limit')) {
-            @set_time_limit(max(120, ((int) ($cfg['timeout'] ?? 180)) + 60));
+            @set_time_limit(max(240, ($max * ((int) ($cfg['timeout'] ?? 180))) + 60));
         }
         $messages = $this->prompts->analysis($module, $payload);
-        $max = max(1, 1 + (int) ($cfg['max_retries'] ?? 2));
         $lastErrors = [];
         $lastRaw = null;
 
@@ -671,6 +683,10 @@ class AiManager
     /** @param array<int,array{role:string,content:string}> $messages */
     public function chat(array $messages, array $options = []): array
     {
+        $cfg = $this->resolvedConfig();
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(max(120, ((int) ($cfg['timeout'] ?? 180)) + 60));
+        }
         if (!array_key_exists('temperature', $options)) {
             $prof = $this->activeModelProfile();
             $options['temperature'] = $prof['recommended_temperature'] ?? 0.2;
@@ -681,6 +697,9 @@ class AiManager
     /** @return array<int,array<int,float>> */
     public function embed(array $texts): array
     {
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(120);
+        }
         return $this->driver()->embed($texts);
     }
 
@@ -842,6 +861,9 @@ class AiManager
      */
     public function discoverAndRegisterAllLocalNodes(?User $by = null): array
     {
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(120);
+        }
         $hw = $this->telemetry->snapshot(true);
         $discovery = $this->telemetry->detectLocalEngines();
         $activeCfg = $this->resolvedConfig();
@@ -933,6 +955,9 @@ class AiManager
      */
     public function activateModel(AiModel $model, ?User $by, AuditLogger $audit, string $reason): array
     {
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(240);
+        }
         $model->loadMissing('server');
         $server = $model->server;
         if (!$server || $server->driver === 'mock') {
@@ -986,6 +1011,15 @@ class AiManager
 
         AiModel::where('server_id', $server->id)->update(['is_active' => false]);
         $model->update(['is_active' => true]);
+
+        // Bebaskan RAM dari engine lokal sebelumnya jika berpindah lintas-engine
+        if ($prevDriver === 'openai_compatible' && $this->isLocalLmStudioUrl($prevBaseUrl)
+            && ($server->driver !== 'openai_compatible' || !$this->isLocalLmStudioUrl($server->base_url))) {
+            $prevPort = (int) (parse_url((string) $prevBaseUrl, PHP_URL_PORT) ?: 1234);
+            $this->telemetry->unloadAllLocalLmStudioModels($prevPort);
+        } elseif ($prevDriver === 'ollama' && $prevBaseUrl && $prevActive && ($server->driver !== 'ollama' || rtrim((string) $prevBaseUrl, '/') !== rtrim((string) ($server->base_url ?? ''), '/'))) {
+            $this->telemetry->unloadOllamaModel($prevBaseUrl, $prevActive->name);
+        }
 
         $warning = null;
         $runtimeMessage = null;

@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Drivers;
 
 use App\Services\Ai\Exceptions\AiUnavailableException;
+use App\Services\Ai\HardwareTelemetry;
 use App\Services\Ai\Support\JsonExtractor;
 
 /**
@@ -193,7 +194,26 @@ class OpenAICompatibleDriver extends OllamaDriver
         if ($maxTokens !== null && $maxTokens > 0) {
             $payload['max_tokens'] = $maxTokens;
         }
-        $r = $this->call(fn () => $this->http()->post($this->baseUrl . '/v1/chat/completions', $payload)->throw());
+        try {
+            $r = $this->call(fn () => $this->http()->post($this->baseUrl . '/v1/chat/completions', $payload)->throw());
+        } catch (AiUnavailableException $e) {
+            $msg = strtolower($e->getMessage());
+            $host = strtolower((string) parse_url((string) $this->baseUrl, PHP_URL_HOST));
+            $port = (int) (parse_url((string) $this->baseUrl, PHP_URL_PORT) ?: 1234);
+            $isUnloadedError = str_contains($msg, 'unloaded')
+                || str_contains($msg, 'not loaded')
+                || str_contains($msg, 'no models loaded');
+            if ($isUnloadedError && in_array($host, ['127.0.0.1', 'localhost'], true) && $port === 1234 && !app()->environment('testing')) {
+                $reload = (new HardwareTelemetry())->switchLmStudioLoadedModel($model, $port);
+                if (!empty($reload['ok'])) {
+                    $r = $this->call(fn () => $this->http()->post($this->baseUrl . '/v1/chat/completions', $payload)->throw());
+                } else {
+                    throw $e;
+                }
+            } else {
+                throw $e;
+            }
+        }
 
         $message = $r->json('choices.0.message', []);
         $raw = (string) ($message['content'] ?? '');
