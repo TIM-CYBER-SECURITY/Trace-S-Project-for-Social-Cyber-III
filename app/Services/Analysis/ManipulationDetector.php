@@ -17,10 +17,17 @@ class ManipulationDetector
      * @param  string  $inputText
      * @param  array<int,array<string,mixed>>  $referenceItems  [['code'=>string,'text'=>string,'title'=>?string,'is_reference'=>bool]]
      * @param  array<int,array<string,mixed>>  $claims
+     * @param  array<int,array{term:string,category:string}>  $extractedKeywords
+     * @param  array<string,mixed>  $corroboration
      * @return array<int,array{segment:string,type:string,severity:string,reason:string,reference_code:?string}>
      */
-    public function detect(string $inputText, array $referenceItems = [], array $claims = []): array
-    {
+    public function detect(
+        string $inputText,
+        array $referenceItems = [],
+        array $claims = [],
+        array $extractedKeywords = [],
+        array $corroboration = []
+    ): array {
         $text = trim($inputText);
         if ($text === '') {
             return [];
@@ -183,7 +190,25 @@ class ManipulationDetector
             }
         }
 
-        return array_slice($highlights, 0, 12);
+        // 6. Highlight Kata Kunci Utama (Entitas, Waktu/Angka, & Fokus Klaim OSINT)
+        $verdictHint = strtoupper((string) ($corroboration['verdict_hint'] ?? ''));
+        foreach ($extractedKeywords as $kw) {
+            $term = trim((string) ($kw['term'] ?? ''));
+            $cat = strtoupper((string) ($kw['category'] ?? 'KLAIM'));
+            if ($term === '') {
+                continue;
+            }
+            $reason = match ($cat) {
+                'ENTITAS' => 'Entitas / Subjek Utama penelusuran berita & media sosial real-time.',
+                'WAKTU_ANGKA' => 'Penanda waktu atau angka kunci yang dicocokkan terhadap korpus sumber.',
+                default => $verdictHint === 'REFUTED'
+                    ? 'Kata kunci klaim yang sedang diperiksa — terindikasi kontradiksi pada sumber cek-fakta.'
+                    : 'Kata kunci peristiwa/klaim utama untuk pelacakan lintas kanal.',
+            };
+            $addHighlight($term, 'KEYWORD_' . $cat, 'KEYWORD', $reason);
+        }
+
+        return array_slice($highlights, 0, 16);
     }
 
     /**
@@ -244,7 +269,12 @@ class ManipulationDetector
             }
             $exact = mb_substr($text, $r['start'], $r['end'] - $r['start'], 'UTF-8');
             $hl = $r['hl'];
-            $cssClass = ($hl['severity'] ?? 'MEDIUM') === 'HIGH' ? 'hl-tamper' : 'hl-overlay';
+            $sev = strtoupper((string) ($hl['severity'] ?? 'MEDIUM'));
+            $cssClass = match ($sev) {
+                'HIGH' => 'hl-tamper',
+                'KEYWORD' => 'hl-keyword',
+                default => 'hl-overlay',
+            };
             $title = e('[' . ($hl['type'] ?? 'ANOMALY') . '] ' . ($hl['reason'] ?? ''));
             $out .= '<mark class="' . $cssClass . '" title="' . $title . '">' . e($exact) . '</mark>';
             $cursor = $r['end'];

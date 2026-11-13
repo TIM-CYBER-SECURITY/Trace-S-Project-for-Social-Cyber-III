@@ -21,6 +21,7 @@ use App\Services\Analysis\NumericEntityComparer;
 use App\Services\Analysis\SourceRelationshipAnalyzer;
 use App\Services\Analysis\TextNormalizer;
 use App\Services\DataAcquisition\EvidenceCollectorService;
+use App\Services\DataAcquisition\LiveGlobalSearchService;
 use App\Services\Reporting\ReportGeneratorService;
 use App\Services\Support\AuditLogger;
 use Illuminate\Http\Request;
@@ -35,6 +36,7 @@ class ScannerController extends Controller
         private CrossSourceAnalyzer $crossSource,
         private AuditLogger $audit,
         private EvidenceCollectorService $collector,
+        private LiveGlobalSearchService $liveSearch,
         private LexicalSimilarity $lexical,
         private ManipulationDetector $manipulation,
         private NumericEntityComparer $numericComparer,
@@ -72,7 +74,8 @@ class ScannerController extends Controller
                 $highlights = $this->manipulation->detect(
                     (string) $latestAnalysis->source_text,
                     $refItems,
-                    $latestAnalysis->result['claims'] ?? []
+                    $latestAnalysis->result['claims'] ?? [],
+                    $latestAnalysis->result['extracted_keywords'] ?? []
                 );
             }
             $highlightedHtml = $this->manipulation->renderHighlightedHtml((string) $latestAnalysis->source_text, $highlights);
@@ -142,7 +145,7 @@ class ScannerController extends Controller
             'source_url' => 'nullable|url|max:1000',
         ]);
 
-        $rawInput = trim($validated['text']);
+        $rawInput = $this->liveSearch->cleanAndDeduplicateInput($validated['text']);
         $trace = [];
         $tStart = microtime(true);
 
@@ -154,6 +157,14 @@ class ScannerController extends Controller
             'detail' => strtoupper($aiStatus['driver'] ?? 'MOCK')
                 . ($aiStatus['active_model'] ? " • {$aiStatus['active_model']}" : '')
                 . (!empty($hw['ai_process_ram_gb']) ? " • RAM AI: {$hw['ai_process_ram_gb']} GB" : ''),
+            'status' => 'OK',
+        ];
+
+        $kwInfo = $this->liveSearch->extractKeywordsAndQuery($rawInput);
+        $trace[] = [
+            'step' => 'KEYWORD_EXTRACTION',
+            'label' => 'Ekstraksi & Highlight Kata Kunci Pencarian',
+            'detail' => count($kwInfo['keywords']) . ' kata kunci utama -> Kueri: "' . $kwInfo['query'] . '"',
             'status' => 'OK',
         ];
 
@@ -209,14 +220,28 @@ class ScannerController extends Controller
             }
         }
 
+        // 3. Pencarian Berita Publik & Sosial Media Global Secara Real-Time
+        $liveRes = $this->liveSearch->searchRealtime($inspectionText, $case, Auth::user());
+        $trace[] = [
+            'step' => 'LIVE_GLOBAL_SEARCH',
+            'label' => 'Pencarian Berita Publik & Sosial Media Global (Real-Time)',
+            'detail' => $liveRes['live_enabled']
+                ? ('Ditemukan ' . count($liveRes['matches']) . ' artikel/konten real-time dari: ' . (implode(', ', $liveRes['sources_checked']) ?: 'Portal Berita Global'))
+                : 'Mode pengujian lokal aktif (korpus lokal terisolasi).',
+            'status' => count($liveRes['matches']) > 0 ? 'OK' : ($liveRes['live_enabled'] ? 'LIMITED' : 'OFFLINE_TEST'),
+        ];
+
         $case->load('evidence.source');
 
-        // 3. Pencarian Lintas Kanal Offline/Lokal (Web/RSS Feeds, Bukti Kasus, Narasi Sosmed, Direktori Terverifikasi)
-        $corpusMatches = $this->searchCrossChannelCorpus($inspectionText, $case);
+        // 4. Pencarian Lintas Kanal Korpus Internal & Arsip Kasus (Filter Ketat Entitas)
+        $corpusMatches = $this->searchCrossChannelCorpus($inspectionText, $case, $kwInfo, $liveRes['matches']);
+        $mergedMatches = array_slice(array_merge($liveRes['matches'], $corpusMatches['matches']), 0, 14);
+        $corroboration = $this->liveSearch->assessCorroboration($inspectionText, $mergedMatches);
+
         $trace[] = [
             'step' => 'MULTI_CHANNEL_SCAN',
-            'label' => 'Pemindaian Lintas Kanal (Berita, Forum, Sosmed & Arsip Internal)',
-            'detail' => 'Ditemukan ' . count($corpusMatches['matches']) . ' sumber pembanding relevan dari total ' . $corpusMatches['scanned_count'] . ' rekaman korpus.',
+            'label' => 'Konsolidasi Sumber Lintas Kanal (Berita Publik, Medsos & Arsip Internal)',
+            'detail' => count($mergedMatches) . ' sumber terverifikasi relevan (' . count($liveRes['matches']) . ' live web + ' . count($corpusMatches['matches']) . ' arsip korpus dari ' . $corpusMatches['scanned_count'] . ' rekaman).',
             'status' => 'OK',
         ];
 
@@ -236,7 +261,8 @@ class ScannerController extends Controller
             'text' => $inspectionText,
             'case' => ['case_code' => $case->case_code, 'title' => $case->title],
             'evidence' => $caseEvidence,
-            'cross_channel_context' => array_slice($corpusMatches['matches'], 0, 5),
+            'cross_channel_context' => array_slice($mergedMatches, 0, 6),
+            'corroboration_summary' => $corroboration['synthesized_conclusion'] ?? '',
             'flags' => [],
         ];
 
@@ -246,7 +272,7 @@ class ScannerController extends Controller
             $analysisResult = $this->ai->analyze('credibility_scan', $payload, $validCodes);
             $data = $analysisResult['result'];
 
-            // 4. Deteksi Highlight Potensi Timpa Teks / Editan AI terhadap Referensi & Klaim
+            // 5. Deteksi Highlight Kata Kunci & Potensi Timpa Teks / Editan AI terhadap Referensi & Klaim
             $referenceItems = [];
             foreach ($case->evidence->whereIn('role', ['REFERENCE', 'PRIMARY']) as $ev) {
                 $referenceItems[] = [
@@ -255,47 +281,55 @@ class ScannerController extends Controller
                     'is_reference' => true,
                 ];
             }
-            foreach ($corpusMatches['matches'] as $cm) {
+            foreach ($mergedMatches as $cm) {
                 if (!empty($cm['is_reference']) && !empty($cm['excerpt'])) {
                     $referenceItems[] = [
                         'code' => $cm['code'],
-                        'text' => $cm['excerpt'],
+                        'text' => ($cm['title'] ?? '') . ' ' . $cm['excerpt'],
                         'is_reference' => true,
                     ];
                 }
             }
 
-            $highlights = $this->manipulation->detect($inspectionText, $referenceItems, $data['claims'] ?? []);
+            $highlights = $this->manipulation->detect(
+                $inspectionText,
+                $referenceItems,
+                $data['claims'] ?? [],
+                $kwInfo['keywords'],
+                $corroboration
+            );
+            $data = $this->calibrateWithEvidence($data, $inspectionText, $corroboration, $highlights, $mergedMatches);
+            $data['extracted_keywords'] = $kwInfo['keywords'];
+            $data['search_query'] = $kwInfo['query'];
+            $data['corroboration'] = $corroboration;
             $data['manipulation_highlights'] = $highlights;
-            $data['cross_channel_matches'] = $corpusMatches['matches'];
+            $data['cross_channel_matches'] = $mergedMatches;
 
             $trace[] = [
                 'step' => 'MANIPULATION_AUDIT',
-                'label' => 'Deteksi Timpa Teks, Anomali Angka/Tanggal & Indikasi Editan',
-                'detail' => count($highlights) > 0
-                    ? count($highlights) . ' segmen indikasi editan / timpa teks ditandai pada konten.'
-                    : 'Tidak ditemukan indikasi timpa teks atau deviasi angka/tanggal terhadap rujukan tersedia.',
-                'status' => count($highlights) > 0 ? 'FLAGGED' : 'CLEAN',
+                'label' => 'Highlight Kata Kunci, Deteksi Timpa Teks & Anomali Angka/Tanggal',
+                'detail' => count($highlights) . ' sorotan kata kunci / anomali ditandai pada konten.',
+                'status' => collect($highlights)->contains(fn ($h) => ($h['severity'] ?? '') === 'HIGH') ? 'FLAGGED' : 'CLEAN',
             ];
 
-            // 5. Evaluasi Kemandirian Sumber (Independence Assessment)
+            // 6. Evaluasi Kemandirian Sumber (Independence Assessment)
             $caseIndep = $this->sourceRelations->analyze($case, $case->evidence);
             $distinctPublishers = count(array_unique(array_filter(array_map(
                 fn ($m) => strtolower(trim((string) ($m['publisher'] ?? ''))),
-                $corpusMatches['matches']
+                $mergedMatches
             ))));
             $syndicatedCount = count(array_filter(
                 $caseIndep['relationships'] ?? [],
                 fn ($r) => ($r['type'] ?? '') === 'SYNDICATED_REPUBLISHED'
             ));
-            $totalSources = $case->evidence->count() + count($corpusMatches['matches']);
+            $totalSources = count($mergedMatches) > 0 ? count($mergedMatches) : $case->evidence->count();
             $independentUnits = max((int) ($caseIndep['independent_units'] ?? 0), $distinctPublishers);
 
-            $indepStatement = $case->evidence->count() >= 2
-                ? (string) ($caseIndep['statement'] ?? 'Evaluasi kemandirian selesai.')
-                : ($totalSources > 0
-                    ? "Terdeteksi {$totalSources} rekaman pembanding dari {$distinctPublishers} penerbit/kanal berbeda di korpus lokal."
-                    : 'Belum terdapat cukup bukti pembanding independen pada dataset aktif; diperlukan konfirmasi sumber primer.');
+            $indepStatement = $distinctPublishers >= 2
+                ? "Ditemukan {$totalSources} sumber pembanding lintas kanal dari {$distinctPublishers} penerbit/kanal berbeda (" . implode(', ', array_slice($corroboration['publishers'] ?? [], 0, 4)) . ').'
+                : ($case->evidence->count() >= 2
+                    ? (string) ($caseIndep['statement'] ?? 'Evaluasi kemandirian selesai.')
+                    : 'Belum terdapat cukup bukti pembanding independen; diperlukan konfirmasi sumber primer.');
 
             $data['independence_assessment'] = [
                 'independent_units' => $independentUnits,
@@ -353,7 +387,7 @@ class ScannerController extends Controller
                 'credibility_score' => $threat->credibility_score,
                 'threat_level' => $threat->threat_level,
                 'highlights_count' => count($highlights),
-                'cross_matches_count' => count($corpusMatches['matches']),
+                'cross_matches_count' => count($mergedMatches),
                 'is_simulation' => $threat->is_simulation,
             ]);
 
@@ -397,19 +431,106 @@ class ScannerController extends Controller
     }
 
     /**
-     * Pencarian Lintas Kanal di seluruh repositori lokal (offline-first).
+     * Kalibrasi keputusan berbasis bukti real-time agar model lokal kecil (mis. 0.5B) tidak
+     * mengabaikan konsensus berita aktual atau sekadar mengulang kalimat masukan.
+     */
+    private function calibrateWithEvidence(
+        array $data,
+        string $inputText,
+        array $corroboration,
+        array $highlights,
+        array $matches
+    ): array {
+        if ($matches === []) {
+            return $data;
+        }
+
+        $hasHighTamper = collect($highlights)->contains(
+            fn ($h) => in_array($h['type'] ?? '', ['NUMERIC_TAMPER', 'DATE_TAMPER'], true)
+        );
+        $hint = (string) ($corroboration['verdict_hint'] ?? 'UNVERIFIED');
+        $supporting = (int) ($corroboration['supporting_count'] ?? 0);
+        $refuting = (int) ($corroboration['refuting_count'] ?? 0);
+        $pubs = implode(', ', array_slice($corroboration['publishers'] ?? [], 0, 5));
+
+        if ($hasHighTamper || $hint === 'REFUTED') {
+            if (($data['verification_status'] ?? '') !== 'TERBANTAHKAN' || ($data['credibility_score'] ?? 50) > 35) {
+                $data['verification_status'] = 'TERBANTAHKAN';
+                $data['classification'] = $hasHighTamper ? 'MANIPULATED_CONTENT' : 'DISINFORMATION';
+                $data['content_indicator'] = $hasHighTamper ? 'HASIL EDIT' : 'INDIKASI HOAKS';
+                $data['credibility_score'] = $hasHighTamper ? 15 : 20;
+                $data['threat_level'] = 'TINGGI';
+                $data['confidence'] = max((float) ($data['confidence'] ?? 0.5), 0.78);
+                foreach ($data['claims'] ?? [] as $k => $cl) {
+                    $data['claims'][$k]['check_status'] = 'TERBANTAHKAN';
+                }
+            }
+            if (!empty($corroboration['synthesized_conclusion'])) {
+                $data['tactical_summary'] = $corroboration['synthesized_conclusion'];
+            }
+        } elseif ($hint === 'CORROBORATED' && $supporting >= 2 && $refuting === 0 && !$hasHighTamper) {
+            if (in_array($data['verification_status'] ?? '', ['BELUM TERVERIFIKASI', 'TIDAK CUKUP BUKTI'], true)
+                || (int) ($data['credibility_score'] ?? 50) === 50) {
+                $data['verification_status'] = 'TERVERIFIKASI';
+                $data['classification'] = 'VERIFIED';
+                $data['content_indicator'] = 'ASLI';
+                $data['credibility_score'] = min(94, 74 + ($supporting * 3));
+                $data['threat_level'] = 'RENDAH';
+                $data['confidence'] = min(0.92, round(0.68 + ($supporting * 0.04), 2));
+                foreach ($data['claims'] ?? [] as $k => $cl) {
+                    $data['claims'][$k]['check_status'] = 'TERVERIFIKASI';
+                }
+            }
+
+            // Pastikan kesimpulan faktual benar-benar menyebut daftar media/sumber (tidak hanya mengulang input)
+            $summary = trim((string) ($data['tactical_summary'] ?? $data['summary'] ?? ''));
+            $normSummary = mb_strtolower((string) preg_replace('/[^a-z0-9]/i', '', $summary), 'UTF-8');
+            $normInput = mb_strtolower((string) preg_replace('/[^a-z0-9]/i', '', $inputText), 'UTF-8');
+            if ($normSummary === '' || $normSummary === $normInput || str_contains($normInput, $normSummary) || mb_strlen($summary) < 90) {
+                $data['tactical_summary'] = ($corroboration['synthesized_conclusion'] ?? '')
+                    . " Status klaim dinilai TERVERIFIKASI berdasarkan {$supporting} pemberitaan selaras ({$pubs}).";
+            }
+        }
+
+        return $data;
+    }
+
+    /**
+     * Pencarian Lintas Kanal di seluruh repositori lokal dengan filter entitas ketat (tanpa berita nyasar).
      *
      * @return array{scanned_count:int,matches:array<int,array<string,mixed>>}
      */
-    private function searchCrossChannelCorpus(string $queryText, InvestigationCase $activeCase): array
-    {
-        $tokens = array_values(array_unique(array_filter(
+    private function searchCrossChannelCorpus(
+        string $queryText,
+        InvestigationCase $activeCase,
+        array $kwInfo = [],
+        array $liveMatches = []
+    ): array {
+        $meaningfulTokens = $kwInfo['meaningful_tokens'] ?? array_values(array_unique(array_filter(
             TextNormalizer::tokens($queryText),
-            fn ($t) => mb_strlen($t) >= 3
+            fn ($t) => mb_strlen($t, 'UTF-8') >= 4
         )));
-        $keywords = array_slice($tokens, 0, 8);
+        $liveUrls = array_flip(array_filter(array_column($liveMatches, 'url')));
+        $liveCodes = array_flip(array_filter(array_column($liveMatches, 'code')));
         $scanned = 0;
         $candidates = [];
+
+        $passesTopicGate = function (string $targetText, float $simScore) use ($meaningfulTokens): bool {
+            if ($simScore < 20.0) {
+                return false;
+            }
+            if ($meaningfulTokens === []) {
+                return true;
+            }
+            $low = mb_strtolower($targetText, 'UTF-8');
+            $hits = 0;
+            foreach ($meaningfulTokens as $tok) {
+                if (str_contains($low, mb_strtolower($tok, 'UTF-8'))) {
+                    $hits++;
+                }
+            }
+            return $hits >= min(2, count($meaningfulTokens));
+        };
 
         // 1. Bukti di berbagai kasus & platform (Web, Sosial Media, Forum, Referensi)
         $evidences = EvidenceItem::with('case:id,case_code')
@@ -420,12 +541,19 @@ class ScannerController extends Controller
         $scanned += $evidences->count();
 
         foreach ($evidences as $ev) {
+            if (isset($liveCodes[$ev->evidence_code]) || ($ev->url && isset($liveUrls[$ev->url]))) {
+                continue;
+            }
+            if ($ev->case_id === $activeCase->id && $ev->collection_method === 'LIVE_GLOBAL_SEARCH') {
+                continue;
+            }
             $body = trim((string) $ev->extracted_text);
             if ($body === '' || trim($body) === trim($queryText)) {
                 continue;
             }
-            $sim = $this->lexical->compare($queryText, $ev->title . ' ' . $body);
-            if ($sim['score'] >= 10.0 || $ev->case_id === $activeCase->id) {
+            $combined = $ev->title . ' ' . $body;
+            $sim = $this->lexical->compare($queryText, $combined);
+            if ($ev->case_id === $activeCase->id || $passesTopicGate($combined, (float) $sim['score'])) {
                 $numCmp = $this->numericComparer->compare($queryText, $body);
                 $candidates[] = [
                     'code' => $ev->evidence_code,
@@ -434,6 +562,7 @@ class ScannerController extends Controller
                     'title' => $ev->title,
                     'publisher' => $ev->publisher ?: ($ev->platform ?: 'Source'),
                     'url' => $ev->url,
+                    'published_at' => $ev->published_at?->format('d M Y H:i'),
                     'similarity_pct' => $sim['score'],
                     'numeric_consistency' => $numCmp['numeric_consistency'],
                     'dates_changed' => $numCmp['dates_changed'],
@@ -449,9 +578,12 @@ class ScannerController extends Controller
         $feeds = FeedItem::with('feed:id,name')->latest()->take(60)->get();
         $scanned += $feeds->count();
         foreach ($feeds as $fi) {
+            if ($fi->link && isset($liveUrls[$fi->link])) {
+                continue;
+            }
             $body = trim($fi->title . ' ' . ($fi->summary ?? ''));
             $sim = $this->lexical->compare($queryText, $body);
-            if ($sim['score'] >= 12.0) {
+            if ($passesTopicGate($body, (float) $sim['score'])) {
                 $numCmp = $this->numericComparer->compare($queryText, $body);
                 $candidates[] = [
                     'code' => 'RSS-' . $fi->id,
@@ -460,6 +592,7 @@ class ScannerController extends Controller
                     'title' => $fi->title,
                     'publisher' => $fi->feed?->name ?? 'News Feed',
                     'url' => $fi->link,
+                    'published_at' => $fi->published_at?->format('d M Y H:i'),
                     'similarity_pct' => $sim['score'],
                     'numeric_consistency' => $numCmp['numeric_consistency'],
                     'dates_changed' => $numCmp['dates_changed'],
@@ -479,10 +612,10 @@ class ScannerController extends Controller
             ->get();
         $scanned += $records->count();
         foreach ($records as $rec) {
-            $verBody = $rec->versions->first()?->body ?? $rec->description ?? '';
+            $verBody = $rec->versions->first()?->content ?? $rec->description ?? '';
             $body = trim($rec->title . ' ' . $verBody);
             $sim = $this->lexical->compare($queryText, $body);
-            if ($sim['score'] >= 12.0) {
+            if ($passesTopicGate($body, (float) $sim['score'])) {
                 $numCmp = $this->numericComparer->compare($queryText, $body);
                 $candidates[] = [
                     'code' => $rec->record_code,
@@ -491,6 +624,7 @@ class ScannerController extends Controller
                     'title' => $rec->title,
                     'publisher' => 'TRACE-ID Official Record',
                     'url' => null,
+                    'published_at' => $rec->updated_at?->format('d M Y H:i'),
                     'similarity_pct' => $sim['score'],
                     'numeric_consistency' => $numCmp['numeric_consistency'],
                     'dates_changed' => $numCmp['dates_changed'],
@@ -503,12 +637,12 @@ class ScannerController extends Controller
         }
 
         // 4. Pantauan Narasi Sosial Media (Early Warning)
-        if ($keywords !== []) {
+        if ($meaningfulTokens !== []) {
             $narratives = Narrative::latest()->take(60)->get();
             $scanned += $narratives->count();
             foreach ($narratives as $nar) {
                 $sim = $this->lexical->compare($queryText, (string) $nar->title);
-                if ($sim['score'] >= 15.0) {
+                if ($passesTopicGate((string) $nar->title, (float) $sim['score'])) {
                     $numCmp = $this->numericComparer->compare($queryText, (string) $nar->title);
                     $candidates[] = [
                         'code' => 'NAR-' . $nar->id,
@@ -517,6 +651,7 @@ class ScannerController extends Controller
                         'title' => $nar->title,
                         'publisher' => strtoupper((string) ($nar->region ?: 'SOCIAL')),
                         'url' => null,
+                        'published_at' => $nar->created_at?->format('d M Y H:i'),
                         'similarity_pct' => $sim['score'],
                         'numeric_consistency' => $numCmp['numeric_consistency'],
                         'dates_changed' => $numCmp['dates_changed'],
@@ -533,7 +668,7 @@ class ScannerController extends Controller
 
         return [
             'scanned_count' => $scanned,
-            'matches' => array_slice($candidates, 0, 8),
+            'matches' => array_slice($candidates, 0, 6),
         ];
     }
 

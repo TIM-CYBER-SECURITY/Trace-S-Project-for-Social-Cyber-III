@@ -555,4 +555,147 @@ class TracePlatformTest extends TestCase
         $csvBody = $csvRes->streamedContent();
         $this->assertStringNotContainsString("\n=CMD", $csvBody);
     }
+
+    public function test_live_global_search_keyword_highlighting_and_evidence_calibration(): void
+    {
+        config([
+            'trace.live_search.allow_in_testing' => true,
+            'trace.ai.timeout_seconds' => 15,
+        ]);
+
+        $admin = $this->makeUser('ADMINISTRATOR');
+
+        $case = InvestigationCase::create([
+            'case_code' => 'TS-2026-999',
+            'title' => 'Verifikasi Klaim Pengunduran Diri Pejabat',
+            'claim_text' => 'Uji verifikasi real-time berita publik dan highlight kata kunci',
+            'category' => 'Politik & Pemerintahan',
+            'priority' => 'TINGGI',
+            'status' => 'OPEN',
+            'is_simulation' => false,
+            'created_by' => $admin->id,
+        ]);
+
+        // Unrelated archived record that shares generic Indonesian words ("pada", "ini")
+        // and must NOT be matched as cross-channel evidence for the Gibran query.
+        $this->actingAs($admin, 'web')->post('/records', [
+            'title' => 'Siapa DJ Ohim? Erika Carlina Ungkap Ayah Biologis Anaknya pada November ini',
+            'description' => 'Catatan observasi media sosial hiburan.',
+            'category' => 'narrative_observation',
+            'content' => 'Erika Carlina membahas sosok DJ Ohim di kanal media sosial pada November ini.',
+            'submit_now' => '1',
+        ])->assertRedirect();
+
+        $rssGoogle = <<<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Google News</title>
+    <item>
+      <title>Cek Fakta: Hoaks Gibran Rakabuming Raka Mengundurkan Diri dari Jabatan Wakil Presiden - Liputan6</title>
+      <link>https://www.liputan6.com/cek-fakta/read/5550001/hoaks-gibran-mengundurkan-diri</link>
+      <pubDate>Fri, 13 Nov 2026 08:15:00 GMT</pubDate>
+      <description><![CDATA[Klaim bahwa Gibran Rakabuming Raka mengundurkan diri dari jabatan Wakil Presiden pada November 2026 tidak benar dan merupakan disinformasi daur ulang.]]></description>
+      <source url="https://www.liputan6.com">Liputan6.com</source>
+    </item>
+    <item>
+      <title>Klarifikasi Resmi Setwapres Soal Isu Wakil Presiden Gibran Mengundurkan Diri - Tempo</title>
+      <link>https://www.tempo.co/nasional/klarifikasi-isu-gibran-rakabuming-raka-mengundurkan-diri-123456</link>
+      <pubDate>Fri, 13 Nov 2026 07:30:00 GMT</pubDate>
+      <description><![CDATA[Sekretariat Wakil Presiden memastikan Gibran Rakabuming Raka tetap menjalankan tugas konstitusionalnya dan membantah kabar pengunduran diri tersebut.]]></description>
+      <source url="https://www.tempo.co">Tempo.co</source>
+    </item>
+  </channel>
+</rss>
+XML;
+
+        $rssBing = <<<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Bing News</title>
+    <item>
+      <title>Komdigi &amp; Mafindo Bantah Rumor Pengunduran Diri Wakil Presiden Gibran November 2026</title>
+      <link>https://www.bing.com/news/apiclick.aspx?ref=FexRss&amp;url=https%3A%2F%2Fturnbackhoax.id%2F2026%2F11%2F13%2Fsalah-gibran-mengundurkan-diri</link>
+      <pubDate>Fri, 13 Nov 2026 09:00:00 GMT</pubDate>
+      <description><![CDATA[Penelusuran fakta menunjukkan video dan pesan berantai mengenai pengunduran diri Gibran Rakabuming Raka tidak memiliki dasar resmi (keliru/hoaks).]]></description>
+      <source>TurnBackHoax.id</source>
+    </item>
+  </channel>
+</rss>
+XML;
+
+        \Illuminate\Support\Facades\Http::fake([
+            'news.google.com/*' => \Illuminate\Support\Facades\Http::response($rssGoogle, 200, ['Content-Type' => 'application/rss+xml']),
+            'www.bing.com/*' => \Illuminate\Support\Facades\Http::response($rssBing, 200, ['Content-Type' => 'application/rss+xml']),
+            '127.0.0.1:1234/*' => \Illuminate\Support\Facades\Http::response([
+                'choices' => [[
+                    'message' => [
+                        'content' => json_encode([
+                            'credibility_score' => 50,
+                            'classification' => 'UNVERIFIED',
+                            'manipulation_indicators' => [],
+                            'corroboration_notes' => 'Perlu verifikasi lanjut',
+                            'tactical_summary' => 'Gibran Rakabuming Raka mengundurkan diri dari jabatan Wakil Presiden.',
+                        ]),
+                    ],
+                ]],
+            ], 200),
+            '*' => \Illuminate\Support\Facades\Http::response([], 404),
+        ]);
+
+        // Duplicate concatenated title+body as seen in prior bug report
+        $inputText = 'Gibran Rakabuming Raka mengundurkan diri dari jabatan Wakil Presiden pada November 2026 iniGibran Rakabuming Raka mengundurkan diri dari jabatan Wakil Presiden pada November 2026 ini';
+
+        $res = $this->actingAs($admin, 'web')->postJson('/scanner/scan', [
+            'case_id' => $case->id,
+            'text' => $inputText,
+            'channel' => 'News',
+            'source_author' => 'Public Feed',
+        ]);
+
+        $res->assertStatus(200)->assertJsonPath('success', true);
+        $data = $res->json('analysis');
+        $threat = $res->json('threat');
+
+        // 1) Deduplicated clean text saved in threat source_text
+        $this->assertSame(
+            'Gibran Rakabuming Raka mengundurkan diri dari jabatan Wakil Presiden pada November 2026 ini',
+            $threat['source_text'] ?? null
+        );
+
+        // 2) Extracted keywords and KEYWORD manipulation highlights present
+        $this->assertNotEmpty($data['extracted_keywords'] ?? []);
+        $hlSeverities = array_column($data['manipulation_highlights'] ?? [], 'severity');
+        $this->assertContains('KEYWORD', $hlSeverities);
+
+        // 3) Unrelated "DJ Ohim" local record must NOT pollute cross_channel_matches
+        $matches = $data['cross_channel_matches'] ?? [];
+        $this->assertNotEmpty($matches);
+        foreach ($matches as $m) {
+            $this->assertStringNotContainsString('DJ Ohim', $m['title'] ?? '');
+        }
+
+        // 4) Live Bing apiclick URL resolved directly to turnbackhoax.id and persisted as EvidenceItem
+        $urls = array_column($matches, 'url');
+        $this->assertContains('https://turnbackhoax.id/2026/11/13/salah-gibran-mengundurkan-diri', $urls);
+        $this->assertDatabaseHas('evidence_items', [
+            'case_id' => $case->id,
+            'url' => 'https://www.liputan6.com/cek-fakta/read/5550001/hoaks-gibran-mengundurkan-diri',
+            'is_simulation' => false,
+        ]);
+
+        // 5) Calibration overrides biased 50/UNVERIFIED model output using retrieved refuting articles
+        $this->assertContains($threat['classification'] ?? '', ['DISINFORMATION', 'MISINFORMATION']);
+        $this->assertLessThanOrEqual(35, $threat['credibility_score'] ?? 100);
+        $this->assertSame('REFUTED', $data['corroboration']['verdict_hint'] ?? null);
+        $this->assertStringContainsString('bantahan/cek-fakta', $data['tactical_summary'] ?? '');
+        $this->assertStringContainsString('Liputan6', $data['tactical_summary'] ?? '');
+
+        // 6) Scanner view renders keyword highlight chips, live source links, and .hl-keyword HTML
+        $page = $this->actingAs($admin, 'web')->get("/scanner?case_id={$case->id}&tab=scan");
+        $page->assertStatus(200);
+        $page->assertSee('hl-keyword', false);
+        $page->assertSee('https://turnbackhoax.id/2026/11/13/salah-gibran-mengundurkan-diri', false);
+    }
 }

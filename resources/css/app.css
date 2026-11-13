@@ -302,6 +302,19 @@
         border-bottom-color: #F59E0B;
     }
 
+    .hl-keyword {
+        background-color: rgba(70, 91, 56, 0.16);
+        color: #25331C;
+        border-bottom: 2px solid #465B38;
+        padding: 0 3px;
+        font-weight: 600;
+    }
+    .dark .hl-keyword {
+        background-color: rgba(104, 138, 77, 0.28);
+        color: #D9E8CD;
+        border-bottom-color: #84AC65;
+    }
+
     .table-mil {
         width: 100%;
         border-collapse: collapse;

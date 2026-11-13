@@ -193,12 +193,14 @@
         @php
           $res = $latestAnalysis->result ?? [];
           $score = (int) ($latestAnalysis->credibility_score ?? 50);
-          $ringColor = $score < 40 ? '#991B1B' : ($score < 80 ? '#B47818' : '#586B47');
-          $scoreClass = $score < 40 ? 'text-[#991B1B] dark:text-[#FCA5A5]' : ($score < 80 ? 'text-[#8A580B] dark:text-[#E7C37B]' : 'text-[#3E4D31] dark:text-[#D5E2C8]');
+          $ringColor = $score < 40 ? '#991B1B' : ($score < 70 ? '#B47818' : '#586B47');
+          $scoreClass = $score < 40 ? 'text-[#991B1B] dark:text-[#FCA5A5]' : ($score < 70 ? 'text-[#8A580B] dark:text-[#E7C37B]' : 'text-[#3E4D31] dark:text-[#D5E2C8]');
           $highlights = $res['manipulation_highlights'] ?? [];
+          $extractedKeywords = $res['extracted_keywords'] ?? [];
           $crossMatches = $res['cross_channel_matches'] ?? [];
           $traceSteps = $res['investigation_trace'] ?? [];
           $indepAssess = $res['independence_assessment'] ?? null;
+          $searchQueryUsed = $res['search_query'] ?? null;
         @endphp
 
         <!-- Result Header + Direct PDF & Spreadsheet Export -->
@@ -206,19 +208,22 @@
           <div>
             <div class="flex flex-wrap items-center gap-2">
               <span class="font-mono text-xs font-semibold uppercase tracking-wider">
-                {{ $isId ? 'Kesimpulan & Hasil Investigasi' : 'Investigation Assessment Result' }}
+                {{ $isId ? 'Hasil Investigasi Berita, Medsos & AI Lokal' : 'Real-Time Investigation & AI Verdict' }}
               </span>
               @if($latestAnalysis->is_simulation)
                 <span class="badge badge-warn">{{ $isId ? 'SIMULASI' : 'SIMULATION' }}</span>
               @endif
-              <span class="badge {{ $latestAnalysis->classification === 'DISINFORMATION' ? 'badge-danger' : ($latestAnalysis->classification === 'MISLEADING' ? 'badge-warn' : 'badge-olive') }}">
+              <span class="badge {{ in_array($latestAnalysis->classification, ['DISINFORMATION', 'MANIPULATED_CONTENT'], true) ? 'badge-danger' : ($latestAnalysis->classification === 'MISLEADING' ? 'badge-warn' : 'badge-olive') }}">
                 {{ $latestAnalysis->classification }}
               </span>
-              <span class="badge badge-neutral">{{ $latestAnalysis->verification_status }}</span>
+              <span class="badge {{ $latestAnalysis->verification_status === 'TERVERIFIKASI' ? 'badge-olive' : ($latestAnalysis->verification_status === 'TERBANTAHKAN' ? 'badge-danger' : 'badge-warn') }}">
+                {{ $latestAnalysis->verification_status }}
+              </span>
             </div>
             <div class="text-[11px] font-mono text-[var(--text-muted)] mt-0.5 tabular-nums">
               MODEL: {{ $latestAnalysis->model_name ?? strtoupper($latestAnalysis->driver ?? 'MOCK') }}
               &middot; ID: {{ substr($latestAnalysis->analysis_uuid, 0, 8) }}
+              @if($searchQueryUsed) &middot; QUERY: "{{ Str::limit($searchQueryUsed, 42) }}" @endif
             </div>
           </div>
 
@@ -246,42 +251,28 @@
           </div>
         </div>
 
-        <!-- Credibility Score + Conclusion Summary -->
-        <div class="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center panel-subtle p-4">
-          <div class="sm:col-span-4 flex flex-col items-center justify-center">
-            <div class="relative w-24 h-24 flex items-center justify-center">
-              <svg class="w-full h-full -rotate-90" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r="40" stroke="currentColor" stroke-opacity="0.15" stroke-width="8" fill="transparent"/>
-                <circle cx="50" cy="50" r="40" stroke="{{ $ringColor }}" stroke-width="8" fill="transparent"
-                        stroke-dasharray="251.2" stroke-dashoffset="{{ 251.2 - (251.2 * $score / 100) }}" stroke-linecap="butt"/>
-              </svg>
-              <div class="absolute flex flex-col items-center tabular-nums">
-                <span class="text-xl font-bold font-mono {{ $scoreClass }}">{{ $score }}</span>
-                <span class="text-[10px] font-mono text-[var(--text-muted)]">/ 100</span>
-              </div>
-            </div>
-            <div class="label-meta mt-1.5 text-center">{{ $isId ? 'Skor Kredibilitas' : 'Credibility Score' }}</div>
-          </div>
-
-          <div class="sm:col-span-8 space-y-2 border-t sm:border-t-0 sm:border-l border-[var(--border-color)] pt-3 sm:pt-0 sm:pl-4">
-            <div class="label-meta">{{ $isId ? 'Kesimpulan Fakta & Hasil Analisis AI' : 'Fact-Based Conclusion' }}</div>
-            <p class="text-xs leading-relaxed">{{ $res['tactical_summary'] ?? $res['summary'] ?? '-' }}</p>
-            <div class="flex flex-wrap items-center gap-3 text-[11px] font-mono text-[var(--text-muted)] pt-1 tabular-nums">
-              <span>{{ $isId ? 'Ancaman:' : 'Threat:' }} <b>{{ $latestAnalysis->threat_level }}</b></span>
-              <span>&middot;</span>
-              <span>{{ $isId ? 'Keyakinan:' : 'Confidence:' }} <b>{{ round(($latestAnalysis->confidence ?? 0.5) * 100) }}%</b></span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Inline Highlighted Content (Text Overlay / Edit Detection) -->
-        <div class="space-y-2">
+        <!-- BAGIAN 1: Highlight Kata Kunci & Deteksi Anomali Konten -->
+        <div class="space-y-2.5">
           <div class="flex flex-wrap items-center justify-between gap-2">
-            <span class="label-meta">{{ $isId ? 'Sorotan Konten (Deteksi Potensi Timpa Teks / Editan AI)' : 'Content Highlights (Text-Overlay / Edit Detection)' }}</span>
-            <span class="badge {{ count($highlights) > 0 ? 'badge-danger' : 'badge-olive' }}">
-              {{ count($highlights) }} {{ $isId ? 'INDIKASI TERSOROT' : 'HIGHLIGHTS' }}
+            <span class="label-meta">
+              1. {{ $isId ? 'Highlight Kata Kunci, Entitas & Deteksi Timpa Teks' : 'Keyword Focus & Text-Overlay Highlights' }}
+            </span>
+            <span class="badge {{ collect($highlights)->contains(fn ($h) => ($h['severity'] ?? '') === 'HIGH') ? 'badge-danger' : 'badge-olive' }}">
+              {{ count($highlights) }} {{ $isId ? 'HIGHLIGHT AKTIF' : 'HIGHLIGHTS' }}
             </span>
           </div>
+
+          @if(count($extractedKeywords) > 0)
+            <div class="flex flex-wrap items-center gap-1.5 font-mono text-[10px]">
+              <span class="text-[var(--text-muted)] uppercase mr-1">{{ $isId ? 'Kata Kunci:' : 'Keywords:' }}</span>
+              @foreach($extractedKeywords as $kw)
+                <span class="badge {{ ($kw['category'] ?? '') === 'ENTITAS' ? 'badge-olive' : (($kw['category'] ?? '') === 'WAKTU_ANGKA' ? 'badge-warn' : 'badge-sand') }}">
+                  [{{ $kw['category'] ?? 'KEY' }}] {{ $kw['term'] ?? '' }}
+                </span>
+              @endforeach
+            </div>
+          @endif
+
           <div class="panel-subtle p-3.5 text-xs font-mono leading-relaxed max-h-48 overflow-y-auto">
             {!! $highlightedHtml ?? nl2br(e($latestAnalysis->source_text)) !!}
           </div>
@@ -292,17 +283,18 @@
                 <thead>
                   <tr>
                     <th>TYPE</th>
-                    <th>{{ $isId ? 'SEGMEN TERSOROT' : 'HIGHLIGHTED SEGMENT' }}</th>
-                    <th>{{ $isId ? 'DIAGNOSIS TIMPA TEKS / EDITAN' : 'DIAGNOSTIC REASON' }}</th>
+                    <th>{{ $isId ? 'KATA KUNCI / SEGMEN TERSOROT' : 'HIGHLIGHTED SEGMENT' }}</th>
+                    <th>{{ $isId ? 'KETERANGAN / DIAGNOSIS' : 'DIAGNOSTIC REASON' }}</th>
                   </tr>
                 </thead>
                 <tbody>
                   @foreach($highlights as $hl)
+                    @php $sev = $hl['severity'] ?? 'MEDIUM'; @endphp
                     <tr>
                       <td class="font-mono whitespace-nowrap">
-                        <span class="badge {{ ($hl['severity'] ?? '') === 'HIGH' ? 'badge-danger' : 'badge-warn' }}">{{ $hl['type'] ?? 'ANOMALY' }}</span>
+                        <span class="badge {{ $sev === 'HIGH' ? 'badge-danger' : ($sev === 'KEYWORD' ? 'badge-olive' : 'badge-warn') }}">{{ $hl['type'] ?? 'ANOMALY' }}</span>
                       </td>
-                      <td class="font-mono text-xs font-bold text-[#991B1B] dark:text-[#FCA5A5]">"{{ $hl['segment'] ?? '-' }}"</td>
+                      <td class="font-mono text-xs font-bold {{ $sev === 'HIGH' ? 'text-[#991B1B] dark:text-[#FCA5A5]' : 'text-[var(--accent-olive)] dark:text-[#D5E2C8]' }}">"{{ $hl['segment'] ?? '-' }}"</td>
                       <td class="text-xs">{{ $hl['reason'] ?? '-' }}</td>
                     </tr>
                   @endforeach
@@ -312,10 +304,109 @@
           @endif
         </div>
 
-        <!-- Investigation Steps Trace & Cross-Channel Sources Found -->
-        @if(count($traceSteps) > 0 || count($crossMatches) > 0)
-        <div class="space-y-2">
-          <div class="label-meta">{{ $isId ? 'Penjabaran Proses AI Lokal & Sumber Lintas Kanal yang Ditemukan' : 'Local AI Investigation Trace & Cross-Channel Matches' }}</div>
+        <!-- BAGIAN 2: Daftar Lengkap Berita Publik & Konten Sosial Media Real-Time -->
+        <div class="space-y-2 pt-2 border-t border-[var(--border-color)]">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="label-meta">
+              2. {{ $isId ? 'Daftar Berita Publik & Konten Sosial Media Real-Time' : 'Real-Time Public News & Social Media Sources' }}
+            </span>
+            <span class="badge badge-olive font-mono">{{ count($crossMatches) }} {{ $isId ? 'SUMBER DITEMUKAN' : 'SOURCES FOUND' }}</span>
+          </div>
+
+          @if(count($crossMatches) > 0)
+            <div class="overflow-x-auto border border-[var(--border-color)] rounded">
+              <table class="table-mil">
+                <thead>
+                  <tr>
+                    <th>{{ $isId ? 'KANAL & TANGGAL' : 'CHANNEL & DATE' }}</th>
+                    <th>{{ $isId ? 'JUDUL BERITA / KONTEN & TAUTAN SUMBER' : 'ARTICLE TITLE & SOURCE URL' }}</th>
+                    <th>{{ $isId ? 'KESAMAAN' : 'MATCH' }}</th>
+                    <th>{{ $isId ? 'RINGKASAN ISI' : 'EXCERPT' }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @foreach($crossMatches as $cm)
+                    <tr>
+                      <td class="font-mono whitespace-nowrap">
+                        <span class="badge {{ !empty($cm['is_reference']) ? 'badge-olive' : 'badge-neutral' }}">{{ $cm['channel'] ?? '-' }}</span>
+                        <div class="text-[10px] font-semibold mt-0.5">{{ $cm['publisher'] ?? '-' }}</div>
+                        @if(!empty($cm['published_at']))
+                          <div class="text-[9px] text-[var(--text-muted)]">{{ $cm['published_at'] }}</div>
+                        @endif
+                      </td>
+                      <td class="text-xs max-w-[230px]">
+                        @if(!empty($cm['url']))
+                          <a href="{{ $cm['url'] }}" target="_blank" rel="noopener noreferrer" class="font-semibold text-[var(--accent-olive)] dark:text-[#CFE2BF] hover:underline">
+                            {{ $cm['title'] ?? '-' }} <i class="fa-solid fa-arrow-up-right-from-square text-[9px] ml-0.5"></i>
+                          </a>
+                          <div class="text-[10px] font-mono text-[var(--text-muted)] truncate">{{ $cm['url'] }}</div>
+                        @else
+                          <div class="font-semibold">{{ $cm['title'] ?? '-' }}</div>
+                        @endif
+                      </td>
+                      <td class="font-mono font-bold tabular-nums whitespace-nowrap">{{ $cm['similarity_pct'] ?? 0 }}%</td>
+                      <td class="text-[11px] text-[var(--text-secondary)] max-w-xs">{{ Str::limit($cm['excerpt'] ?? '-', 170) }}</td>
+                    </tr>
+                  @endforeach
+                </tbody>
+              </table>
+            </div>
+          @else
+            <div class="panel-subtle p-3 text-xs font-mono text-[var(--text-muted)]">
+              {{ $isId ? 'Belum ditemukan artikel berita atau konten media sosial yang memenuhi kecocokan entitas kata kunci.' : 'No matching real-time news or social media items found for the keywords.' }}
+            </div>
+          @endif
+
+          @if(!empty($indepAssess))
+          <div class="panel-subtle p-3 border-l-4 border-l-[#586B47] space-y-1 text-xs">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <span class="label-meta">{{ $isId ? 'Evaluasi Kemandirian Sumber & Anti-Sindikasi' : 'Source Independence & Anti-Syndication Assessment' }}</span>
+              <span class="badge badge-olive font-mono">{{ $indepAssess['independent_units'] ?? 0 }} {{ $isId ? 'UNIT INDEPENDEN' : 'INDEPENDENT UNITS' }}</span>
+            </div>
+            <p class="text-xs leading-relaxed text-[var(--text-secondary)]">{{ $indepAssess['statement'] ?? '-' }}</p>
+          </div>
+          @endif
+        </div>
+
+        <!-- BAGIAN 3: Analisis & Penentuan Status Kredibilitas Oleh AI Lokal -->
+        <div class="space-y-3 pt-2 border-t border-[var(--border-color)]">
+          <div class="label-meta">
+            3. {{ $isId ? 'Analisis & Penentuan Status Kredibilitas AI Lokal' : 'Local AI Analysis & Final Credibility Status' }}
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center panel-subtle p-4">
+            <div class="sm:col-span-4 flex flex-col items-center justify-center">
+              <div class="relative w-24 h-24 flex items-center justify-center">
+                <svg class="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="40" stroke="currentColor" stroke-opacity="0.15" stroke-width="8" fill="transparent"/>
+                  <circle cx="50" cy="50" r="40" stroke="{{ $ringColor }}" stroke-width="8" fill="transparent"
+                          stroke-dasharray="251.2" stroke-dashoffset="{{ 251.2 - (251.2 * $score / 100) }}" stroke-linecap="butt"/>
+                </svg>
+                <div class="absolute flex flex-col items-center tabular-nums">
+                  <span class="text-xl font-bold font-mono {{ $scoreClass }}">{{ $score }}</span>
+                  <span class="text-[10px] font-mono text-[var(--text-muted)]">/ 100</span>
+                </div>
+              </div>
+              <div class="label-meta mt-1.5 text-center">{{ $isId ? 'Skor Kredibilitas' : 'Credibility Score' }}</div>
+            </div>
+
+            <div class="sm:col-span-8 space-y-2 border-t sm:border-t-0 sm:border-l border-[var(--border-color)] pt-3 sm:pt-0 sm:pl-4">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="label-meta">{{ $isId ? 'Kesimpulan Fakta & Status Akhir:' : 'Fact-Based Conclusion:' }}</span>
+                <span class="badge {{ $latestAnalysis->verification_status === 'TERVERIFIKASI' ? 'badge-olive' : ($latestAnalysis->verification_status === 'TERBANTAHKAN' ? 'badge-danger' : 'badge-warn') }}">
+                  {{ $latestAnalysis->verification_status }}
+                </span>
+              </div>
+              <p class="text-xs leading-relaxed">{{ $res['tactical_summary'] ?? $res['summary'] ?? '-' }}</p>
+              <div class="flex flex-wrap items-center gap-3 text-[11px] font-mono text-[var(--text-muted)] pt-1 tabular-nums">
+                <span>{{ $isId ? 'Klasifikasi:' : 'Classification:' }} <b>{{ $latestAnalysis->classification }}</b></span>
+                <span>&middot;</span>
+                <span>{{ $isId ? 'Ancaman:' : 'Threat:' }} <b>{{ $latestAnalysis->threat_level }}</b></span>
+                <span>&middot;</span>
+                <span>{{ $isId ? 'Keyakinan:' : 'Confidence:' }} <b>{{ round(($latestAnalysis->confidence ?? 0.5) * 100) }}%</b></span>
+              </div>
+            </div>
+          </div>
 
           @if(count($traceSteps) > 0)
             <div class="grid grid-cols-1 gap-1 font-mono text-[11px]">
@@ -331,49 +422,7 @@
               @endforeach
             </div>
           @endif
-
-          @if(count($crossMatches) > 0)
-            <div class="overflow-x-auto border border-[var(--border-color)] rounded">
-              <table class="table-mil">
-                <thead>
-                  <tr>
-                    <th>CHANNEL</th>
-                    <th>{{ $isId ? 'SUMBER PEMBANDING' : 'MATCHED SOURCE' }}</th>
-                    <th>{{ $isId ? 'KESAMAAN' : 'MATCH' }}</th>
-                    <th>{{ $isId ? 'KUTIPAN KONTEN' : 'CONTENT EXCERPT' }}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @foreach($crossMatches as $cm)
-                    <tr>
-                      <td class="font-mono whitespace-nowrap">
-                        <span class="badge {{ !empty($cm['is_reference']) ? 'badge-olive' : 'badge-neutral' }}">{{ $cm['channel'] ?? '-' }}</span>
-                        <div class="text-[10px] text-[var(--text-muted)] mt-0.5">{{ $cm['code'] ?? '-' }}</div>
-                      </td>
-                      <td class="text-xs">
-                        <div class="font-semibold">{{ Str::limit($cm['title'] ?? '-', 44) }}</div>
-                        <div class="text-[10px] text-[var(--text-muted)]">{{ $cm['publisher'] ?? '-' }}</div>
-                      </td>
-                      <td class="font-mono font-bold tabular-nums">{{ $cm['similarity_pct'] ?? 0 }}%</td>
-                      <td class="text-[11px] text-[var(--text-secondary)] max-w-xs">{{ Str::limit($cm['excerpt'] ?? '-', 140) }}</td>
-                    </tr>
-                  @endforeach
-                </tbody>
-              </table>
-            </div>
-          @endif
         </div>
-        @endif
-
-        @if(!empty($indepAssess))
-        <div class="panel-subtle p-3 border-l-4 border-l-[#586B47] space-y-1 text-xs">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <span class="label-meta">{{ $isId ? 'Evaluasi Kemandirian Sumber & Anti-Sindikasi' : 'Source Independence & Anti-Syndication Assessment' }}</span>
-            <span class="badge badge-olive font-mono">{{ $indepAssess['independent_units'] ?? 0 }} {{ $isId ? 'UNIT INDEPENDEN' : 'INDEPENDENT UNITS' }}</span>
-          </div>
-          <p class="text-xs leading-relaxed text-[var(--text-secondary)]">{{ $indepAssess['statement'] ?? '-' }}</p>
-        </div>
-        @endif
 
         <!-- Atomic Claims Table -->
         <div class="space-y-1.5">
@@ -693,11 +742,11 @@ document.getElementById('investigation-scan-form')?.addEventListener('submit', f
   }
 
   const phases = [
-    '[1/5] Memeriksa & mengaktifkan Model AI Lokal host...',
-    '[2/5] Memindai sumber lintas kanal (Berita RSS, Arsip Kasus, Forum & Sosmed)...',
-    '[3/5] Menjabarkan dan mencocokkan kesamaan konten secara real-time...',
-    '[4/5] Mendeteksi potensi manipulasi angka & timpa teks / editan...',
-    '[5/5] Menyusun kesimpulan kredibilitas berbasis bukti...'
+    '[1/5] Ekstraksi & highlight kata kunci pencarian...',
+    '[2/5] Pencarian real-time berita publik (Google News, Bing News) & sosial media...',
+    '[3/5] Pemindaian arsip & verifikasi kesamaan lintas kanal...',
+    '[4/5] Deteksi manipulasi angka, tanggal & timpa teks...',
+    '[5/5] Analisis & penentuan status kredibilitas AI Lokal...'
   ];
 
   stepsEl.innerHTML = '';

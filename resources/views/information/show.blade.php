@@ -16,10 +16,17 @@
 
   <div class="flex flex-wrap items-center gap-2">
     @if(Auth::user()->hasPermission('analysis.run'))
+      @php
+        $recTitleScan = trim((string) ($shown?->title ?? $record->title));
+        $recBodyScan = trim((string) ($shown?->content ?? $record->description ?? ''));
+        $recScanPayload = ($recBodyScan === '' || mb_strtolower($recTitleScan) === mb_strtolower($recBodyScan) || str_starts_with(mb_strtolower($recBodyScan), mb_strtolower($recTitleScan)))
+            ? ($recBodyScan !== '' ? $recBodyScan : $recTitleScan)
+            : ($recTitleScan . "\n\n" . $recBodyScan);
+      @endphp
       <form method="POST" action="{{ route('scanner.scan') }}" class="inline">
         @csrf
         <input type="hidden" name="case_id" value="auto">
-        <input type="hidden" name="text" value="{{ trim(($shown?->title ?? $record->title) . "\n\n" . ($shown?->content ?? $record->description ?? '')) }}">
+        <input type="hidden" name="text" value="{{ $recScanPayload }}">
         <button type="submit" class="btn-primary">
           <i class="fa-solid fa-magnifying-glass-chart"></i>
           <span>{{ $isId ? 'Investigasi Konten Ini dengan AI Lokal' : 'Investigate with Local AI' }}</span>

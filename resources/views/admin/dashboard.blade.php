@@ -68,7 +68,11 @@
         <tbody>
           @forelse($queue as $r)
             @php
-              $recText = trim($r->title . "\n\n" . ($r->versions->sortByDesc('version_number')->first()?->content ?? $r->description ?? ''));
+              $recBody = trim((string) ($r->versions->sortByDesc('version_number')->first()?->content ?? $r->description ?? ''));
+              $recTitle = trim((string) $r->title);
+              $recText = ($recBody === '' || mb_strtolower($recTitle) === mb_strtolower($recBody) || str_starts_with(mb_strtolower($recBody), mb_strtolower($recTitle)))
+                  ? ($recBody !== '' ? $recBody : $recTitle)
+                  : ($recTitle . "\n\n" . $recBody);
             @endphp
             <tr>
               <td class="font-mono text-xs"><a href="{{ route('records.show', $r->record_code) }}" class="font-bold text-[#586B47] hover:underline">{{ $r->record_code }}</a></td>
