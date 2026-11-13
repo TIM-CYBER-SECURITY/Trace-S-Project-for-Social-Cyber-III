@@ -68,9 +68,9 @@ if not exist "public\build\manifest.json" (
 )
 
 set TRACE_PORT=8000
-for %%P in (8000 8080 8081 8082) do (
-    netstat -ano -p tcp | findstr /R ":%%P .*LISTENING :%%P .*CLOSE_WAIT" >nul 2>nul
-    if !ERRORLEVEL! neq 0 (
+for %%P in (8000 8080 8081 8082 8888 9000) do (
+    powershell -NoProfile -Command "if (Get-NetTCPConnection -LocalPort %%P -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }" >nul 2>nul
+    if !ERRORLEVEL! equ 0 (
         set TRACE_PORT=%%P
         goto port_found
     ) else (
