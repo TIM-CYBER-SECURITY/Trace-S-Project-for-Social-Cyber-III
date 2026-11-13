@@ -62,18 +62,33 @@
             <th>{{ $isId ? 'JUDUL' : 'TITLE' }}</th>
             <th>{{ $isId ? 'PENGAJU' : 'SUBMITTER' }}</th>
             <th>STATUS</th>
+            <th>{{ $isId ? 'AKSI AI' : 'AI ACTION' }}</th>
           </tr>
         </thead>
         <tbody>
           @forelse($queue as $r)
+            @php
+              $recText = trim($r->title . "\n\n" . ($r->versions->sortByDesc('version_number')->first()?->content ?? $r->description ?? ''));
+            @endphp
             <tr>
               <td class="font-mono text-xs"><a href="{{ route('records.show', $r->record_code) }}" class="font-bold text-[#586B47] hover:underline">{{ $r->record_code }}</a></td>
               <td class="text-xs">{{ $r->title }}</td>
               <td class="font-mono text-xs">{{ $r->creator?->trace_id ?? '-' }}</td>
               <td><span class="badge badge-warn">{{ $r->status }}</span></td>
+              <td class="whitespace-nowrap">
+                <form method="POST" action="{{ route('scanner.scan') }}" class="inline">
+                  @csrf
+                  <input type="hidden" name="case_id" value="auto">
+                  <input type="hidden" name="text" value="{{ $recText }}">
+                  <button type="submit" class="btn-secondary py-1 px-2 text-[10px]">
+                    <i class="fa-solid fa-magnifying-glass-chart"></i>
+                    <span>{{ $isId ? 'Investigasi AI' : 'Run AI' }}</span>
+                  </button>
+                </form>
+              </td>
             </tr>
           @empty
-            <tr><td colspan="4" class="text-center text-xs text-[var(--text-muted)] py-5">{{ $isId ? 'Tidak ada pengajuan menunggu review.' : 'No records awaiting review.' }}</td></tr>
+            <tr><td colspan="5" class="text-center text-xs text-[var(--text-muted)] py-5">{{ $isId ? 'Tidak ada pengajuan menunggu review.' : 'No records awaiting review.' }}</td></tr>
           @endforelse
         </tbody>
       </table>

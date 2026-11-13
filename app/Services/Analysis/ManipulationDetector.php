@@ -89,7 +89,36 @@ class ManipulationDetector
             }
         }
 
-        // 2. Deteksi Frasa Sisipan / Timpa Teks dibanding Sumber Rujukan
+        // 2. Perbandingan Tanggal & Penanda Waktu terhadap Sumber Rujukan (DATE_TAMPER)
+        if ($referenceItems !== []) {
+            $inputDates = $this->numeric->dates($text);
+            if ($inputDates !== []) {
+                $rawDateMatches = [];
+                if (preg_match_all('/\b\d{1,2}\s+(?:januari|februari|maret|april|mei|juni|juli|agustus|september|oktober|november|desember)\s+\d{4}\b|\b\d{4}-\d{2}-\d{2}\b/iu', $text, $dm)) {
+                    $rawDateMatches = $dm[0];
+                }
+                foreach ($referenceItems as $ref) {
+                    $refDates = $this->numeric->dates((string) ($ref['text'] ?? ''));
+                    if ($refDates === []) {
+                        continue;
+                    }
+                    foreach ($inputDates as $idx => $isoDate) {
+                        if (!in_array($isoDate, $refDates, true)) {
+                            $seg = $rawDateMatches[$idx] ?? $isoDate;
+                            $addHighlight(
+                                $seg,
+                                'DATE_TAMPER',
+                                'HIGH',
+                                "Tanggal '{$seg}' ({$isoDate}) menyimpang dari tanggal dokumen rujukan (" . implode(', ', array_slice($refDates, 0, 2)) . ').',
+                                $ref['code'] ?? null
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. Deteksi Frasa Sisipan / Timpa Teks dibanding Sumber Rujukan
         if ($referenceItems !== []) {
             $sentences = TextNormalizer::sentences($text) ?: [$text];
             foreach ($sentences as $sentence) {
@@ -124,7 +153,7 @@ class ManipulationDetector
             }
         }
 
-        // 3. Penanda Leksikal Sensasional / Manipulasi / Viral Bait
+        // 4. Penanda Leksikal Sensasional / Manipulasi / Viral Bait
         $manipulativePatterns = [
             '/\b(sebarkan\s+sebelum\s+dihapus|viral!?|hoax|hoaks|resmi\s+dibubarkan|100%\s+valid|breaking\s+news|darurat\s+nasional|rahasia\s+bocor|bocoran\s+internal|dihentikan\s+permanen)\b/iu',
             '/!!+/',
@@ -142,7 +171,7 @@ class ManipulationDetector
             }
         }
 
-        // 4. Klaim yang Dibantah oleh AI Lokal (cocokkan fragmen klaim di dalam teks input)
+        // 5. Klaim yang Dibantah oleh AI Lokal (cocokkan fragmen klaim di dalam teks input)
         foreach ($claims as $cl) {
             $status = strtoupper((string) ($cl['check_status'] ?? ''));
             if (!in_array($status, ['TERBANTAHKAN', 'REFUTED'], true)) {

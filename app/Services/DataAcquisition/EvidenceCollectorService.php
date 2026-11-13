@@ -79,14 +79,30 @@ class EvidenceCollectorService
         if (isset($parts['user']) || isset($parts['pass'])) {
             return 'URL dengan kredensial tersemat tidak diizinkan.';
         }
+        if (isset($parts['port']) && ! in_array((int) $parts['port'], [80, 443, 8080, 8443], true)) {
+            return "Port URL ({$parts['port']}) tidak diizinkan oleh kebijakan keamanan.";
+        }
 
         if (config('trace.fetch.allow_private', false)) {
             return null;
         }
 
         $host = strtolower(trim($parts['host'], '[]'));
-        if ($host === 'localhost' || str_ends_with($host, '.localhost') || str_ends_with($host, '.local') || str_ends_with($host, '.internal')) {
-            return 'Host internal/lokal diblokir oleh kebijakan anti-SSRF.';
+        if ($host === '' || $host === 'localhost'
+            || str_ends_with($host, '.localhost')
+            || str_ends_with($host, '.local')
+            || str_ends_with($host, '.internal')
+            || str_ends_with($host, '.lan')
+            || str_ends_with($host, '.corp')
+            || $host === 'metadata.google.internal'
+            || $host === '169.254.169.254'
+            || $host === '100.100.100.200') {
+            return 'Host internal/lokal atau metadata cloud diblokir oleh kebijakan anti-SSRF.';
+        }
+
+        // Tolak representasi IP tersamar (desimal integer murni, hex 0x..., atau segmen oktal)
+        if (ctype_digit($host) || preg_match('/^0x[0-9a-f]+$/i', $host) || preg_match('/(^|\.)0\d+/', $host)) {
+            return 'Format alamat host numerik tersamar ditolak oleh kebijakan anti-SSRF.';
         }
 
         if (filter_var($host, FILTER_VALIDATE_IP)) {
@@ -100,6 +116,15 @@ class EvidenceCollectorService
         foreach ($ips as $ip) {
             if (! self::isPublicIp($ip)) {
                 return "Host {$host} mengarah ke alamat IP non-publik ({$ip}).";
+            }
+        }
+        if (function_exists('dns_get_record') && defined('DNS_AAAA')) {
+            $aaaa = @dns_get_record($host, DNS_AAAA) ?: [];
+            foreach ($aaaa as $rec) {
+                $ip6 = $rec['ipv6'] ?? null;
+                if ($ip6 && ! self::isPublicIp($ip6)) {
+                    return "Host {$host} mengarah ke alamat IPv6 non-publik.";
+                }
             }
         }
 

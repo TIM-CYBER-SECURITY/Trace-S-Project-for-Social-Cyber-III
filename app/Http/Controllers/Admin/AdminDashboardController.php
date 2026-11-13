@@ -36,7 +36,7 @@ class AdminDashboardController extends Controller
         $recent = SystemLog::whereIn('user_id', $userIds)
             ->whereNotIn('action', ['LOGOUT'])->orderByDesc('id')->limit(10)->get();
 
-        $queue = InformationRecord::with('creator')->where('organization_id', $orgId)
+        $queue = InformationRecord::with(['creator', 'versions'])->where('organization_id', $orgId)
             ->whereIn('status', ['SUBMITTED', 'UNDER REVIEW'])->orderBy('submitted_at')->limit(8)->get();
 
         return view('admin.dashboard', compact('stats', 'recent', 'queue', 'org'));

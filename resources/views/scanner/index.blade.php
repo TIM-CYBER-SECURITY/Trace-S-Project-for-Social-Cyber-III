@@ -95,6 +95,26 @@
   </div>
 
   @if($currentTab === 'scan')
+  <!-- 4-Stage Operational Architecture Bar -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-2 font-mono text-[11px]">
+    <div class="panel-subtle p-2.5 border-l-2 border-l-[#586B47]">
+      <div class="text-[9px] text-[var(--text-muted)] uppercase">TAHAP 1 // INGESTION</div>
+      <div class="font-bold mt-0.5">{{ $isId ? 'Akuisisi & URL Fetcher' : 'Acquisition & URL Fetcher' }}</div>
+    </div>
+    <div class="panel-subtle p-2.5 border-l-2 border-l-[#586B47]">
+      <div class="text-[9px] text-[var(--text-muted)] uppercase">TAHAP 2 // ENGINE</div>
+      <div class="font-bold mt-0.5">{{ $isId ? 'Local AI & Cross-Corpus' : 'Local AI & Cross-Corpus' }}</div>
+    </div>
+    <div class="panel-subtle p-2.5 border-l-2 border-l-[#B47818]">
+      <div class="text-[9px] text-[var(--text-muted)] uppercase">TAHAP 3 // ANALYSIS</div>
+      <div class="font-bold mt-0.5">{{ $isId ? 'Timpa Teks & Independensi' : 'Text-Overlay & Independence' }}</div>
+    </div>
+    <div class="panel-subtle p-2.5 border-l-2 border-l-[#17251F] dark:border-l-[#C5B89C]">
+      <div class="text-[9px] text-[var(--text-muted)] uppercase">TAHAP 4 // OUTPUT</div>
+      <div class="font-bold mt-0.5">{{ $isId ? 'Laporan PDF & Spreadsheet' : 'PDF & Spreadsheet Export' }}</div>
+    </div>
+  </div>
+
   <!-- Tab 1: End-to-End Investigation Pipeline -->
   <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
 
@@ -178,6 +198,7 @@
           $highlights = $res['manipulation_highlights'] ?? [];
           $crossMatches = $res['cross_channel_matches'] ?? [];
           $traceSteps = $res['investigation_trace'] ?? [];
+          $indepAssess = $res['independence_assessment'] ?? null;
         @endphp
 
         <!-- Result Header + Direct PDF & Spreadsheet Export -->
@@ -341,6 +362,16 @@
               </table>
             </div>
           @endif
+        </div>
+        @endif
+
+        @if(!empty($indepAssess))
+        <div class="panel-subtle p-3 border-l-4 border-l-[#586B47] space-y-1 text-xs">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="label-meta">{{ $isId ? 'Evaluasi Kemandirian Sumber & Anti-Sindikasi' : 'Source Independence & Anti-Syndication Assessment' }}</span>
+            <span class="badge badge-olive font-mono">{{ $indepAssess['independent_units'] ?? 0 }} {{ $isId ? 'UNIT INDEPENDEN' : 'INDEPENDENT UNITS' }}</span>
+          </div>
+          <p class="text-xs leading-relaxed text-[var(--text-secondary)]">{{ $indepAssess['statement'] ?? '-' }}</p>
         </div>
         @endif
 

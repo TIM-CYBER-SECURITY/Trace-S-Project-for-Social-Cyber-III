@@ -257,7 +257,7 @@ class GovernanceRbacAndSecurityTest extends TestCase
         $res->assertHeader('X-Content-Type-Options', 'nosniff');
         $res->assertHeader('X-Frame-Options', 'DENY');
         $res->assertHeader('Referrer-Policy', 'same-origin');
-        $res->assertHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+        $res->assertHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
 
         // 2. Console IDOR: User B mencoba mengirim pesan ke session milik User A -> 403
         $org = $this->makeOrg();

@@ -96,9 +96,12 @@ class ReportGeneratorService
                 'cross_channel_matches' => $credAnalysis?->result['cross_channel_matches'] ?? [],
             ],
             'section_7_source_independence' => [
-                'assessment' => $crossRes['independence_assessment'] ?? 'Belum dianalisis.',
+                'assessment' => $credAnalysis?->result['independence_assessment']['statement']
+                    ?? $crossRes['independence_assessment']
+                    ?? 'Belum dianalisis.',
                 'groups' => $crossRes['groups'] ?? [],
-                'independent_units' => $crossRes['independent_units'] ?? 0,
+                'independent_units' => $credAnalysis?->result['independence_assessment']['independent_units']
+                    ?? ($crossRes['independent_units'] ?? 0),
             ],
             'section_8_authenticity_comparison' => [
                 'assessment' => $authRes['assessment'] ?? 'Tidak ada perbandingan langsung materi referensi dan pembanding.',
@@ -238,7 +241,7 @@ class ReportGeneratorService
             // UTF-8 BOM so Excel renders Indonesian/Unicode cleanly
             fwrite($out, "\xEF\xBB\xBF");
 
-            $row = fn (array $cols) => fputcsv($out, array_map(fn ($v) => is_scalar($v) ? (string) $v : json_encode($v), $cols));
+            $row = fn (array $cols) => fputcsv($out, array_map(fn ($v) => $this->sanitizeCsvCell($v), $cols));
 
             $row(['TRACE-S INTEL BRIEF SPREADSHEET EXPORT']);
             $row(['Report Code', $report->report_code]);
@@ -293,5 +296,19 @@ class ReportGeneratorService
         }, $filename, [
             'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
+    }
+
+    /** Lindungi sel CSV/Spreadsheet dari CSV Formula Injection (=, +, -, @, tab, CR). */
+    private function sanitizeCsvCell(mixed $val): string|int|float
+    {
+        if (is_int($val) || is_float($val)) {
+            return $val;
+        }
+        $str = is_scalar($val) ? (string) $val : (string) json_encode($val);
+        $trimmed = ltrim($str);
+        if ($trimmed !== '' && (str_contains("=+-@\t\r", $str[0]) || str_contains("=+-@\t\r", $trimmed[0]))) {
+            return "'" . $str;
+        }
+        return $str;
     }
 }

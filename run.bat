@@ -95,4 +95,5 @@ echo      %PHP_BIN% artisan trace:provision-accounts
 echo =========================================================================
 echo.
 echo Menjalankan server pengembangan Laravel pada port !TRACE_PORT!... Tekan Ctrl+C untuk berhenti.
+set PHP_CLI_SERVER_WORKERS=4
 %PHP_BIN% artisan serve --host=127.0.0.1 --port=!TRACE_PORT!

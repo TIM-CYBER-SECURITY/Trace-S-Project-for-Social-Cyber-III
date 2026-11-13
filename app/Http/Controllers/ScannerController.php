@@ -17,6 +17,8 @@ use App\Services\Analysis\AuthenticityComparator;
 use App\Services\Analysis\CrossSourceAnalyzer;
 use App\Services\Analysis\LexicalSimilarity;
 use App\Services\Analysis\ManipulationDetector;
+use App\Services\Analysis\NumericEntityComparer;
+use App\Services\Analysis\SourceRelationshipAnalyzer;
 use App\Services\Analysis\TextNormalizer;
 use App\Services\DataAcquisition\EvidenceCollectorService;
 use App\Services\Reporting\ReportGeneratorService;
@@ -35,6 +37,8 @@ class ScannerController extends Controller
         private EvidenceCollectorService $collector,
         private LexicalSimilarity $lexical,
         private ManipulationDetector $manipulation,
+        private NumericEntityComparer $numericComparer,
+        private SourceRelationshipAnalyzer $sourceRelations,
         private ReportGeneratorService $reports,
         private HardwareTelemetry $telemetry
     ) {
@@ -267,11 +271,45 @@ class ScannerController extends Controller
 
             $trace[] = [
                 'step' => 'MANIPULATION_AUDIT',
-                'label' => 'Deteksi Timpa Teks, Anomali Angka & Indikasi Editan',
+                'label' => 'Deteksi Timpa Teks, Anomali Angka/Tanggal & Indikasi Editan',
                 'detail' => count($highlights) > 0
                     ? count($highlights) . ' segmen indikasi editan / timpa teks ditandai pada konten.'
-                    : 'Tidak ditemukan indikasi timpa teks atau deviasi angka terhadap rujukan tersedia.',
+                    : 'Tidak ditemukan indikasi timpa teks atau deviasi angka/tanggal terhadap rujukan tersedia.',
                 'status' => count($highlights) > 0 ? 'FLAGGED' : 'CLEAN',
+            ];
+
+            // 5. Evaluasi Kemandirian Sumber (Independence Assessment)
+            $caseIndep = $this->sourceRelations->analyze($case, $case->evidence);
+            $distinctPublishers = count(array_unique(array_filter(array_map(
+                fn ($m) => strtolower(trim((string) ($m['publisher'] ?? ''))),
+                $corpusMatches['matches']
+            ))));
+            $syndicatedCount = count(array_filter(
+                $caseIndep['relationships'] ?? [],
+                fn ($r) => ($r['type'] ?? '') === 'SYNDICATED_REPUBLISHED'
+            ));
+            $totalSources = $case->evidence->count() + count($corpusMatches['matches']);
+            $independentUnits = max((int) ($caseIndep['independent_units'] ?? 0), $distinctPublishers);
+
+            $indepStatement = $case->evidence->count() >= 2
+                ? (string) ($caseIndep['statement'] ?? 'Evaluasi kemandirian selesai.')
+                : ($totalSources > 0
+                    ? "Terdeteksi {$totalSources} rekaman pembanding dari {$distinctPublishers} penerbit/kanal berbeda di korpus lokal."
+                    : 'Belum terdapat cukup bukti pembanding independen pada dataset aktif; diperlukan konfirmasi sumber primer.');
+
+            $data['independence_assessment'] = [
+                'independent_units' => $independentUnits,
+                'total_sources' => $totalSources,
+                'syndicated_count' => $syndicatedCount,
+                'confirmed_independent_pairs' => (int) ($caseIndep['confirmed_independent_pairs'] ?? 0),
+                'statement' => $indepStatement,
+            ];
+
+            $trace[] = [
+                'step' => 'INDEPENDENCE_CHECK',
+                'label' => 'Evaluasi Kemandirian Sumber & Anti-Sindikasi',
+                'detail' => "{$independentUnits} klaster independen • {$totalSources} total sumber • {$syndicatedCount} sindikasi/duplikat",
+                'status' => $independentUnits >= 2 ? 'VERIFIED_PLURAL' : 'SINGLE_OR_LIMITED',
             ];
 
             $elapsedMs = (int) round((microtime(true) - $tStart) * 1000);
@@ -388,6 +426,7 @@ class ScannerController extends Controller
             }
             $sim = $this->lexical->compare($queryText, $ev->title . ' ' . $body);
             if ($sim['score'] >= 10.0 || $ev->case_id === $activeCase->id) {
+                $numCmp = $this->numericComparer->compare($queryText, $body);
                 $candidates[] = [
                     'code' => $ev->evidence_code,
                     'channel' => strtoupper((string) ($ev->platform ?: 'EVIDENCE')),
@@ -396,6 +435,8 @@ class ScannerController extends Controller
                     'publisher' => $ev->publisher ?: ($ev->platform ?: 'Source'),
                     'url' => $ev->url,
                     'similarity_pct' => $sim['score'],
+                    'numeric_consistency' => $numCmp['numeric_consistency'],
+                    'dates_changed' => $numCmp['dates_changed'],
                     'is_reference' => in_array($ev->role, ['REFERENCE', 'PRIMARY'], true),
                     'role' => $ev->role,
                     'access_status' => $ev->access_status,
@@ -411,6 +452,7 @@ class ScannerController extends Controller
             $body = trim($fi->title . ' ' . ($fi->summary ?? ''));
             $sim = $this->lexical->compare($queryText, $body);
             if ($sim['score'] >= 12.0) {
+                $numCmp = $this->numericComparer->compare($queryText, $body);
                 $candidates[] = [
                     'code' => 'RSS-' . $fi->id,
                     'channel' => 'NEWS_RSS',
@@ -419,6 +461,8 @@ class ScannerController extends Controller
                     'publisher' => $fi->feed?->name ?? 'News Feed',
                     'url' => $fi->link,
                     'similarity_pct' => $sim['score'],
+                    'numeric_consistency' => $numCmp['numeric_consistency'],
+                    'dates_changed' => $numCmp['dates_changed'],
                     'is_reference' => true,
                     'role' => 'FEED_ARTICLE',
                     'access_status' => 'OK',
@@ -439,6 +483,7 @@ class ScannerController extends Controller
             $body = trim($rec->title . ' ' . $verBody);
             $sim = $this->lexical->compare($queryText, $body);
             if ($sim['score'] >= 12.0) {
+                $numCmp = $this->numericComparer->compare($queryText, $body);
                 $candidates[] = [
                     'code' => $rec->record_code,
                     'channel' => 'VERIFIED_DIRECTORY',
@@ -447,6 +492,8 @@ class ScannerController extends Controller
                     'publisher' => 'TRACE-ID Official Record',
                     'url' => null,
                     'similarity_pct' => $sim['score'],
+                    'numeric_consistency' => $numCmp['numeric_consistency'],
+                    'dates_changed' => $numCmp['dates_changed'],
                     'is_reference' => true,
                     'role' => 'OFFICIAL_RECORD',
                     'access_status' => 'OK',
@@ -462,6 +509,7 @@ class ScannerController extends Controller
             foreach ($narratives as $nar) {
                 $sim = $this->lexical->compare($queryText, (string) $nar->title);
                 if ($sim['score'] >= 15.0) {
+                    $numCmp = $this->numericComparer->compare($queryText, (string) $nar->title);
                     $candidates[] = [
                         'code' => 'NAR-' . $nar->id,
                         'channel' => 'SOCIAL_MONITOR',
@@ -470,6 +518,8 @@ class ScannerController extends Controller
                         'publisher' => strtoupper((string) ($nar->region ?: 'SOCIAL')),
                         'url' => null,
                         'similarity_pct' => $sim['score'],
+                        'numeric_consistency' => $numCmp['numeric_consistency'],
+                        'dates_changed' => $numCmp['dates_changed'],
                         'is_reference' => false,
                         'role' => 'NARRATIVE_' . strtoupper((string) ($nar->severity ?? 'INFO')),
                         'access_status' => 'OK',

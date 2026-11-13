@@ -144,7 +144,7 @@ Route::middleware(['auth.trace'])->group(function () {
         ->middleware('permission:analysis.run')
         ->name('scanner.select-model');
     Route::post('/scanner/scan', [ScannerController::class, 'scan'])
-        ->middleware('permission:analysis.run')
+        ->middleware(['permission:analysis.run', 'throttle:trace-heavy'])
         ->name('scanner.scan');
     Route::get('/scanner/analyses/{id}/export/pdf', [ScannerController::class, 'exportAnalysisPdf'])
         ->middleware('permission:report.export')
@@ -192,7 +192,7 @@ Route::middleware(['auth.trace'])->group(function () {
         ->middleware('permission:console.use')
         ->name('console.index');
     Route::post('/console/message', [ConsoleController::class, 'sendMessage'])
-        ->middleware('permission:console.use')
+        ->middleware(['permission:console.use', 'throttle:trace-heavy'])
         ->name('console.message');
 
     Route::get('/cases', [CaseController::class, 'index'])
@@ -211,7 +211,7 @@ Route::middleware(['auth.trace'])->group(function () {
         ->middleware('permission:evidence.import')
         ->name('cases.import-evidence');
     Route::post('/cases/{id}/evidence/fetch-url', [CaseController::class, 'fetchUrlEvidence'])
-        ->middleware('permission:evidence.import')
+        ->middleware(['permission:evidence.import', 'throttle:trace-heavy'])
         ->name('cases.fetch-url');
     Route::get('/cases/{id}/evidence/{evidenceId}/download', [CaseController::class, 'downloadEvidence'])
         ->middleware('permission:case.view')

@@ -15,6 +15,17 @@
   </div>
 
   <div class="flex flex-wrap items-center gap-2">
+    @if(Auth::user()->hasPermission('analysis.run'))
+      <form method="POST" action="{{ route('scanner.scan') }}" class="inline">
+        @csrf
+        <input type="hidden" name="case_id" value="auto">
+        <input type="hidden" name="text" value="{{ trim(($shown?->title ?? $record->title) . "\n\n" . ($shown?->content ?? $record->description ?? '')) }}">
+        <button type="submit" class="btn-primary">
+          <i class="fa-solid fa-magnifying-glass-chart"></i>
+          <span>{{ $isId ? 'Investigasi Konten Ini dengan AI Lokal' : 'Investigate with Local AI' }}</span>
+        </button>
+      </form>
+    @endif
     @if($canEdit)
       <a href="{{ route('records.edit', $record->record_code) }}" class="btn-secondary">{{ $isId ? 'Ubah (Versi Baru)' : 'Edit (New Version)' }}</a>
       @if(in_array($record->status, ['DRAFT', 'REVISION REQUIRED'], true) && $record->created_by === Auth::id())

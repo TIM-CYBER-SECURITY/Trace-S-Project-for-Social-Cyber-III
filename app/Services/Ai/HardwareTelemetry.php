@@ -30,7 +30,7 @@ class HardwareTelemetry
             Cache::forget('trace_host_hardware_telemetry');
         }
 
-        return Cache::remember('trace_host_hardware_telemetry', now()->addSeconds(15), function () {
+        return Cache::remember('trace_host_hardware_telemetry', now()->addSeconds(120), function () {
             $host = $this->readHostHardware();
             $host['captured_at'] = now()->toIso8601String();
             return $host;

@@ -487,4 +487,72 @@ class TracePlatformTest extends TestCase
         $repCsv->assertStatus(200);
         $this->assertStringContainsString($report->report_code, $repCsv->streamedContent());
     }
+
+    public function test_security_hardening_ssrf_csp_csv_injection_and_date_tamper(): void
+    {
+        $admin = $this->makeUser('ADMINISTRATOR');
+
+        // 1. Security Headers verification
+        $res = $this->get('/login');
+        $res->assertStatus(200);
+        $res->assertHeader('X-Frame-Options', 'DENY');
+        $res->assertHeader('X-Content-Type-Options', 'nosniff');
+        $res->assertHeader('Cross-Origin-Opener-Policy', 'same-origin');
+        $res->assertHeader('Cross-Origin-Resource-Policy', 'same-origin');
+        $res->assertHeader('X-Permitted-Cross-Domain-Policies', 'none');
+        $this->assertStringContainsString("frame-ancestors 'none'", (string) $res->headers->get('Content-Security-Policy'));
+
+        // 2. Hardened Anti-SSRF URL validator
+        $this->assertNotNull(\App\Services\DataAcquisition\EvidenceCollectorService::validatePublicUrl('http://169.254.169.254/latest/meta-data/'));
+        $this->assertNotNull(\App\Services\DataAcquisition\EvidenceCollectorService::validatePublicUrl('http://2130706433/'));
+        $this->assertNotNull(\App\Services\DataAcquisition\EvidenceCollectorService::validatePublicUrl('http://0x7f000001/'));
+        $this->assertNotNull(\App\Services\DataAcquisition\EvidenceCollectorService::validatePublicUrl('http://0177.0.0.1/'));
+        $this->assertNotNull(\App\Services\DataAcquisition\EvidenceCollectorService::validatePublicUrl('https://example.com:9090/internal'));
+
+        // 3. DATE_TAMPER & Independence Assessment in 4-stage pipeline + CSV formula injection protection
+        $refCase = InvestigationCase::create([
+            'case_code' => 'TS-2026-960',
+            'title' => 'Jadwal Resmi Penyaluran Bantuan Pangan',
+            'claim_text' => 'Penyaluran bantuan dilaksanakan resmi pada 10 Oktober 2026.',
+            'category' => 'Sosial',
+            'priority' => 'TINGGI',
+            'status' => 'VALIDATED',
+            'is_simulation' => true,
+            'created_by' => $admin->id,
+        ]);
+        \App\Models\EvidenceItem::create([
+            'case_id' => $refCase->id,
+            'evidence_code' => 'EV-TS-2026-960-1',
+            'type' => 'TEXT',
+            'role' => 'REFERENCE',
+            'title' => 'Pengumuman Resmi Tanggal Bantuan Pangan',
+            'publisher' => 'Kementerian Sosial RI',
+            'platform' => 'WEB',
+            'access_status' => 'OK',
+            'extracted_text' => 'Jadwal resmi penyaluran bantuan pangan dimulai pada 10 Oktober 2026.',
+            'content_hash' => hash('sha256', 'date-ref'),
+            'is_simulation' => true,
+            'added_by' => $admin->id,
+        ]);
+
+        $scan = $this->actingAs($admin, 'web')->postJson('/scanner/scan', [
+            'case_id' => 'auto',
+            'text' => '=CMD|calc! Jadwal resmi penyaluran bantuan pangan dimajukan ke 25 Desember 2026.',
+        ]);
+        $scan->assertStatus(200)->assertJsonPath('success', true);
+        $analysisData = $scan->json('analysis');
+
+        $this->assertArrayHasKey('independence_assessment', $analysisData);
+        $hlTypes = array_column($analysisData['manipulation_highlights'] ?? [], 'type');
+        $this->assertContains('DATE_TAMPER', $hlTypes);
+
+        $traceSteps = array_column($analysisData['investigation_trace'] ?? [], 'step');
+        $this->assertContains('INDEPENDENCE_CHECK', $traceSteps);
+
+        // Verify CSV Formula Injection sanitization on spreadsheet download
+        $analysisId = $scan->json('threat.id');
+        $csvRes = $this->actingAs($admin, 'web')->get("/scanner/analyses/{$analysisId}/export/spreadsheet");
+        $csvBody = $csvRes->streamedContent();
+        $this->assertStringNotContainsString("\n=CMD", $csvBody);
+    }
 }

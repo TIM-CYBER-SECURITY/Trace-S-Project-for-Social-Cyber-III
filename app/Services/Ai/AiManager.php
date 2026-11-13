@@ -18,6 +18,7 @@ use App\Services\Ai\Support\LocalGuard;
 use App\Services\Analysis\ClaimAnalyzer;
 use App\Services\Support\AppSettings;
 use App\Services\Support\AuditLogger;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Str;
 
@@ -47,11 +48,13 @@ class AiManager
     public function setDriver(?AiDriver $driver): void
     {
         $this->driver = $driver;
+        Cache::forget('trace_ai_status_snapshot');
     }
 
     public function resetDriver(): void
     {
         $this->driver = null;
+        Cache::forget('trace_ai_status_snapshot');
     }
 
     /** Konfigurasi AI aktif: pengaturan runtime DB mengalahkan nilai default .env. */
@@ -194,47 +197,59 @@ class AiManager
     }
 
     /** Status ringkas untuk top bar dan panel admin (tidak melempar eksepsi). */
-    public function status(): array
+    public function status(bool $forceRefresh = false): array
     {
-        $cfg = $this->resolvedConfig();
-        $hw = $this->telemetry->snapshot();
-        try {
-            $d = $this->driver();
-            $h = $d->checkHealth();
-            return [
-                'driver' => $d->name(),
-                'status' => $h['status'],
-                'model' => $d->modelName(),
-                'active_model' => $d->modelName(),
-                'base_url' => $d->name() === 'mock' ? null : ($cfg['base_url'] ?? null),
-                'timeout' => (int) ($cfg['timeout'] ?? 180),
-                'runtime' => $h['runtime'] ?? null,
-                'runtime_version' => $h['runtime_version'] ?? null,
-                'loaded_models' => $h['loaded_models'] ?? [],
-                'is_simulation' => $d->isSimulation(),
-                'latency_ms' => $h['latency_ms'],
-                'ai_ram_used_gb' => $hw['ai_process_ram_gb'] ?? null,
-                'ai_active_process' => $hw['ai_active_process'] ?? null,
-                'error' => $h['error'] ?? null,
-            ];
-        } catch (\Throwable $e) {
-            return [
-                'driver' => $cfg['driver'] ?? 'mock',
-                'status' => 'ERROR',
-                'model' => $cfg['model'] ?? null,
-                'active_model' => $cfg['model'] ?? null,
-                'base_url' => $cfg['base_url'] ?? null,
-                'timeout' => (int) ($cfg['timeout'] ?? 180),
-                'runtime' => null,
-                'runtime_version' => null,
-                'loaded_models' => [],
-                'is_simulation' => false,
-                'latency_ms' => null,
-                'ai_ram_used_gb' => $hw['ai_process_ram_gb'] ?? null,
-                'ai_active_process' => $hw['ai_active_process'] ?? null,
-                'error' => $e->getMessage(),
-            ];
+        $compute = function () use ($forceRefresh): array {
+            $cfg = $this->resolvedConfig();
+            $hw = $this->telemetry->snapshot($forceRefresh);
+            try {
+                $d = $this->driver();
+                $h = $d->checkHealth();
+                return [
+                    'driver' => $d->name(),
+                    'status' => $h['status'],
+                    'model' => $d->modelName(),
+                    'active_model' => $d->modelName(),
+                    'base_url' => $d->name() === 'mock' ? null : ($cfg['base_url'] ?? null),
+                    'timeout' => (int) ($cfg['timeout'] ?? 180),
+                    'runtime' => $h['runtime'] ?? null,
+                    'runtime_version' => $h['runtime_version'] ?? null,
+                    'loaded_models' => $h['loaded_models'] ?? [],
+                    'is_simulation' => $d->isSimulation(),
+                    'latency_ms' => $h['latency_ms'],
+                    'ai_ram_used_gb' => $hw['ai_process_ram_gb'] ?? null,
+                    'ai_active_process' => $hw['ai_active_process'] ?? null,
+                    'error' => $h['error'] ?? null,
+                ];
+            } catch (\Throwable $e) {
+                return [
+                    'driver' => $cfg['driver'] ?? 'mock',
+                    'status' => 'ERROR',
+                    'model' => $cfg['model'] ?? null,
+                    'active_model' => $cfg['model'] ?? null,
+                    'base_url' => $cfg['base_url'] ?? null,
+                    'timeout' => (int) ($cfg['timeout'] ?? 180),
+                    'runtime' => null,
+                    'runtime_version' => null,
+                    'loaded_models' => [],
+                    'is_simulation' => false,
+                    'latency_ms' => null,
+                    'ai_ram_used_gb' => $hw['ai_process_ram_gb'] ?? null,
+                    'ai_active_process' => $hw['ai_active_process'] ?? null,
+                    'error' => $e->getMessage(),
+                ];
+            }
+        };
+
+        if (app()->environment('testing') || $this->driver !== null) {
+            return $compute();
         }
+
+        if ($forceRefresh) {
+            Cache::forget('trace_ai_status_snapshot');
+        }
+
+        return Cache::remember('trace_ai_status_snapshot', now()->addSeconds(20), $compute);
     }
 
     /**
@@ -724,7 +739,7 @@ class AiManager
         $cfg = $this->resolvedConfig();
         $driver = (string) ($cfg['driver'] ?? 'mock');
         $baseUrl = $driver === 'mock' ? null : (!empty($cfg['base_url']) ? rtrim((string) $cfg['base_url'], '/') : null);
-        $health = $this->status();
+        $health = $this->status(true);
 
         $defaultName = match ($driver) {
             'ollama' => 'Local Ollama Node (' . ($baseUrl ?: '127.0.0.1:11434') . ')',
@@ -973,6 +988,8 @@ class AiManager
             ->orderByDesc('is_active')
             ->orderBy('id')
             ->get();
+
+        Cache::forget('trace_ai_status_snapshot');
 
         return [
             'servers' => $allServers->all(),
