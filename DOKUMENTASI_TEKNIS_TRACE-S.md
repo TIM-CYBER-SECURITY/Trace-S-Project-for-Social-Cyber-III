@@ -80,8 +80,8 @@ Pendaftaran mandiri publik (*self-registration*) ditiadakan 100% dari web aplika
 
 #### 2.4. Daftar Akun Resmi yang Diterbitkan Pengembang (PUSSIBERAD TNI AD)
 
-Berikut adalah 8 akun resmi personel PUSSIBERAD TNI AD yang telah diterbitkan dan aktif di dalam sistem.  
-**Tautan Publik Evaluasi Juri:** `https://teens-diy-newfoundland-costs.trycloudflare.com`  
+Berikut adalah 8 akun resmi personel PUSSIBERAD TNI AD yang telah diterbitkan dan aktif di dalam sistem (termasuk pada deployment cloud 24/7).  
+**Tautan Publik Evaluasi Juri (24/7 Railway Cloud):** `https://trace-s-web-production.up.railway.app`  
 **Instansi:** PUSSIBERAD TNI AD  
 **Kode Instansi:** `PUS001TNIAD`
 

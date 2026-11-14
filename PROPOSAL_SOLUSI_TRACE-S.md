@@ -88,15 +88,15 @@ Trace-S membuktikan dirinya bukan sekadar purwarupa yang dirancang semalam, mela
 * **218 Rantai Audit Hash SHA-256 Terverifikasi:** Seluruh rekaman aksi sistem terangkai dalam rantai kriptografis yang diverifikasi utuh tanpa ada manipulasi data.
 * **Audit Keamanan 20 Tahap (20-Pass Multi-Dimensional Audit):** Memverifikasi integritas dari lapisan SQL, IDOR, SSRF, Magic-Bytes Upload, hingga CSP Headers militer.
 
-#### 2.5. Tautan Demonstrasi Publik Resmi (Live Public Evaluation URL)
-Untuk memenuhi ketentuan pengujian langsung oleh Dewan Juri Hackathon, sistem Trace-S telah dipublikasikan melalui gateway aman terenkripsi SSL:
-* **Tautan Publik Web App:** `https://teens-diy-newfoundland-costs.trycloudflare.com`
+#### 2.5. Tautan Demonstrasi Publik Resmi 24/7 (Live Cloud Evaluation URL)
+Untuk memenuhi ketentuan pengujian langsung oleh Dewan Juri Hackathon kapan saja (aktif 24/7 di Cloud Railway tanpa bergantung pada laptop pengembang), sistem Trace-S telah dideploy secara permanen pada:
+* **Tautan Publik Web App (24/7 Railway Cloud):** `https://trace-s-web-production.up.railway.app`
 * **Akun Pengujian Juri:**
   * **Trace-ID:** `TRS-984Y-SCC7`
   * **Peran / Jabatan:** ADMINISTRATOR (Letnan Satu Administrator 01)
   * **Instansi:** PUSSIBERAD TNI AD (Kode Instansi: `PUS001TNIAD`)
   * **Kata Sandi Sementara:** `Mh@2?8gxgY@*m5uQ`
-* **Mekanisme Uji:** Juri dapat langsung mengakses dan menguji inferensi AI secara langsung tanpa perlu menginstal model di perangkat pribadi.
+* **Mekanisme Uji:** Juri dapat langsung login, memeriksa kasus investigasi, serta menjalankan pemindaian & analisis AI 24/7 melalui arsitektur *Hybrid AI* (Cloud Google AI Studio / Exa.ai + *Deterministic Cloud Fallback*), sementara skenario *Air-Gapped Local AI* (LM Studio / Ollama) didemonstrasikan secara utuh pada video demo.
 
 ---
 
