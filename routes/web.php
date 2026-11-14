@@ -143,6 +143,14 @@ Route::middleware(['auth.trace'])->group(function () {
     Route::post('/scanner/select-model', [ScannerController::class, 'selectModel'])
         ->middleware('permission:analysis.run')
         ->name('scanner.select-model');
+    Route::post('/scanner/cloud-ai', [\App\Http\Controllers\AiManagementController::class, 'configureCloud'])
+        ->middleware('permission:analysis.run')
+        ->name('scanner.cloud-ai.configure');
+    Route::post('/scanner/cloud-ai/test', [\App\Http\Controllers\AiManagementController::class, 'testCloud'])
+        ->middleware('permission:analysis.run')
+        ->name('scanner.cloud-ai.test');
+    Route::get('/api/telemetry/live', [\App\Http\Controllers\AiManagementController::class, 'liveTelemetry'])
+        ->name('api.telemetry.live');
     Route::post('/scanner/scan', [ScannerController::class, 'scan'])
         ->middleware(['permission:analysis.run', 'throttle:trace-heavy'])
         ->name('scanner.scan');

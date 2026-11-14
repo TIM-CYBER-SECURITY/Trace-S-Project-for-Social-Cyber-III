@@ -97,6 +97,12 @@
         background-color: var(--bg-surface);
         border: 1px solid var(--border-color);
         border-radius: 0.125rem;
+        transition: border-color 180ms ease, box-shadow 200ms ease, transform 180ms ease;
+    }
+
+    .panel:hover {
+        border-color: var(--border-strong);
+        box-shadow: 0 4px 14px -4px rgba(18, 28, 23, 0.12);
     }
 
     .panel-subtle {
@@ -341,7 +347,41 @@
         vertical-align: top;
     }
 
+    .table-mil tbody tr {
+        transition: background-color 140ms ease;
+    }
+
     .table-mil tbody tr:hover {
         background-color: rgba(70, 91, 56, 0.05);
+    }
+
+    .trace-animate-in {
+        animation: traceFadeInUp 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    .trace-live-dot {
+        animation: tracePulseDot 2.2s ease-in-out infinite;
+    }
+}
+
+@keyframes traceFadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes tracePulseDot {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.55;
+        transform: scale(0.88);
     }
 }

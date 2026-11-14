@@ -73,6 +73,13 @@
   </div>
   @endif
 
+  <!-- Agency Hybrid Cloud AI Configuration (Shared per Kode Instansi for Operators & Admins) -->
+  @include('partials.cloud-ai-panel', [
+    'formAction' => route('scanner.cloud-ai.configure'),
+    'testUrl' => route('scanner.cloud-ai.test'),
+    'compactCollapsible' => true,
+  ])
+
   <!-- Tabs Navigation -->
   <div class="flex flex-wrap items-center gap-1 border-b border-[var(--border-color)] font-mono text-xs">
     <a href="{{ route('scanner.index', ['case_id' => $selectedCase?->id, 'tab' => 'scan']) }}"
@@ -210,9 +217,6 @@
               <span class="font-mono text-xs font-semibold uppercase tracking-wider">
                 {{ $isId ? 'Hasil Investigasi Berita, Medsos & AI Lokal' : 'Real-Time Investigation & AI Verdict' }}
               </span>
-              @if($latestAnalysis->is_simulation)
-                <span class="badge badge-warn">{{ $isId ? 'SIMULASI' : 'SIMULATION' }}</span>
-              @endif
               <span class="badge {{ in_array($latestAnalysis->classification, ['DISINFORMATION', 'MANIPULATED_CONTENT'], true) ? 'badge-danger' : ($latestAnalysis->classification === 'MISLEADING' ? 'badge-warn' : 'badge-olive') }}">
                 {{ $latestAnalysis->classification }}
               </span>

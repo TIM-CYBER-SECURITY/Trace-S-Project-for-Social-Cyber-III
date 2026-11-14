@@ -37,9 +37,6 @@
           {{ $case->priority }}
         </span>
         <span class="badge badge-neutral">{{ $case->status }}</span>
-        @if($case->is_simulation)
-          <span class="badge badge-warn">SIMULATION</span>
-        @endif
 
         @if($canWriteCase)
         <form action="{{ route('cases.update-status', $case->id) }}" method="POST" class="flex items-center gap-1.5">
@@ -199,9 +196,6 @@
           <tr>
             <td class="font-mono font-semibold whitespace-nowrap">
               {{ $e->evidence_code }}
-              @if($e->is_simulation)
-                <span class="badge badge-warn block mt-1 w-fit">SIMULATION</span>
-              @endif
             </td>
             <td>
               <span class="badge {{ $e->role === 'PRIMARY' ? 'badge-olive' : ($e->role === 'REFERENCE' ? 'badge-sand' : 'badge-warn') }}">

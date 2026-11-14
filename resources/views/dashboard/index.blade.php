@@ -35,9 +35,6 @@
         <h1 class="text-lg font-semibold tracking-tight">
           {{ $isId ? 'Dasbor Peringatan Dini Narasi' : 'Early Warning Narrative Dashboard' }}
         </h1>
-        @if($hasSimulationData)
-          <span class="badge badge-warn">{{ $isId ? 'SIMULASI' : 'SIMULATION' }}</span>
-        @endif
       </div>
       <p class="text-xs text-[var(--text-muted)] mt-0.5">
         {{ $isId
@@ -102,11 +99,7 @@
     <div class="panel p-4 flex flex-col justify-between">
       <div class="flex items-center justify-between">
         <span class="label-meta">{{ $isId ? 'Narasi Terkumpul' : 'Narratives Ingested' }}</span>
-        @if($hasSimulationData)
-          <span class="badge badge-warn">{{ $isId ? 'SIMULASI' : 'SIMULATION' }}</span>
-        @else
-          <span class="badge badge-olive">{{ $isId ? 'AKTIF' : 'LIVE' }}</span>
-        @endif
+        <span class="badge badge-olive">{{ $isId ? 'AKTIF' : 'LIVE' }}</span>
       </div>
       <div class="mt-3 flex items-end justify-between gap-2">
         <div>
@@ -179,9 +172,6 @@
           <span class="font-mono text-xs font-semibold uppercase tracking-wider">
             {{ $isId ? 'Perkembangan Volume Narasi' : 'Narrative Volume Trajectory' }}
           </span>
-          @if($hasSimulationData)
-            <span class="badge badge-warn">{{ $isId ? 'SIMULASI' : 'SIMULATION' }}</span>
-          @endif
         </div>
 
         <div class="flex flex-wrap items-center gap-1.5">
@@ -257,9 +247,6 @@
             {{ $isId ? 'Grid Paparan Geospasial & Jaringan' : 'Geospatial & Network Exposure Grid' }}
           </span>
         </div>
-        @if($hasSimulationData)
-          <span class="badge badge-warn">{{ $isId ? 'SIMULASI' : 'SIMULATION' }}</span>
-        @endif
       </div>
 
       <div class="p-3.5 flex-1 flex flex-col justify-between space-y-3">
@@ -312,9 +299,6 @@
         <div class="flex items-center gap-2">
           <i class="fa-solid fa-list-check text-[var(--accent-olive)] text-xs"></i>
           <span class="font-mono text-xs font-semibold uppercase tracking-wider">Live Narrative Feed</span>
-          @if($hasSimulationData)
-            <span class="badge badge-warn">{{ $isId ? 'SIMULASI' : 'SIMULATION' }}</span>
-          @endif
         </div>
 
         <div class="flex flex-wrap items-center gap-1.5 text-[10px] font-mono">
@@ -349,9 +333,6 @@
               <td class="font-mono text-xs text-[var(--text-muted)] whitespace-nowrap">{{ $timeLabel }}</td>
               <td class="text-xs font-medium max-w-xs">
                 {{ $row->title }}
-                @if($row->is_simulation)
-                  <span class="badge badge-warn ml-1">SIMULASI</span>
-                @endif
               </td>
               <td class="text-xs text-[var(--text-secondary)] whitespace-nowrap">{{ $row->region ?? 'Nasional' }}</td>
               <td class="whitespace-nowrap space-x-1">
@@ -398,7 +379,7 @@
               <div class="font-semibold truncate">{{ $conn->name }}</div>
               <div class="text-[11px] text-[var(--text-muted)] truncate">{{ $conn->description }}</div>
             </div>
-            <span class="badge shrink-0 {{ $conn->status === 'ACTIVE' ? 'badge-olive' : ($conn->status === 'SIMULASI' ? 'badge-warn' : 'badge-neutral') }}">
+            <span class="badge shrink-0 {{ $conn->status === 'ACTIVE' ? 'badge-olive' : 'badge-neutral' }}">
               {{ $conn->status }}
             </span>
           </div>
@@ -451,9 +432,6 @@
           <tr>
             <td class="font-mono font-semibold whitespace-nowrap">
               <a href="{{ route('cases.show', $rc->id) }}" class="text-[var(--accent-olive)] dark:text-[#C5B89C] hover:underline">{{ $rc->case_code }}</a>
-              @if($rc->is_simulation)
-                <span class="badge badge-warn ml-1">SIMULASI</span>
-              @endif
             </td>
             <td class="max-w-md font-medium">{{ $rc->title }}</td>
             <td class="text-xs text-[var(--text-muted)]">{{ $rc->category }}</td>
@@ -488,6 +466,8 @@
   </div>
 
 </div>
+
+@include('partials.instansi-group-panel')
 
 <!-- Narrative Inspection Modal -->
 <div id="threatInspectModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
@@ -618,7 +598,7 @@
   <div class="panel max-w-lg w-full shadow-2xl">
     <div class="panel-header">
       <h3 class="font-mono text-xs font-semibold uppercase tracking-wider">
-        {{ $isId ? 'Catat Narasi Operasional Baru (Non-Simulasi)' : 'Log New Operational Narrative' }}
+        {{ $isId ? 'Catat Narasi Operasional Baru' : 'Log New Operational Narrative' }}
       </h3>
       <button type="button" onclick="document.getElementById('logNarrativeModal')?.classList.add('hidden')" class="btn-secondary py-1 px-2 text-xs" aria-label="Close modal">
         <i class="fa-solid fa-xmark"></i>
@@ -731,12 +711,6 @@
       const tdTitle = document.createElement('td');
       tdTitle.className = 'text-xs font-medium max-w-xs';
       tdTitle.textContent = row.title || '-';
-      if (row.is_simulation) {
-        const sim = document.createElement('span');
-        sim.className = 'badge badge-warn ml-1';
-        sim.textContent = 'SIMULASI';
-        tdTitle.appendChild(sim);
-      }
 
       const tdRegion = document.createElement('td');
       tdRegion.className = 'text-xs text-[var(--text-secondary)] whitespace-nowrap';

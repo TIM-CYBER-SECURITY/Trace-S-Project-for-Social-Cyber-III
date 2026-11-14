@@ -51,14 +51,21 @@
       @endif
     </div>
 
+    @php
+      $cleanLaunchModel = trim((string) preg_replace('/\s*\(?\s*(SIMULASI|SIMULATION)\s*\)?/i', '', (string) ($aiStat['active_model'] ?? '')));
+      $cleanLaunchStatus = trim((string) preg_replace('/\s*\(?\s*(SIMULASI|SIMULATION)\s*\)?/i', '', (string) ($aiStat['status'] ?? '')));
+      if ($cleanLaunchStatus === '') {
+          $cleanLaunchStatus = 'STANDBY';
+      }
+    @endphp
     <div class="p-3 space-y-0.5">
       <div class="label-meta">ACTIVE LOCAL AI &amp; AI RAM</div>
-      <div class="font-bold truncate" title="{{ $aiStat['active_model'] ?? '' }}">
-        {{ $aiStat['active_model'] ?? strtoupper($aiStat['driver'] ?? 'MOCK') }}
+      <div class="font-bold truncate" title="{{ $cleanLaunchModel }}">
+        {{ $cleanLaunchModel !== '' ? $cleanLaunchModel : strtoupper($aiStat['driver'] ?? 'OLLAMA') }}
       </div>
       <div class="text-[10px] text-[var(--text-muted)] tabular-nums flex items-center justify-between gap-1">
         <span>AI RAM: <b class="text-[var(--text-primary)]">{{ ($aiRam !== null && $aiRam > 0) ? number_format((float) $aiRam, 2) . ' GB' : '0.00 GB' }}</b></span>
-        <span class="badge {{ ($aiStat['status'] ?? '') === 'ONLINE' ? 'badge-olive' : 'badge-warn' }} text-[9px]">{{ $aiStat['status'] ?? 'SIMULASI' }}</span>
+        <span class="badge {{ $cleanLaunchStatus === 'ONLINE' ? 'badge-olive' : 'badge-neutral' }} text-[9px]">{{ $cleanLaunchStatus }}</span>
       </div>
     </div>
   </div>

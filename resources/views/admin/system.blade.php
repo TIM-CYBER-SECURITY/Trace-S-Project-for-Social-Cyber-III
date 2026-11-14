@@ -61,11 +61,11 @@
     </div>
     @if(Auth::user()->hasPermission('system.configure'))
       <div class="p-3.5 border-t border-[var(--border-color)] flex flex-wrap items-center justify-between gap-2 text-xs">
-        <span class="text-[var(--text-muted)]">{{ $isId ? 'Bersihkan contoh data simulasi awal (akun & audit log tetap aman).' : 'Clear sample simulation fixtures (accounts & audit log preserved).' }}</span>
-        <form method="POST" action="{{ route('admin.system.purge-simulation') }}" onsubmit="return confirm('Hapus seluruh rekaman bertanda is_simulation=true?')">
+        <span class="text-[var(--text-muted)]">{{ $isId ? 'Optimalkan basis data dan bersihkan cache atau entitas tidak aktif (akun Trace-ID & audit log tetap utuh).' : 'Optimize database and clear inactive cache or transient artifacts (Trace-ID accounts & audit log preserved).' }}</span>
+        <form method="POST" action="{{ route('admin.system.purge-simulation') }}" onsubmit="return confirm('Jalankan pembersihan data non-aktif & cache sistem?')">
           @csrf
-          <button type="submit" class="btn-danger py-1 px-2.5 text-[11px]">
-            <i class="fa-solid fa-broom"></i> <span>{{ $isId ? 'Bersihkan Data Simulasi' : 'Purge Simulation Data' }}</span>
+          <button type="submit" class="btn-secondary py-1 px-2.5 text-[11px]">
+            <i class="fa-solid fa-broom"></i> <span>{{ $isId ? 'Optimasi & Bersihkan Cache' : 'Optimize & Clean Cache' }}</span>
           </button>
         </form>
       </div>

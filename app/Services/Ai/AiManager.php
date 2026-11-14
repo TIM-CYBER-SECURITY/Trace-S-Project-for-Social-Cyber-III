@@ -20,6 +20,7 @@ use App\Services\Ai\Support\LocalGuard;
 use App\Services\Analysis\ClaimAnalyzer;
 use App\Services\Support\AppSettings;
 use App\Services\Support\AuditLogger;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Str;
@@ -61,12 +62,27 @@ class AiManager
         $this->hasExplicitDriver = false;
         $this->settings->flushCache();
         Cache::forget('trace_ai_status_snapshot');
+        Cache::forget('trace_ai_status_snapshot_global');
+        try {
+            foreach (\App\Models\Organization::pluck('id') as $oid) {
+                Cache::forget("trace_ai_status_snapshot_{$oid}");
+            }
+        } catch (\Throwable) {
+            // Ignore when database/table is not initialized yet.
+        }
     }
 
-    /** Konfigurasi AI aktif: pengaturan runtime DB mengalahkan nilai default .env. */
-    public function resolvedConfig(): array
+    /** Konfigurasi AI aktif: perangkat lokal (global) + Cloud AI terisolasi per Instansi (organization_id). */
+    public function resolvedConfig(?int $orgId = null): array
     {
         $cfg = config('trace.ai');
+        if ($orgId === null) {
+            try {
+                $orgId = Auth::guard('web')->check() ? Auth::guard('web')->user()?->organization_id : null;
+            } catch (\Throwable) {
+                $orgId = null;
+            }
+        }
 
         try {
             if ($this->settings->has('ai.driver')) {
@@ -84,46 +100,47 @@ class AiManager
             if ($this->settings->has('ai.timeout')) {
                 $cfg['timeout'] = max(10, (int) $this->settings->get('ai.timeout'));
             }
-            if ($this->settings->has('ai.allow_external')) {
-                $cfg['allow_external'] = filter_var($this->settings->get('ai.allow_external'), FILTER_VALIDATE_BOOL);
+            if ($this->settings->hasForOrg('ai.allow_external', $orgId)) {
+                $cfg['allow_external'] = filter_var($this->settings->getForOrg('ai.allow_external', $orgId), FILTER_VALIDATE_BOOL);
             }
             if ($this->settings->has('ai.api_key_enc')) {
                 $cfg['api_key'] = Crypt::decryptString((string) $this->settings->get('ai.api_key_enc'));
             }
-            if ($this->settings->has('ai.engine_mode')) {
-                $cfg['engine_mode'] = (string) $this->settings->get('ai.engine_mode');
+            if ($this->settings->hasForOrg('ai.engine_mode', $orgId)) {
+                $cfg['engine_mode'] = (string) $this->settings->getForOrg('ai.engine_mode', $orgId);
             }
-            if ($this->settings->has('ai.cloud_provider')) {
-                $cfg['cloud_provider'] = (string) $this->settings->get('ai.cloud_provider');
+            if ($this->settings->hasForOrg('ai.cloud_provider', $orgId)) {
+                $cfg['cloud_provider'] = (string) $this->settings->getForOrg('ai.cloud_provider', $orgId);
             }
-            if ($this->settings->has('ai.cloud_timeout')) {
-                $cfg['cloud_timeout'] = max(3, min(60, (int) $this->settings->get('ai.cloud_timeout')));
+            if ($this->settings->hasForOrg('ai.cloud_timeout', $orgId)) {
+                $cfg['cloud_timeout'] = max(3, min(60, (int) $this->settings->getForOrg('ai.cloud_timeout', $orgId)));
             }
-            if ($this->settings->has('ai.google_model')) {
-                $cfg['google_model'] = (string) $this->settings->get('ai.google_model');
+            if ($this->settings->hasForOrg('ai.google_model', $orgId)) {
+                $cfg['google_model'] = (string) $this->settings->getForOrg('ai.google_model', $orgId);
             }
-            if ($this->settings->has('ai.google_api_key_enc')) {
-                $cfg['google_api_key'] = Crypt::decryptString((string) $this->settings->get('ai.google_api_key_enc'));
+            if ($this->settings->hasForOrg('ai.google_api_key_enc', $orgId)) {
+                $cfg['google_api_key'] = Crypt::decryptString((string) $this->settings->getForOrg('ai.google_api_key_enc', $orgId));
             }
-            if ($this->settings->has('ai.exa_model')) {
-                $cfg['exa_model'] = (string) $this->settings->get('ai.exa_model');
+            if ($this->settings->hasForOrg('ai.exa_model', $orgId)) {
+                $cfg['exa_model'] = (string) $this->settings->getForOrg('ai.exa_model', $orgId);
             }
-            if ($this->settings->has('ai.exa_api_key_enc')) {
-                $cfg['exa_api_key'] = Crypt::decryptString((string) $this->settings->get('ai.exa_api_key_enc'));
+            if ($this->settings->hasForOrg('ai.exa_api_key_enc', $orgId)) {
+                $cfg['exa_api_key'] = Crypt::decryptString((string) $this->settings->getForOrg('ai.exa_api_key_enc', $orgId));
             }
-            if ($this->settings->has('ai.exa_search_enabled')) {
-                $cfg['exa_search_enabled'] = filter_var($this->settings->get('ai.exa_search_enabled'), FILTER_VALIDATE_BOOL);
+            if ($this->settings->hasForOrg('ai.exa_search_enabled', $orgId)) {
+                $cfg['exa_search_enabled'] = filter_var($this->settings->getForOrg('ai.exa_search_enabled', $orgId), FILTER_VALIDATE_BOOL);
             }
         } catch (\Throwable) {
             // Fallback aman ke config(.env) saat bootstrap migrasi awal
         }
 
-        $maskKey = fn (?string $k): ?string => (!$k || strlen($k) < 8)
+        $maskKey = fn (?string $k): ?string => (! $k || strlen($k) < 8)
             ? ($k ? '••••••••' : null)
             : (substr($k, 0, 4) . '••••••••' . substr($k, -3));
 
-        $cfg['has_google_key'] = !empty($cfg['google_api_key']);
-        $cfg['has_exa_key'] = !empty($cfg['exa_api_key']);
+        $cfg['organization_id'] = $orgId;
+        $cfg['has_google_key'] = ! empty($cfg['google_api_key']);
+        $cfg['has_exa_key'] = ! empty($cfg['exa_api_key']);
         $cfg['google_key_masked'] = $maskKey($cfg['google_api_key'] ?? null);
         $cfg['exa_key_masked'] = $maskKey($cfg['exa_api_key'] ?? null);
 
@@ -280,9 +297,10 @@ class AiManager
         return $mode === 'FORCE_CLOUD' || $hasKey;
     }
 
-    /** Simpan konfigurasi Hybrid Cloud AI (Google AI Studio & Exa.ai) dengan enkripsi API Key. */
+    /** Simpan konfigurasi Hybrid Cloud AI (Google AI Studio & Exa.ai) terisolasi per Instansi. */
     public function configureCloudRuntime(array $params, ?User $by, AuditLogger $audit): array
     {
+        $orgId = $by?->organization_id ?? (Auth::guard('web')->check() ? Auth::guard('web')->user()?->organization_id : null);
         $engineMode = (string) ($params['engine_mode'] ?? 'HYBRID_AUTO');
         $provider = (string) ($params['cloud_provider'] ?? 'google_ai_studio');
         $cloudTimeout = max(3, min(60, (int) ($params['cloud_timeout'] ?? 10)));
@@ -290,29 +308,32 @@ class AiManager
         $exaModel = trim((string) ($params['exa_model'] ?? 'exa')) ?: 'exa';
         $exaSearch = !empty($params['exa_search_enabled']);
 
-        $this->settings->setInternal('ai.engine_mode', $engineMode, $by);
-        $this->settings->setInternal('ai.cloud_provider', $provider, $by);
-        $this->settings->setInternal('ai.cloud_timeout', (string) $cloudTimeout, $by);
-        $this->settings->setInternal('ai.google_model', $googleModel, $by);
-        $this->settings->setInternal('ai.exa_model', $exaModel, $by);
-        $this->settings->setInternal('ai.exa_search_enabled', $exaSearch ? '1' : '0', $by);
+        $this->settings->setInternalForOrg('ai.engine_mode', $engineMode, $orgId, $by);
+        $this->settings->setInternalForOrg('ai.cloud_provider', $provider, $orgId, $by);
+        $this->settings->setInternalForOrg('ai.cloud_timeout', (string) $cloudTimeout, $orgId, $by);
+        $this->settings->setInternalForOrg('ai.google_model', $googleModel, $orgId, $by);
+        $this->settings->setInternalForOrg('ai.exa_model', $exaModel, $orgId, $by);
+        $this->settings->setInternalForOrg('ai.exa_search_enabled', $exaSearch ? '1' : '0', $orgId, $by);
 
         if (!empty($params['clear_google_key'])) {
-            $this->settings->setInternal('ai.google_api_key_enc', null, $by);
+            $this->settings->setInternalForOrg('ai.google_api_key_enc', null, $orgId, $by);
         } elseif (!empty($params['google_api_key'])) {
-            $this->settings->setInternal('ai.google_api_key_enc', Crypt::encryptString(trim((string) $params['google_api_key'])), $by);
+            $this->settings->setInternalForOrg('ai.google_api_key_enc', Crypt::encryptString(trim((string) $params['google_api_key'])), $orgId, $by);
         }
 
         if (!empty($params['clear_exa_key'])) {
-            $this->settings->setInternal('ai.exa_api_key_enc', null, $by);
+            $this->settings->setInternalForOrg('ai.exa_api_key_enc', null, $orgId, $by);
         } elseif (!empty($params['exa_api_key'])) {
-            $this->settings->setInternal('ai.exa_api_key_enc', Crypt::encryptString(trim((string) $params['exa_api_key'])), $by);
+            $this->settings->setInternalForOrg('ai.exa_api_key_enc', Crypt::encryptString(trim((string) $params['exa_api_key'])), $orgId, $by);
         }
 
         Cache::forget('trace_ai_status_snapshot');
-        $freshCfg = $this->resolvedConfig();
+        Cache::forget('trace_ai_status_snapshot_' . ($orgId ?? 'global'));
+        $freshCfg = $this->resolvedConfig($orgId);
 
         $audit->log('AI_HYBRID_CLOUD_CONFIGURED', null, [
+            'organization_id' => $orgId,
+            'organization_code' => $by?->organization?->code,
             'engine_mode' => $engineMode,
             'cloud_provider' => $provider,
             'cloud_timeout' => $cloudTimeout,
@@ -413,11 +434,15 @@ class AiManager
             return $compute();
         }
 
+        $orgId = Auth::guard('web')->check() ? Auth::guard('web')->user()?->organization_id : null;
+        $cacheKey = 'trace_ai_status_snapshot_' . ($orgId ?? 'global');
+
         if ($forceRefresh) {
+            Cache::forget($cacheKey);
             Cache::forget('trace_ai_status_snapshot');
         }
 
-        return Cache::remember('trace_ai_status_snapshot', now()->addSeconds(20), $compute);
+        return Cache::remember($cacheKey, now()->addSeconds(5), $compute);
     }
 
     /**

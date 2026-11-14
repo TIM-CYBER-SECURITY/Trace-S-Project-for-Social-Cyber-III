@@ -10,7 +10,11 @@
       {{ $isId ? 'Workspace Operasional Trace-ID' : 'Operational Trace-ID Workspace' }}
     </h1>
     <p class="text-xs text-[var(--text-muted)] mt-0.5">
-      {{ Auth::user()->trace_id }} &middot; {{ Auth::user()->organization?->name ?? '-' }} @if(Auth::user()->unit) &middot; {{ Auth::user()->unit->name }} @endif
+      {{ Auth::user()->trace_id }} &middot; {{ Auth::user()->organization?->name ?? '-' }}
+      @if(Auth::user()->organization?->code)
+        <span class="badge badge-sand ml-1">{{ Auth::user()->organization->code }}</span>
+      @endif
+      @if(Auth::user()->unit) &middot; {{ Auth::user()->unit->name }} @endif
     </p>
   </div>
   <div class="flex flex-wrap items-center gap-2">
@@ -100,7 +104,6 @@
           <div>
             <a href="{{ route('records.show', $ap->record_code) }}" class="font-mono font-bold text-[#586B47] hover:underline">{{ $ap->record_code }}</a>
             <span class="ml-1.5">{{ $ap->title }}</span>
-            @if($ap->is_simulation)<span class="badge badge-warn ml-1">SIMULASI</span>@endif
           </div>
           <span class="font-mono text-[10px] text-[var(--text-muted)]">{{ $ap->approved_at?->format('Y-m-d') }}</span>
         </div>
@@ -124,4 +127,6 @@
     </div>
   </div>
 </div>
+
+@include('partials.instansi-group-panel')
 @endsection

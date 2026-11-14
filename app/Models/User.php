@@ -16,6 +16,7 @@ class User extends Authenticatable
         'name', 'email', 'password', 'trace_id', 'organization_id', 'unit_id', 'position',
         'role_id', 'account_status', 'approval_status', 'must_change_password',
         'password_changed_at', 'expires_at', 'last_login_at',
+        'last_device_code', 'last_login_ip', 'last_user_agent',
     ];
 
     protected $hidden = ['password', 'remember_token'];
@@ -90,5 +91,10 @@ class User extends Authenticatable
     public function roleLabel(): string
     {
         return strtoupper((string) $this->roleRef?->name ?: 'NO ROLE');
+    }
+
+    public static function computeDeviceCode(?string $ip, ?string $ua): string
+    {
+        return 'DEV-' . strtoupper(substr(hash('sha256', ($ip ?? '0.0.0.0') . '|' . ($ua ?? 'cli')), 0, 8));
     }
 }

@@ -239,4 +239,27 @@ class AiManagementController extends Controller
             ]);
         }
     }
+
+    /** Real-time host RAM/VRAM/CPU telemetry and active AI runtime status for live UI polling. */
+    public function liveTelemetry(Request $request)
+    {
+        $force = $request->boolean('fresh', true);
+        $hw = $this->telemetry->snapshot($force);
+        $status = $this->ai->status();
+
+        return response()->json([
+            'ok' => true,
+            'timestamp' => now()->toIso8601String(),
+            'telemetry' => $hw,
+            'ai_status' => [
+                'driver' => $status['driver'] ?? 'openai_compatible',
+                'status' => $status['status'] ?? 'OFFLINE',
+                'active_model' => $status['active_model'] ?? null,
+                'ai_ram_used_gb' => $hw['ai_process_ram_gb'] ?? ($status['ai_ram_used_gb'] ?? null),
+                'cloud_configured' => (bool) ($status['cloud_configured'] ?? false),
+                'cloud_provider' => $status['cloud_provider'] ?? null,
+                'engine_mode' => $status['engine_mode'] ?? 'HYBRID_AUTO',
+            ],
+        ]);
+    }
 }

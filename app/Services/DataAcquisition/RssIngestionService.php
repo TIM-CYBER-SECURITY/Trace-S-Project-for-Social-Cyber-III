@@ -56,7 +56,7 @@ class RssIngestionService
                     continue;
                 }
 
-                $count = $this->ingestXml($feed, $resp->body(), $maxPerFeed);
+                $count = $this->ingestXml($feed, $resp->body(), $maxPerFeed, $user?->organization_id);
                 $imported += $count;
                 $feed->update(['last_fetched_at' => now(), 'last_status' => 'OK']);
             } catch (\Throwable $e) {
@@ -80,7 +80,7 @@ class RssIngestionService
         ];
     }
 
-    public function ingestXml(RssFeed $feed, string $xmlBody, int $maxPerFeed = 10): int
+    public function ingestXml(RssFeed $feed, string $xmlBody, int $maxPerFeed = 10, ?int $organizationId = null): int
     {
         // Anti-XXE hardening: tolak deklarasi ENTITY / DOCTYPE XML
         if (preg_match('/<!ENTITY\b/i', $xmlBody) || preg_match('/<!DOCTYPE\s+html\b/i', substr($xmlBody, 0, 500))) {
@@ -166,6 +166,7 @@ class RssIngestionService
                     'severity' => self::inferSeverity($text),
                     'captured_at' => $pubAt ?? now(),
                     'is_simulation' => false,
+                    'organization_id' => $organizationId,
                 ]);
                 $imported++;
             }

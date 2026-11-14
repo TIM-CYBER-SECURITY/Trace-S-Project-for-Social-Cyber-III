@@ -18,7 +18,8 @@ class CaseController extends Controller
 
     public function index()
     {
-        $cases = InvestigationCase::with(['creator', 'evidence', 'analyses', 'reports'])
+        $cases = InvestigationCase::forOrganization(Auth::user()->organization_id)
+            ->with(['creator', 'evidence', 'analyses', 'reports'])
             ->withCount(['evidence', 'sources', 'clusters', 'actors'])
             ->latest()
             ->paginate(15);
@@ -49,12 +50,16 @@ class CaseController extends Controller
             'operator_notes' => $validated['operator_notes'] ?? null,
             'status' => 'OPEN',
             'is_simulation' => false,
+            'organization_id' => Auth::user()->organization_id,
             'created_by' => Auth::id(),
         ]);
 
         $this->audit->log('CASE_CREATED', $case, [
             'case_code' => $case->case_code,
             'priority' => $case->priority,
+            'organization_id' => Auth::user()->organization_id,
+            'organization_code' => Auth::user()->organization?->code,
+            'device_code' => \App\Models\User::computeDeviceCode(request()->ip(), request()->userAgent()),
         ]);
 
         return redirect()->route('cases.show', $case->id)
@@ -63,7 +68,7 @@ class CaseController extends Controller
 
     public function show($id)
     {
-        $case = InvestigationCase::with([
+        $case = InvestigationCase::forOrganization(Auth::user()->organization_id)->with([
             'creator',
             'evidence.source',
             'sources',
@@ -99,7 +104,7 @@ class CaseController extends Controller
 
     public function importEvidence(Request $request, $id)
     {
-        $case = InvestigationCase::findOrFail($id);
+        $case = InvestigationCase::forOrganization(Auth::user()->organization_id)->findOrFail($id);
 
         $maxKb = (int) config('trace.upload.max_kb', 5120);
         $exts = implode(',', config('trace.upload.mimes', ['txt', 'pdf', 'png', 'jpg', 'jpeg', 'md', 'html']));
@@ -125,7 +130,7 @@ class CaseController extends Controller
 
     public function fetchUrlEvidence(Request $request, $id)
     {
-        $case = InvestigationCase::findOrFail($id);
+        $case = InvestigationCase::forOrganization(Auth::user()->organization_id)->findOrFail($id);
 
         $validated = $request->validate([
             'url' => 'required|url',
@@ -146,7 +151,7 @@ class CaseController extends Controller
 
     public function updateStatus(Request $request, $id)
     {
-        $case = InvestigationCase::findOrFail($id);
+        $case = InvestigationCase::forOrganization(Auth::user()->organization_id)->findOrFail($id);
         $validated = $request->validate([
             'status' => 'required|in:OPEN,IN_REVIEW,VALIDATED,CLOSED',
             'priority' => 'nullable|in:RENDAH,SEDANG,TINGGI,KRITIS',
@@ -176,7 +181,7 @@ class CaseController extends Controller
 
     public function downloadEvidence(int $id, int $evidenceId)
     {
-        $case = InvestigationCase::findOrFail($id);
+        $case = InvestigationCase::forOrganization(Auth::user()->organization_id)->findOrFail($id);
         $item = \App\Models\EvidenceItem::where('case_id', $case->id)->findOrFail($evidenceId);
 
         if (empty($item->raw_path)) {

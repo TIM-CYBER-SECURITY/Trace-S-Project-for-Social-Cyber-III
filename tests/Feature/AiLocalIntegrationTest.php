@@ -569,8 +569,9 @@ XML;
         ])->assertRedirect();
 
         // API key tersimpan terenkripsi dan tidak pernah muncul plaintext di log
-        $encGoogle = DB::table('app_settings')->where('key', 'ai.google_api_key_enc')->value('value');
-        $encExa = DB::table('app_settings')->where('key', 'ai.exa_api_key_enc')->value('value');
+        $settingsSvc = app(\App\Services\Support\AppSettings::class);
+        $encGoogle = DB::table('app_settings')->where('key', $settingsSvc->orgKey('ai.google_api_key_enc', $admin->organization_id))->value('value');
+        $encExa = DB::table('app_settings')->where('key', $settingsSvc->orgKey('ai.exa_api_key_enc', $admin->organization_id))->value('value');
         $this->assertSame('AIzaSyTestSecretKey999', Crypt::decryptString($encGoogle));
         $this->assertSame('exa-secret-token-777', Crypt::decryptString($encExa));
 

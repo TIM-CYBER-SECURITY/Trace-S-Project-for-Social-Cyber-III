@@ -95,9 +95,6 @@
         <span class="font-mono text-xs font-semibold uppercase tracking-wider">
           {{ $isId ? 'Graf Relasi Penyebaran dalam Dataset' : 'Dataset Spread Relationship Graph' }}
         </span>
-        @if($selectedCase?->is_simulation)
-          <span class="badge badge-warn">{{ $isId ? 'SIMULASI' : 'SIMULATION' }}</span>
-        @endif
       </div>
 
       <div class="relative w-full h-80 panel-subtle overflow-hidden select-none">

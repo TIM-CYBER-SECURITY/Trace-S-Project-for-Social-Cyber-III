@@ -76,29 +76,33 @@ class DashboardController extends Controller
 
     public function index()
     {
-        $narrativesCount = Narrative::count();
-        $criticalCount = ThreatAnalysis::where('threat_level', 'KRITIS')->count();
-        $activeClustersCount = NarrativeCluster::count();
-        $casesCount = InvestigationCase::count();
+        $orgId = Auth::user()->organization_id;
 
-        $negatives = Narrative::where('sentiment', 'NEGATIF')->count();
+        $narrativesCount = Narrative::forOrganization($orgId)->count();
+        $criticalCount = ThreatAnalysis::where('threat_level', 'KRITIS')
+            ->whereHas('case', fn ($q) => $q->forOrganization($orgId))
+            ->count();
+        $activeClustersCount = NarrativeCluster::whereHas('case', fn ($q) => $q->forOrganization($orgId))->count();
+        $casesCount = InvestigationCase::forOrganization($orgId)->count();
+
+        $negatives = Narrative::forOrganization($orgId)->where('sentiment', 'NEGATIF')->count();
         $sentimentRatio = $narrativesCount > 0 ? round(($negatives / $narrativesCount) * 100, 1) : 0.0;
 
-        $narratives = Narrative::with(['case', 'cluster'])
+        $narratives = Narrative::forOrganization($orgId)->with(['case', 'cluster'])
             ->orderByDesc('captured_at')
             ->orderByDesc('id')
             ->take(25)
             ->get();
 
-        $exposureGrid = $this->buildExposureGrid();
-        $trajectory = $this->buildTrajectorySeries(now()->subHours(24), now());
+        $exposureGrid = $this->buildExposureGrid($orgId);
+        $trajectory = $this->buildTrajectorySeries(now()->subHours(24), now(), $orgId);
 
         $connectors = Connector::orderBy('priority')->get();
         $rssFeeds = RssFeed::where('is_active', true)->orderBy('name')->get();
-        $connectedSourcesCount = InvestigationCase::withCount('sources')->get()->sum('sources_count');
-        $recentCases = InvestigationCase::with(['creator', 'analyses'])->latest()->take(5)->get();
-        $hasSimulationData = Narrative::where('is_simulation', true)->exists()
-            || InvestigationCase::where('is_simulation', true)->exists();
+        $connectedSourcesCount = InvestigationCase::forOrganization($orgId)->withCount('sources')->get()->sum('sources_count');
+        $recentCases = InvestigationCase::forOrganization($orgId)->with(['creator', 'analyses'])->latest()->take(5)->get();
+        $hasSimulationData = Narrative::forOrganization($orgId)->where('is_simulation', true)->exists()
+            || InvestigationCase::forOrganization($orgId)->where('is_simulation', true)->exists();
 
         return view('dashboard.index', compact(
             'narrativesCount',
@@ -135,13 +139,20 @@ class DashboardController extends Controller
             ? RssIngestionService::inferSeverity($validated['title'])
             : $validated['severity'];
 
+        $orgId = Auth::user()->organization_id;
+        $scopedCaseId = null;
+        if (!empty($validated['case_id'])) {
+            $scopedCaseId = InvestigationCase::forOrganization($orgId)->findOrFail($validated['case_id'])->id;
+        }
+
         $narrative = Narrative::create([
             'title' => trim($validated['title']),
             'region' => trim($validated['region']),
             'category' => trim($validated['category']),
             'sentiment' => $sentiment,
             'severity' => $severity,
-            'case_id' => $validated['case_id'] ?? null,
+            'case_id' => $scopedCaseId,
+            'organization_id' => $orgId,
             'captured_at' => now(),
             'is_simulation' => false,
         ]);
@@ -150,6 +161,9 @@ class DashboardController extends Controller
             'region' => $narrative->region,
             'severity' => $narrative->severity,
             'sentiment' => $narrative->sentiment,
+            'organization_id' => $orgId,
+            'organization_code' => Auth::user()->organization?->code,
+            'device_code' => \App\Models\User::computeDeviceCode($request->ip(), $request->userAgent()),
         ], Auth::id());
 
         return redirect()->route('early-warning')
@@ -158,8 +172,9 @@ class DashboardController extends Controller
 
     public function escalateNarrative(int $id, AuditLogger $audit)
     {
-        $narrative = Narrative::findOrFail($id);
-        if ($narrative->case_id && ($existing = InvestigationCase::find($narrative->case_id))) {
+        $orgId = Auth::user()->organization_id;
+        $narrative = Narrative::forOrganization($orgId)->findOrFail($id);
+        if ($narrative->case_id && ($existing = InvestigationCase::forOrganization($orgId)->find($narrative->case_id))) {
             return redirect()->route('cases.show', $existing->id)
                 ->with('success', "Narasi sudah terhubung dengan kasus {$existing->case_code}.");
         }
@@ -175,7 +190,8 @@ class DashboardController extends Controller
             'priority' => $priority,
             'description' => "Dieskalasi dari Early Warning (Wilayah: " . ($narrative->region ?: 'Nasional') . ", Sentimen: " . ($narrative->sentiment ?: 'NETRAL') . ").",
             'status' => 'OPEN',
-            'is_simulation' => (bool) $narrative->is_simulation,
+            'is_simulation' => false,
+            'organization_id' => $orgId,
             'created_by' => Auth::id(),
         ]);
 
@@ -254,17 +270,19 @@ class DashboardController extends Controller
 
     public function sentiment()
     {
-        $narrativesCount = Narrative::count();
-        $negatives = Narrative::where('sentiment', 'NEGATIF')->count();
-        $positives = Narrative::where('sentiment', 'POSITIF')->count();
+        $orgId = Auth::user()->organization_id;
+
+        $narrativesCount = Narrative::forOrganization($orgId)->count();
+        $negatives = Narrative::forOrganization($orgId)->where('sentiment', 'NEGATIF')->count();
+        $positives = Narrative::forOrganization($orgId)->where('sentiment', 'POSITIF')->count();
         $neutrals = max(0, $narrativesCount - $negatives - $positives);
 
-        $trajectory = $this->buildTrajectorySeries(now()->subHours(24), now());
-        $tonePatterns = $this->computeLexiconTonePatterns();
+        $trajectory = $this->buildTrajectorySeries(now()->subHours(24), now(), $orgId);
+        $tonePatterns = $this->computeLexiconTonePatterns($orgId);
         $connectors = Connector::orderBy('priority')->get();
-        $recentCases = InvestigationCase::latest()->take(5)->get();
-        $hasSimulationData = Narrative::where('is_simulation', true)->exists()
-            || EvidenceItem::where('is_simulation', true)->exists();
+        $recentCases = InvestigationCase::forOrganization($orgId)->latest()->take(5)->get();
+        $hasSimulationData = Narrative::forOrganization($orgId)->where('is_simulation', true)->exists()
+            || EvidenceItem::where('is_simulation', true)->whereHas('case', fn ($q) => $q->forOrganization($orgId))->exists();
 
         return view('sentiment.index', compact(
             'narrativesCount',
@@ -292,7 +310,9 @@ class DashboardController extends Controller
             default => now()->subHours(24),
         };
 
-        $narrativeQuery = Narrative::where(function ($q) use ($since) {
+        $orgId = Auth::user()->organization_id;
+
+        $narrativeQuery = Narrative::forOrganization($orgId)->where(function ($q) use ($since) {
             $q->where('captured_at', '>=', $since)
                 ->orWhere(function ($q2) use ($since) {
                     $q2->whereNull('captured_at')->where('created_at', '>=', $since);
@@ -304,11 +324,14 @@ class DashboardController extends Controller
         $sentimentRatio = $narrativesCount > 0 ? round(($negatives / $narrativesCount) * 100, 1) : 0.0;
 
         $criticalCount = ThreatAnalysis::where('threat_level', 'KRITIS')
+            ->whereHas('case', fn ($q) => $q->forOrganization($orgId))
             ->where(function ($q) use ($since) {
                 $q->where('analyzed_at', '>=', $since)->orWhere('created_at', '>=', $since);
             })->count();
 
-        $activeClusters = NarrativeCluster::where('created_at', '>=', $since)->count();
+        $activeClusters = NarrativeCluster::whereHas('case', fn ($q) => $q->forOrganization($orgId))
+            ->where('created_at', '>=', $since)
+            ->count();
 
         $rows = (clone $narrativeQuery)
             ->orderByDesc('captured_at')
@@ -339,7 +362,7 @@ class DashboardController extends Controller
                 'sentiment_ratio' => $sentimentRatio,
                 'active_clusters' => $activeClusters,
             ],
-            'trajectory' => $this->buildTrajectorySeries($since, now()),
+            'trajectory' => $this->buildTrajectorySeries($since, now(), $orgId),
             'source_scope' => 'Active Trace-S internal database records',
             'data' => $logs,
         ]);
@@ -349,9 +372,10 @@ class DashboardController extends Controller
      * Mengagregasi data Narrative aktual per wilayah ke Grid Paparan Jaringan netral (tanpa PII).
      * Tidak memproduksi data fiktif bila tabel narratives kosong.
      */
-    private function buildExposureGrid(): array
+    private function buildExposureGrid(?int $orgId = null): array
     {
-        $narratives = Narrative::with('cluster')->orderByDesc('captured_at')->get();
+        $orgId = $orgId ?? Auth::user()?->organization_id;
+        $narratives = Narrative::forOrganization($orgId)->with('cluster')->orderByDesc('captured_at')->get();
         if ($narratives->isEmpty()) {
             return [];
         }
@@ -398,8 +422,9 @@ class DashboardController extends Controller
     /**
      * Menghitung kurva seri waktu 7 bucket dari rekaman Narrative aktual pada jendela waktu [start, end].
      */
-    private function buildTrajectorySeries(Carbon $start, Carbon $end): array
+    private function buildTrajectorySeries(Carbon $start, Carbon $end, ?int $orgId = null): array
     {
+        $orgId = $orgId ?? Auth::user()?->organization_id;
         $buckets = 7;
         $spanSeconds = max($buckets, $end->timestamp - $start->timestamp);
         $stepSeconds = $spanSeconds / ($buckets - 1);
@@ -412,7 +437,7 @@ class DashboardController extends Controller
             $points[$i] = ['total' => 0, 'negative' => 0, 'neutral' => 0, 'positive' => 0];
         }
 
-        $items = Narrative::where(function ($q) use ($start) {
+        $items = Narrative::forOrganization($orgId)->where(function ($q) use ($start) {
             $q->where('captured_at', '>=', $start)
                 ->orWhere(function ($q2) use ($start) {
                     $q2->whereNull('captured_at')->where('created_at', '>=', $start);
@@ -468,10 +493,15 @@ class DashboardController extends Controller
     /**
      * Menghitung distribusi pola bahasa berbasis Leksikon Indonesia atas korpus Narrative & EvidenceItem aktual.
      */
-    private function computeLexiconTonePatterns(): array
+    private function computeLexiconTonePatterns(?int $orgId = null): array
     {
-        $texts = Narrative::pluck('title')
-            ->merge(EvidenceItem::whereNotNull('extracted_text')->pluck('extracted_text'))
+        $orgId = $orgId ?? Auth::user()?->organization_id;
+        $texts = Narrative::forOrganization($orgId)->pluck('title')
+            ->merge(
+                EvidenceItem::whereNotNull('extracted_text')
+                    ->whereHas('case', fn ($q) => $q->forOrganization($orgId))
+                    ->pluck('extracted_text')
+            )
             ->filter()
             ->values();
 

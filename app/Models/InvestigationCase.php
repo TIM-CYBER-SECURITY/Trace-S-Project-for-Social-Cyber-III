@@ -2,18 +2,26 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToOrganizationGroup;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class InvestigationCase extends Model
 {
+    use BelongsToOrganizationGroup;
+
     protected $table = 'cases';
     protected $guarded = [];
 
     protected $casts = ['is_simulation' => 'boolean'];
 
     public function creator(): BelongsTo { return $this->belongsTo(User::class, 'created_by'); }
+
+    protected function resolveDefaultOrganizationId(): ?int
+    {
+        return $this->created_by ? User::find($this->created_by)?->organization_id : null;
+    }
     public function evidence(): HasMany { return $this->hasMany(EvidenceItem::class, 'case_id'); }
     public function sources(): HasMany { return $this->hasMany(Source::class, 'case_id'); }
     public function analyses(): HasMany { return $this->hasMany(ThreatAnalysis::class, 'case_id'); }

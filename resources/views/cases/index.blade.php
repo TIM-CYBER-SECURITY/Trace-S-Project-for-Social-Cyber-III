@@ -59,9 +59,6 @@
           <tr>
             <td class="font-mono font-semibold whitespace-nowrap">
               <a href="{{ route('cases.show', $c->id) }}" class="text-[var(--accent-olive)] dark:text-[#C5B89C] hover:underline">{{ $c->case_code }}</a>
-              @if($c->is_simulation)
-                <span class="badge badge-warn block mt-1 w-fit">SIMULATION</span>
-              @endif
             </td>
             <td class="max-w-md">
               <a href="{{ route('cases.show', $c->id) }}" class="font-semibold hover:underline block truncate">{{ $c->title }}</a>

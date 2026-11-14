@@ -17,11 +17,14 @@
   $isId = app()->getLocale() === 'id';
   $user = Auth::guard('web')->user();
   $settings = app(\App\Services\Support\AppSettings::class);
-  $classificationLabel = $settings->get('classification_label');
+  $orgLabel = $user?->organization?->name;
+  $orgCodeLabel = $user?->organization?->code;
+  $classificationLabel = $orgLabel
+      ? strtoupper($orgLabel . ($orgCodeLabel ? " [KODE: {$orgCodeLabel}]" : '') . ' // TRACE-S COGNITIVE DEFENSE')
+      : $settings->get('classification_label');
   $systemNotice = $settings->get('system_notice');
   $aiStatus = app(\App\Services\Ai\AiManager::class)->status();
-  $driverUpper = strtoupper($aiStatus['driver'] ?? 'MOCK');
-  $isSimDriver = (bool) ($aiStatus['is_simulation'] ?? true);
+  $driverUpper = strtoupper($aiStatus['driver'] ?? 'OPENAI_COMPATIBLE');
   $serverOnline = ($aiStatus['status'] ?? 'OFFLINE') === 'ONLINE';
   $unreadNotifs = $user ? \App\Models\AppNotification::where('recipient_id', $user->id)->whereNull('read_at')->count() : 0;
 @endphp
@@ -59,37 +62,44 @@
       </a>
     </div>
 
-    <div class="hidden xl:flex items-center gap-4 font-mono text-[11px]">
-      <div class="flex items-center gap-1.5 text-[#C5B89C]" title="Coordinated Universal Time">
+    <div class="hidden md:flex items-center gap-3 font-mono text-[11px]">
+      <div class="flex items-center gap-1.5 text-[#C5B89C]" title="{{ $isId ? 'Waktu Real-Time & Pemilih Zona Waktu' : 'Real-Time Clock & Timezone Selector' }}">
         <i class="fa-regular fa-clock text-[#8C9690]"></i>
-        <span id="utc-clock">00:00:00 — 01 JAN 2026 UTC</span>
+        <span id="utc-clock" class="tabular-nums">00:00:00 — 01 JAN 2026</span>
+        <select id="trace-tz-select" aria-label="{{ $isId ? 'Pilih zona waktu lokasi' : 'Select timezone location' }}"
+                class="bg-[#18201B] border border-[#3B4940] text-[#F2F1EC] text-[10px] font-mono px-1.5 py-0.5 rounded-sm focus:outline-none focus:border-[#B9AA88] cursor-pointer">
+          <option value="AUTO">AUTO (Lokal)</option>
+          <option value="Asia/Jakarta">WIB · Jakarta</option>
+          <option value="Asia/Makassar">WITA · Makassar</option>
+          <option value="Asia/Jayapura">WIT · Jayapura</option>
+          <option value="UTC">UTC · Coordinated</option>
+        </select>
       </div>
 
       <span class="text-[#46514C]">|</span>
 
       @php
-        $aiShortModel = !empty($aiStatus['active_model']) ? \Illuminate\Support\Str::limit($aiStatus['active_model'], 26) : null;
+        $rawActiveModel = trim((string) preg_replace('/\s*\(?\s*(SIMULASI|SIMULATION)\s*\)?/i', '', (string) ($aiStatus['active_model'] ?? '')));
+        $aiShortModel = $rawActiveModel !== '' ? \Illuminate\Support\Str::limit($rawActiveModel, 24) : null;
         $aiRamUsedGb = $aiStatus['ai_ram_used_gb'] ?? null;
       @endphp
-      <a href="{{ $user && $user->hasPermission('ai.manage') ? route('admin.ai.index') : route('scanner.index') }}"
-         class="flex items-center gap-1.5 px-2.5 py-1 rounded-sm bg-[#18201B] border border-[#3B4940] hover:border-[#B9AA88] text-[#F2F1EC]"
-         title="AI Driver: {{ $driverUpper }}{{ $aiShortModel ? ' • Model: ' . $aiStatus['active_model'] : '' }}">
-        <span class="w-2 h-2 rounded-full {{ $isSimDriver ? 'bg-[#B9AA88]' : ($serverOnline ? 'bg-[#688A4D]' : 'bg-[#991B1B]') }}"></span>
+      <a id="topbar-ai-pill"
+         @auth data-telemetry-url="{{ route('api.telemetry.live') }}" @endauth
+         href="{{ $user && $user->hasPermission('ai.manage') ? route('admin.ai.index') : route('scanner.index') }}"
+         class="flex items-center gap-1.5 px-2.5 py-1 rounded-sm bg-[#18201B] border border-[#3B4940] hover:border-[#B9AA88] text-[#F2F1EC] transition-colors"
+         title="AI Driver: {{ $driverUpper }}{{ $aiShortModel ? ' • Model: ' . $rawActiveModel : '' }}">
+        <span id="topbar-ai-dot" class="w-2 h-2 rounded-full trace-live-dot {{ $serverOnline ? 'bg-[#688A4D]' : 'bg-[#991B1B]' }}"></span>
         <span class="text-[10px] tracking-wider uppercase tabular-nums">
-          AI: <strong>{{ !empty($aiStatus['cloud_configured']) ? 'HYBRID (' . strtoupper((string) ($aiStatus['cloud_provider'] ?? 'CLOUD')) . ' -> ' . $driverUpper . ')' : $driverUpper }}</strong>
-          @if($aiShortModel && !$isSimDriver)
-            <span class="text-[#C7C3B2] font-normal normal-case">&bull; {{ $aiShortModel }}</span>
+          AI: <strong id="topbar-ai-driver">{{ !empty($aiStatus['cloud_configured']) ? 'HYBRID (' . strtoupper((string) ($aiStatus['cloud_provider'] ?? 'CLOUD')) . ' -> ' . $driverUpper . ')' : $driverUpper }}</strong>
+          @if($aiShortModel)
+            <span id="topbar-ai-model" class="text-[#C7C3B2] font-normal normal-case">&bull; {{ $aiShortModel }}</span>
           @endif
-          @if(!$isSimDriver && $aiRamUsedGb !== null && $aiRamUsedGb > 0)
-            <span class="text-[#B9AA88] font-normal">&bull; {{ number_format((float) $aiRamUsedGb, 2) }} GB RAM</span>
-          @endif
-          @if($isSimDriver)
-            ({{ $isId ? 'SIMULASI' : 'SIMULATION' }})
-          @elseif($serverOnline)
-            (ACTIVE)
-          @else
-            (OFFLINE)
-          @endif
+          <span id="topbar-ai-ram" class="text-[#B9AA88] font-normal">
+            @if($aiRamUsedGb !== null && $aiRamUsedGb > 0)
+              &bull; {{ number_format((float) $aiRamUsedGb, 2) }} GB AI RAM
+            @endif
+          </span>
+          <span id="topbar-ai-state">({{ $serverOnline ? 'ACTIVE' : 'OFFLINE' }})</span>
         </span>
       </a>
     </div>
@@ -377,7 +387,7 @@
           </div>
           <div class="text-[11px] text-[#F2F2EC] truncate">{{ $user->trace_id ?? 'SYSTEM' }}</div>
           <div class="text-[10px] text-[#8C9690] font-sans truncate">
-            {{ $user->organization?->name ?? 'TRACE-S Command' }}
+            {{ $user->organization?->name ?? 'TRACE-S Command' }}@if($user->organization?->code) &middot; <span class="text-[#C5B89C] font-mono">{{ $user->organization->code }}</span>@endif
           </div>
         </div>
       </div>

@@ -52,9 +52,7 @@
       <div class="flex flex-wrap items-center gap-2 text-[11px]">
         <span class="badge badge-neutral">ALLOWLIST: extract_claims, compare_numeric_entities, calculate_text_similarity, analyze_spread, analyze_source_relationships, cluster_narratives, generate_case_summary</span>
         <span class="badge badge-neutral">DRIVER: {{ $aiDriver }}</span>
-        @if(!empty($aiStatus['is_simulation']))
-          <span class="badge badge-warn">{{ $isId ? 'SIMULASI' : 'SIMULATION' }}</span>
-        @elseif(($aiStatus['status'] ?? 'OFFLINE') === 'ONLINE')
+        @if(($aiStatus['status'] ?? 'OFFLINE') === 'ONLINE' || !empty($aiStatus['cloud_configured']))
           <span class="badge badge-olive">ONLINE</span>
         @else
           <span class="badge badge-danger">{{ $aiStatus['status'] ?? 'OFFLINE' }}</span>
@@ -209,12 +207,11 @@
           if (msg.tool_calls && msg.tool_calls.length) {
             toolsHtml = `<div class="panel-subtle p-2 text-[11px] font-mono space-y-0.5"><div class="label-meta">ALLOWLISTED TOOL EXECUTION:</div>${msg.tool_calls.map(tc => `<div>&middot; Tool: <b>${escapeHtml(tc && tc.tool ? tc.tool : String(tc))}</b></div>`).join('')}</div>`;
           }
-          const simTag = msg.is_simulation ? `<span class="badge badge-warn">SIMULATION</span>` : '';
           assistDiv.innerHTML = `
             <div class="panel p-3.5 max-w-2xl border-l-4 border-l-[#46514C] space-y-2">
               <div class="flex items-center justify-between gap-2 text-[11px] font-mono border-b border-[var(--border-color)] pb-1">
-                <span class="font-semibold">AI ANALYST CONSOLE ${simTag}</span>
-                <span class="text-[var(--text-muted)]">${escapeHtml(msg.created_at || '')} UTC</span>
+                <span class="font-semibold">AI ANALYST CONSOLE</span>
+                <span class="text-[var(--text-muted)]">${escapeHtml(msg.created_at || '')}</span>
               </div>
               <p class="leading-relaxed whitespace-pre-wrap">${escapeHtml(msg.content)}</p>
               ${sourcesHtml}

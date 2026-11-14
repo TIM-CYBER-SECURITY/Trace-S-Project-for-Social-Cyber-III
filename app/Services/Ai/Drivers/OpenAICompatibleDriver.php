@@ -8,7 +8,7 @@ use App\Services\Ai\Support\JsonExtractor;
 
 /**
  * OpenAICompatibleDriver: mendukung LM Studio (termasuk /api/v0/models & /v1/chat/completions),
- * vLLM, llama.cpp server, OpenWebUI, serta node AI Workstation LAN/Intranet (mis. PUSSIBERAD Qwen3-27B).
+ * vLLM, llama.cpp server, OpenWebUI, serta node AI Workstation LAN/Intranet (mis. Qwen3-27B).
  * Toleran terhadap blok <think>...</think> dari model reasoning Qwen3/Claude-Opus-Distill.
  */
 class OpenAICompatibleDriver extends OllamaDriver

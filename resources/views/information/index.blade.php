@@ -73,7 +73,6 @@
             <td class="font-mono text-xs"><a href="{{ route('records.show', $r->record_code) }}" class="font-bold text-[#586B47] hover:underline">{{ $r->record_code }}</a></td>
             <td class="text-xs">
               <strong>{{ $r->title }}</strong>
-              @if($r->is_simulation)<span class="badge badge-warn ml-1">SIMULASI</span>@endif
             </td>
             <td class="font-mono text-xs">{{ config('trace.record_categories.' . $r->category, $r->category) }}</td>
             <td class="font-mono text-xs">{{ $r->creator?->trace_id ?? '-' }}</td>

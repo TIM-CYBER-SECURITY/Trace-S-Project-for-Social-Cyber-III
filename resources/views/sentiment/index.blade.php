@@ -21,9 +21,6 @@
         <h1 class="text-lg font-semibold tracking-tight">
           {{ $isId ? 'Dasbor Analisis Sentimen & Pola Bahasa' : 'Sentiment & Linguistic Polarity Dashboard' }}
         </h1>
-        @if($hasSimulationData)
-          <span class="badge badge-warn">{{ $isId ? 'SIMULASI' : 'SIMULATION' }}</span>
-        @endif
       </div>
       <p class="text-xs text-[var(--text-muted)] mt-0.5">
         {{ $isId
@@ -214,13 +211,13 @@
           <tr>
             <td class="font-medium">{{ $conn->name }}</td>
             <td>
-              <span class="badge {{ $conn->status === 'ACTIVE' ? 'badge-olive' : ($conn->status === 'SIMULASI' ? 'badge-warn' : 'badge-neutral') }}">
+              <span class="badge {{ $conn->status === 'ACTIVE' ? 'badge-olive' : 'badge-neutral' }}">
                 {{ $conn->status }}
               </span>
             </td>
             <td class="text-xs text-[var(--text-muted)]">{{ $conn->description }}</td>
             <td class="font-mono text-[var(--text-muted)]">
-              {{ $conn->status === 'NOT CONFIGURED' ? '—' : ($conn->status === 'SIMULASI' ? 'SIMULASI' : 'OK') }}
+              {{ $conn->status === 'NOT CONFIGURED' ? '—' : 'OK' }}
             </td>
           </tr>
           @endforeach

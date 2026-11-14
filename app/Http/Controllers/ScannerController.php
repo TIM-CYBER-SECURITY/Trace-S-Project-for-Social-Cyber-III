@@ -48,12 +48,15 @@ class ScannerController extends Controller
 
     public function index(Request $request)
     {
-        $cases = InvestigationCase::with('evidence')->latest()->get();
+        $orgId = Auth::user()->organization_id;
+        $cases = InvestigationCase::forOrganization($orgId)->with('evidence')->latest()->get();
         $selectedCase = null;
         $caseId = $request->query('case_id');
 
         if ($caseId && $caseId !== 'auto') {
-            $selectedCase = InvestigationCase::with(['evidence.source', 'sources', 'analyses.reviews.user', 'reports'])->find($caseId);
+            $selectedCase = InvestigationCase::forOrganization($orgId)
+                ->with(['evidence.source', 'sources', 'analyses.reviews.user', 'reports'])
+                ->find($caseId);
         } elseif ($cases->isNotEmpty() && $caseId !== 'auto') {
             $selectedCase = $cases->first();
         }
@@ -169,6 +172,8 @@ class ScannerController extends Controller
         ];
 
         // 1. Tentukan atau buat Kasus Investigasi otomatis bila case_id == 'auto' atau kosong
+        $orgId = Auth::user()->organization_id;
+        $deviceCode = \App\Models\User::computeDeviceCode($request->ip(), $request->userAgent());
         $caseIdInput = trim((string) ($validated['case_id'] ?? 'auto'));
         if ($caseIdInput === 'auto' || $caseIdInput === '') {
             $autoTitle = Str::limit(preg_replace('/\s+/', ' ', strip_tags($rawInput)), 90);
@@ -180,15 +185,19 @@ class ScannerController extends Controller
                 'priority' => 'SEDANG',
                 'status' => 'OPEN',
                 'is_simulation' => $this->ai->isSimulation(),
+                'organization_id' => $orgId,
                 'created_by' => Auth::id(),
             ]);
             $this->audit->log('CASE_CREATED', $case, [
                 'case_code' => $case->case_code,
                 'auto_created' => true,
+                'organization_id' => $orgId,
+                'organization_code' => Auth::user()->organization?->code,
+                'device_code' => $deviceCode,
             ]);
         } else {
             $request->validate(['case_id' => 'exists:cases,id']);
-            $case = InvestigationCase::with('evidence.source')->findOrFail($caseIdInput);
+            $case = InvestigationCase::forOrganization($orgId)->with('evidence.source')->findOrFail($caseIdInput);
         }
 
         // 2. Deteksi URL/Link eksplisit atau di dalam teks & akuisisi bila memungkinkan
@@ -402,6 +411,9 @@ class ScannerController extends Controller
                 'highlights_count' => count($highlights),
                 'cross_matches_count' => count($mergedMatches),
                 'is_simulation' => $threat->is_simulation,
+                'organization_id' => $orgId,
+                'organization_code' => Auth::user()->organization?->code,
+                'device_code' => $deviceCode,
             ]);
 
             if ($request->wantsJson()) {
@@ -428,7 +440,9 @@ class ScannerController extends Controller
      */
     public function exportAnalysisPdf($id)
     {
-        $analysis = ThreatAnalysis::with('case')->findOrFail($id);
+        $analysis = ThreatAnalysis::with('case')
+            ->whereHas('case', fn ($q) => $q->forOrganization(Auth::user()->organization_id))
+            ->findOrFail($id);
         $report = $this->reports->generate($analysis->case, Auth::user());
         return $this->reports->exportPdf($report);
     }
@@ -438,7 +452,9 @@ class ScannerController extends Controller
      */
     public function exportAnalysisSpreadsheet($id)
     {
-        $analysis = ThreatAnalysis::with('case')->findOrFail($id);
+        $analysis = ThreatAnalysis::with('case')
+            ->whereHas('case', fn ($q) => $q->forOrganization(Auth::user()->organization_id))
+            ->findOrFail($id);
         $report = $this->reports->generate($analysis->case, Auth::user());
         return $this->reports->exportSpreadsheet($report);
     }
@@ -544,8 +560,11 @@ class ScannerController extends Controller
             return $hits >= min(2, count($meaningfulTokens));
         };
 
+        $orgId = $activeCase->organization_id ?? Auth::user()?->organization_id;
+
         // 1. Bukti di berbagai kasus & platform (Web, Sosial Media, Forum, Referensi)
         $evidences = EvidenceItem::with('case:id,case_code')
+            ->whereHas('case', fn ($q) => $q->forOrganization($orgId))
             ->whereNotNull('extracted_text')
             ->latest()
             ->take(80)
@@ -619,6 +638,7 @@ class ScannerController extends Controller
         // 3. Direktori Informasi Terverifikasi (InformationRecord Approved)
         $records = InformationRecord::with(['versions' => fn ($q) => $q->limit(1)])
             ->where('status', 'APPROVED')
+            ->when($orgId, fn ($q) => $q->where(fn ($sub) => $sub->where('organization_id', $orgId)->orWhereNull('organization_id')))
             ->latest()
             ->take(50)
             ->get();
@@ -650,7 +670,7 @@ class ScannerController extends Controller
 
         // 4. Pantauan Narasi Sosial Media (Early Warning)
         if ($meaningfulTokens !== []) {
-            $narratives = Narrative::latest()->take(60)->get();
+            $narratives = Narrative::forOrganization($orgId)->latest()->take(60)->get();
             $scanned += $narratives->count();
             foreach ($narratives as $nar) {
                 $sim = $this->lexical->compare($queryText, (string) $nar->title);
@@ -695,8 +715,9 @@ class ScannerController extends Controller
             'compared_id' => 'required|exists:evidence_items,id|different:reference_id',
         ]);
 
-        $ref = EvidenceItem::findOrFail($validated['reference_id']);
-        $cmp = EvidenceItem::findOrFail($validated['compared_id']);
+        $orgId = Auth::user()->organization_id;
+        $ref = EvidenceItem::whereHas('case', fn ($q) => $q->forOrganization($orgId))->findOrFail($validated['reference_id']);
+        $cmp = EvidenceItem::whereHas('case', fn ($q) => $q->forOrganization($orgId))->findOrFail($validated['compared_id']);
 
         $this->authenticity->compare($ref, $cmp, Auth::user(), true);
 
@@ -713,7 +734,7 @@ class ScannerController extends Controller
             'case_id' => 'required|exists:cases,id',
         ]);
 
-        $case = InvestigationCase::findOrFail($validated['case_id']);
+        $case = InvestigationCase::forOrganization(Auth::user()->organization_id)->findOrFail($validated['case_id']);
         $this->crossSource->run($case, Auth::user(), true);
 
         return redirect()->route('scanner.index', ['case_id' => $case->id, 'tab' => 'crosssource'])
@@ -732,7 +753,8 @@ class ScannerController extends Controller
             'reclassified_status' => 'nullable|string',
         ]);
 
-        $analysis = ThreatAnalysis::findOrFail($validated['analysis_id']);
+        $analysis = ThreatAnalysis::whereHas('case', fn ($q) => $q->forOrganization(Auth::user()->organization_id))
+            ->findOrFail($validated['analysis_id']);
         $prevResult = $analysis->result;
         $finalResult = $prevResult;
 

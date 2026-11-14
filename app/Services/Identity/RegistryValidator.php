@@ -146,6 +146,9 @@ class RegistryValidator
         if (isset($rule['minLength']) && mb_strlen($value) < (int) $rule['minLength']) {
             $msgs[] = "{$key}: minimal {$rule['minLength']} karakter.";
         }
+        if (isset($rule['maxLength']) && mb_strlen($value) > (int) $rule['maxLength']) {
+            $msgs[] = "{$key}: maksimal {$rule['maxLength']} karakter.";
+        }
         if (($rule['format'] ?? null) === 'date-time' && ! self::isDateTime($value)) {
             $msgs[] = "{$key}: bukan date-time RFC 3339 yang valid.";
         }

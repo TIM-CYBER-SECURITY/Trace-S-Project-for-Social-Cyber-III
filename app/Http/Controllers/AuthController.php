@@ -66,9 +66,21 @@ class AuthController extends Controller
         RateLimiter::clear($key);
         Auth::guard('web')->login($user, false);
         $request->session()->regenerate();
-        $user->forceFill(['last_login_at' => now()])->save();
+        $deviceCode = User::computeDeviceCode($request->ip(), $request->userAgent());
+        $user->forceFill([
+            'last_login_at' => now(),
+            'last_device_code' => $deviceCode,
+            'last_login_ip' => (string) $request->ip(),
+            'last_user_agent' => mb_substr((string) $request->userAgent(), 0, 255),
+        ])->save();
 
-        $this->audit->log('LOGIN_SUCCESS', $user, ['role' => $user->roleLabel()], $user->id);
+        $this->audit->log('LOGIN_SUCCESS', $user, [
+            'role' => $user->roleLabel(),
+            'device_code' => $deviceCode,
+            'organization_id' => $user->organization_id,
+            'organization_code' => $user->organization?->code,
+            'organization_name' => $user->organization?->name,
+        ], $user->id);
 
         if ($user->must_change_password) {
             return redirect()->route('password.change')->with('warning', 'Anda wajib mengganti kata sandi sementara sebelum melanjutkan.');
@@ -81,7 +93,11 @@ class AuthController extends Controller
     {
         $user = Auth::guard('web')->user();
         if ($user) {
-            $this->audit->log('LOGOUT', $user, [], $user->id);
+            $this->audit->log('LOGOUT', $user, [
+                'device_code' => User::computeDeviceCode($request->ip(), $request->userAgent()),
+                'organization_id' => $user->organization_id,
+                'organization_code' => $user->organization?->code,
+            ], $user->id);
         }
         Auth::guard('web')->logout();
         $request->session()->invalidate();

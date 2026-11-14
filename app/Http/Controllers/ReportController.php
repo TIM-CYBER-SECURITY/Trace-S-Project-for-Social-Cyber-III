@@ -19,15 +19,18 @@ class ReportController extends Controller
 
     public function index(Request $request)
     {
+        $orgId = Auth::user()->organization_id;
         $statusFilter = $request->query('validation_status');
-        $query = Report::with(['case.analyses', 'case.evidence', 'author'])->latest();
+        $query = Report::with(['case.analyses', 'case.evidence', 'author'])
+            ->whereHas('case', fn ($q) => $q->forOrganization($orgId))
+            ->latest();
 
         if ($statusFilter && in_array($statusFilter, ['VALIDATED', 'PENDING REVIEW', 'REJECTED', 'RECLASSIFIED'], true)) {
             $query->whereHas('case.analyses', fn ($q) => $q->where('validation_status', $statusFilter));
         }
 
         $reports = $query->paginate(15);
-        $cases = InvestigationCase::with(['evidence', 'analyses'])->latest()->get();
+        $cases = InvestigationCase::forOrganization($orgId)->with(['evidence', 'analyses'])->latest()->get();
 
         return view('reports.index', compact('reports', 'cases', 'statusFilter'));
     }
@@ -38,7 +41,7 @@ class ReportController extends Controller
             'case_id' => 'required|exists:cases,id',
         ]);
 
-        $case = InvestigationCase::findOrFail($validated['case_id']);
+        $case = InvestigationCase::forOrganization(Auth::user()->organization_id)->findOrFail($validated['case_id']);
         $report = $this->generator->generate($case, Auth::user());
 
         return redirect()->route('reports.show', $report->id)
@@ -47,7 +50,10 @@ class ReportController extends Controller
 
     public function show($id)
     {
-        $report = Report::with(['case.evidence', 'author'])->findOrFail($id);
+        $orgId = Auth::user()->organization_id;
+        $report = Report::with(['case.evidence', 'author'])
+            ->whereHas('case', fn ($q) => $q->forOrganization($orgId))
+            ->findOrFail($id);
 
         $this->audit->log('REPORT_VIEWED', $report, [
             'report_code' => $report->report_code,
@@ -58,13 +64,19 @@ class ReportController extends Controller
 
     public function exportPdf($id)
     {
-        $report = Report::with(['case.evidence', 'author'])->findOrFail($id);
+        $orgId = Auth::user()->organization_id;
+        $report = Report::with(['case.evidence', 'author'])
+            ->whereHas('case', fn ($q) => $q->forOrganization($orgId))
+            ->findOrFail($id);
         return $this->generator->exportPdf($report);
     }
 
     public function exportSpreadsheet($id)
     {
-        $report = Report::with(['case.evidence', 'author'])->findOrFail($id);
+        $orgId = Auth::user()->organization_id;
+        $report = Report::with(['case.evidence', 'author'])
+            ->whereHas('case', fn ($q) => $q->forOrganization($orgId))
+            ->findOrFail($id);
         return $this->generator->exportSpreadsheet($report);
     }
 }

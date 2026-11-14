@@ -19,12 +19,13 @@ class SpreadAnalysisController extends Controller
 
     public function index(Request $request)
     {
-        $cases = InvestigationCase::with('actors')->latest()->get();
+        $orgId = Auth::user()->organization_id;
+        $cases = InvestigationCase::forOrganization($orgId)->with('actors')->latest()->get();
         $selectedCase = null;
         $caseId = $request->query('case_id');
 
         if ($caseId) {
-            $selectedCase = InvestigationCase::with(['actors', 'clusters.items.evidence', 'evidence'])->find($caseId);
+            $selectedCase = InvestigationCase::forOrganization($orgId)->with(['actors', 'clusters.items.evidence', 'evidence'])->find($caseId);
         } elseif ($cases->isNotEmpty()) {
             $selectedCase = $cases->first();
         }
@@ -53,7 +54,7 @@ class SpreadAnalysisController extends Controller
             'case_id' => 'required|exists:cases,id',
         ]);
 
-        $case = InvestigationCase::with(['evidence', 'actors'])->findOrFail($validated['case_id']);
+        $case = InvestigationCase::forOrganization(Auth::user()->organization_id)->with(['evidence', 'actors'])->findOrFail($validated['case_id']);
         $res = $this->clusterer->run($case, Auth::user(), true);
 
         // Turunkan observasi handle publik bila belum ada rekaman aktor dari dataset POST/SUBJECT
@@ -119,7 +120,7 @@ class SpreadAnalysisController extends Controller
             'is_earliest_in_dataset' => 'nullable|boolean',
         ]);
 
-        $case = InvestigationCase::findOrFail($validated['case_id']);
+        $case = InvestigationCase::forOrganization(Auth::user()->organization_id)->findOrFail($validated['case_id']);
         $isEarliest = (bool) ($validated['is_earliest_in_dataset'] ?? false);
         if ($isEarliest) {
             ThreatActor::where('case_id', $case->id)->update(['is_earliest_in_dataset' => false]);

@@ -64,7 +64,7 @@ class RecordService
             ]);
             $r->update(['record_code' => sprintf('INF-%s-%06d', now()->format('Y'), $r->id)]);
             $this->addVersion($r, $user, 1, $d, $d['change_reason'] ?? 'Draft awal');
-            $this->audit->log('RECORD_CREATED', $r, ['code' => $r->record_code], $user->id);
+            $this->audit->log('RECORD_CREATED', $r, $this->actorMeta($user, ['code' => $r->record_code]), $user->id);
             return $r;
         });
     }
@@ -84,7 +84,7 @@ class RecordService
                 'title' => $d['title'], 'description' => $d['description'] ?? null, 'category' => $d['category'],
                 'current_version' => $n, 'status' => $fromApproved ? 'DRAFT' : $r->status,
             ]);
-            $this->audit->log('RECORD_REVISED', $r, ['code' => $r->record_code, 'version' => $n, 'from_approved' => $fromApproved], $user->id);
+            $this->audit->log('RECORD_REVISED', $r, $this->actorMeta($user, ['code' => $r->record_code, 'version' => $n, 'from_approved' => $fromApproved]), $user->id);
             return $r->refresh();
         });
     }
@@ -97,7 +97,7 @@ class RecordService
         $this->assertStatus($r, ['DRAFT', 'REVISION REQUIRED']);
 
         $r->update(['status' => 'SUBMITTED', 'submitted_at' => now()]);
-        $this->audit->log('RECORD_SUBMITTED', $r, ['code' => $r->record_code, 'version' => $r->current_version], $user->id);
+        $this->audit->log('RECORD_SUBMITTED', $r, $this->actorMeta($user, ['code' => $r->record_code, 'version' => $r->current_version]), $user->id);
         $this->notifier->notify($user, 'SUBMISSION', 'Pengajuan diterima', "{$r->record_code} (v{$r->current_version}) telah diajukan untuk review.", route('records.show', $r->record_code));
         $this->notifier->notify(
             $this->notifier->usersWithPermission('info.review', $r->organization_id)->where('id', '!=', $user->id),
@@ -111,7 +111,7 @@ class RecordService
         $this->assertStatus($r, ['SUBMITTED']);
         $r->update(['status' => 'UNDER REVIEW', 'reviewed_by' => $admin->id]);
         $this->review($r, $admin, 'UNDER REVIEW', null);
-        $this->audit->log('RECORD_UNDER_REVIEW', $r, ['code' => $r->record_code], $admin->id);
+        $this->audit->log('RECORD_UNDER_REVIEW', $r, $this->actorMeta($admin, ['code' => $r->record_code]), $admin->id);
     }
 
     public function decide(User $admin, InformationRecord $r, string $decision, ?string $comment): void
@@ -132,7 +132,7 @@ class RecordService
             }
             $r->update($attrs);
             $this->review($r, $admin, $decision, $comment);
-            $this->audit->log('RECORD_' . str_replace(' ', '_', $decision), $r, ['code' => $r->record_code, 'version' => $r->current_version], $admin->id);
+            $this->audit->log('RECORD_' . str_replace(' ', '_', $decision), $r, $this->actorMeta($admin, ['code' => $r->record_code, 'version' => $r->current_version]), $admin->id);
         });
 
         $creator = User::find($r->created_by);
@@ -198,6 +198,16 @@ class RecordService
         if ($r->created_by === $admin->id) {
             throw new InvalidArgumentException('Pemisahan tugas: Anda tidak dapat mereview/menyetujui pengajuan sendiri.');
         }
+    }
+
+    /** Enrich record audit logs with instansi and device metadata. */
+    private function actorMeta(User $actor, array $extra = []): array
+    {
+        return array_merge([
+            'organization_id' => $actor->organization_id,
+            'organization_code' => $actor->organization?->code,
+            'device_code' => User::computeDeviceCode(request()?->ip(), request()?->userAgent()),
+        ], $extra);
     }
 
     private function assertStatus(InformationRecord $r, array $allowed): void

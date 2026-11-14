@@ -13,7 +13,7 @@ return [
     'name' => 'TRACE-S',
     'version' => '2.0.0',
     'tagline' => 'COGNITIVE DEFENSE INITIATIVE',
-    'classification_label' => env('TRACE_CLASSIFICATION_LABEL', 'PROTOTIPE - TIDAK UNTUK DISTRIBUSI'),
+    'classification_label' => env('TRACE_CLASSIFICATION_LABEL', 'OPERASIONAL TERPADU // TRACE-S COGNITIVE DEFENSE'),
 
     // ------------------------------------------------------------------
     // RBAC: kemampuan => peran yang diizinkan

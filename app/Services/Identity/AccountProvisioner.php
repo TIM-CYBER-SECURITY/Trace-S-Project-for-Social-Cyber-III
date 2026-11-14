@@ -96,7 +96,27 @@ class AccountProvisioner
                 if (! $role) {
                     throw new RuntimeException('Peran belum tersedia di database. Jalankan seeder RBAC (php artisan db:seed --class=RbacSeeder).');
                 }
-                $org = Organization::firstOrCreate(['name' => $entry['organization']], ['status' => 'ACTIVE']);
+                $orgCode = isset($entry['organization_code']) && trim((string) $entry['organization_code']) !== ''
+                    ? trim((string) $entry['organization_code'])
+                    : null;
+
+                $org = null;
+                if ($orgCode !== null) {
+                    $org = Organization::where('code', $orgCode)->first();
+                }
+                if (! $org) {
+                    $org = Organization::where('name', $entry['organization'])->first();
+                }
+                if (! $org) {
+                    $resolvedCode = $orgCode ?? ('ORG-' . strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', (string) $entry['organization']) ?: 'INS', 0, 4)) . '#' . str_pad((string) (Organization::count() + 1), 2, '0', STR_PAD_LEFT));
+                    $org = Organization::create([
+                        'name' => $entry['organization'],
+                        'code' => $resolvedCode,
+                        'status' => 'ACTIVE',
+                    ]);
+                } elseif ($orgCode !== null && empty($org->code)) {
+                    $org->update(['code' => $orgCode]);
+                }
                 $unit = ! empty($entry['unit'])
                     ? Unit::firstOrCreate(['organization_id' => $org->id, 'name' => $entry['unit']], ['status' => 'ACTIVE'])
                     : null;

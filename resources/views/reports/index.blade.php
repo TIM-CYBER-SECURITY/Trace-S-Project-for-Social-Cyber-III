@@ -72,9 +72,6 @@
           <tr>
             <td class="font-mono font-semibold whitespace-nowrap">
               <a href="{{ route('reports.show', $rep->id) }}" class="text-[var(--accent-olive)] dark:text-[#C5B89C] hover:underline">{{ $rep->report_code }}</a>
-              @if($rep->is_simulation)
-                <span class="badge badge-warn block mt-1 w-fit">SIMULATION</span>
-              @endif
             </td>
             <td class="font-mono whitespace-nowrap">
               <a href="{{ route('cases.show', $rep->case_id) }}" class="hover:underline">{{ $rep->case?->case_code ?? '-' }}</a>

@@ -10,7 +10,10 @@
       {{ $isId ? 'Dashboard Tata Kelola Administrator' : 'Administrator Governance Dashboard' }}
     </h1>
     <p class="text-xs text-[var(--text-muted)] mt-0.5">
-      {{ $isId ? 'Organisasi:' : 'Organization:' }} <strong>{{ $org?->name ?? '-' }}</strong>
+      {{ $isId ? 'Instansi:' : 'Organization:' }} <strong>{{ $org?->name ?? '-' }}</strong>
+      @if($org?->code)
+        <span class="badge badge-sand ml-1">KODE: {{ $org->code }}</span>
+      @endif
     </p>
   </div>
   <div class="flex flex-wrap items-center gap-2">
@@ -130,4 +133,6 @@
     </div>
   </div>
 </div>
+
+@include('partials.instansi-group-panel')
 @endsection

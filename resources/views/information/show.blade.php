@@ -9,7 +9,6 @@
     <div class="flex items-center gap-2">
       <span class="font-mono text-xs font-bold">{{ $record->record_code }}</span>
       <span class="badge {{ $record->status === 'APPROVED' ? 'badge-olive' : ($record->status === 'REJECTED' ? 'badge-danger' : 'badge-sand') }}">{{ $record->status }}</span>
-      @if($record->is_simulation)<span class="badge badge-warn">SIMULASI</span>@endif
     </div>
     <h1 class="font-mono text-base font-bold mt-1">{{ $shown?->title ?? $record->title }}</h1>
   </div>

@@ -9,7 +9,15 @@ class AuditLogController extends Controller
 {
     public function index(Request $request)
     {
+        $me = \Illuminate\Support\Facades\Auth::user();
         $query = SystemLog::with('user')->latest('id');
+
+        if ($me?->organization_id) {
+            $orgUserIds = \App\Models\User::where('organization_id', $me->organization_id)->pluck('id');
+            $query->where(function ($q) use ($orgUserIds) {
+                $q->whereIn('user_id', $orgUserIds)->orWhereNull('user_id');
+            });
+        }
 
         if ($action = $request->query('action')) {
             $query->where('action', 'like', "%{$action}%");

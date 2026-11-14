@@ -30,7 +30,7 @@ class HardwareTelemetry
             Cache::forget('trace_host_hardware_telemetry');
         }
 
-        return Cache::remember('trace_host_hardware_telemetry', now()->addSeconds(120), function () {
+        return Cache::remember('trace_host_hardware_telemetry', now()->addSeconds(3), function () {
             $host = $this->readHostHardware();
             $host['captured_at'] = now()->toIso8601String();
             return $host;
@@ -166,10 +166,12 @@ $ProgressPreference = 'SilentlyContinue'
 $cpuReg = (Get-ItemProperty "HKLM:\HARDWARE\DESCRIPTION\System\CentralProcessor\0" -ErrorAction SilentlyContinue).ProcessorNameString
 $cpuCim = Get-CimInstance Win32_Processor -ErrorAction SilentlyContinue | Select-Object Name,NumberOfCores,NumberOfLogicalProcessors,MaxClockSpeed,LoadPercentage
 $os = Get-CimInstance Win32_OperatingSystem -ErrorAction SilentlyContinue | Select-Object TotalVisibleMemorySize,FreePhysicalMemory
+$perfMem = Get-CimInstance Win32_PerfFormattedData_PerfOS_Memory -ErrorAction SilentlyContinue | Select-Object AvailableBytes
 $ram = Get-CimInstance Win32_PhysicalMemory -ErrorAction SilentlyContinue | Select-Object Manufacturer,PartNumber,Capacity,ConfiguredClockSpeed,Speed,SMBIOSMemoryType
 $gpu = Get-CimInstance Win32_VideoController -ErrorAction SilentlyContinue | Select-Object Name,AdapterRAM,DriverVersion,Status,VideoProcessor
+$gpuMem = Get-CimInstance Win32_PerfFormattedData_GPUPerformanceCounters_GPUAdapterMemory -ErrorAction SilentlyContinue | Select-Object Name,DedicatedUsage,SharedUsage
 $proc = Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -match 'LM Studio|lms|llama|ollama|bionic' } | Select-Object ProcessName,WorkingSet64
-[PSCustomObject]@{cpu_reg=$cpuReg;cpu=$cpuCim;os=$os;ram=$ram;gpu=$gpu;proc=$proc} | ConvertTo-Json -Compress -Depth 3
+[PSCustomObject]@{cpu_reg=$cpuReg;cpu=$cpuCim;os=$os;perf_mem=$perfMem;ram=$ram;gpu=$gpu;gpu_mem=$gpuMem;proc=$proc} | ConvertTo-Json -Compress -Depth 3
 PS;
             $utf16 = mb_convert_encoding($psScript, 'UTF-16LE', 'UTF-8');
             $encoded = base64_encode($utf16);
@@ -201,12 +203,14 @@ PS;
                     $res['cpu_name'] = trim((string) $json['cpu_reg']);
                 }
 
-                // 2. OS Memory usage (usable/free/used)
+                // 2. Real-time OS Memory usage matching Task Manager Available/In-use bytes
                 if (!empty($json['os']['TotalVisibleMemorySize'])) {
                     $totalKb = (float) $json['os']['TotalVisibleMemorySize'];
-                    $freeKb = (float) ($json['os']['FreePhysicalMemory'] ?? 0);
                     $totalGb = round($totalKb / 1048576, 2);
-                    $freeGb = round($freeKb / 1048576, 2);
+                    $availBytes = (float) ($json['perf_mem']['AvailableBytes'] ?? 0);
+                    $freeGb = $availBytes > 0
+                        ? round($availBytes / 1073741824, 2)
+                        : round(((float) ($json['os']['FreePhysicalMemory'] ?? 0)) / 1048576, 2);
                     $usedGb = max(0, round($totalGb - $freeGb, 2));
                     $res['ram_total_gb'] = $totalGb;
                     $res['ram_free_gb'] = $freeGb;
@@ -320,14 +324,42 @@ PS;
                         }
                     }
 
+                    $gpuMemRaw = $json['gpu_mem'] ?? null;
+                    $dedicatedMaxGb = null;
+                    $sharedMaxGb = null;
+                    if (is_array($gpuMemRaw)) {
+                        $memRows = isset($gpuMemRaw['Name']) ? [$gpuMemRaw] : $gpuMemRaw;
+                        foreach ($memRows as $mr) {
+                            $ded = round(((float) ($mr['DedicatedUsage'] ?? 0)) / 1073741824, 2);
+                            $shr = round(((float) ($mr['SharedUsage'] ?? 0)) / 1073741824, 2);
+                            if ($ded > 0) {
+                                $dedicatedMaxGb = max($dedicatedMaxGb ?? 0.0, $ded);
+                            }
+                            if ($shr > 0) {
+                                $sharedMaxGb = max($sharedMaxGb ?? 0.0, $shr);
+                            }
+                        }
+                    }
+
+                    foreach ($gpus as &$gEntry) {
+                        if ($gEntry['role'] === 'dGPU' && $dedicatedMaxGb !== null) {
+                            $gEntry['vram_used_gb'] = $dedicatedMaxGb;
+                        } elseif ($gEntry['role'] === 'iGPU' && $sharedMaxGb !== null) {
+                            $gEntry['vram_used_gb'] = $sharedMaxGb;
+                        }
+                    }
+                    unset($gEntry);
+
                     $res['gpus'] = $gpus;
                     if (!empty($res['dgpu_name'])) {
                         $res['gpu_name'] = $res['dgpu_name'];
                         $res['gpu_vram_total_gb'] = $res['dgpu_vram_gb'];
+                        $res['gpu_vram_used_gb'] = $dedicatedMaxGb ?? $sharedMaxGb;
                         $res['gpu_type'] = 'DISCRETE';
                     } elseif (!empty($res['igpu_name'])) {
                         $res['gpu_name'] = $res['igpu_name'];
                         $res['gpu_vram_total_gb'] = $res['igpu_vram_gb'];
+                        $res['gpu_vram_used_gb'] = $sharedMaxGb ?? $dedicatedMaxGb;
                         $res['gpu_type'] = 'INTEGRATED_SHARED';
                     }
                 }

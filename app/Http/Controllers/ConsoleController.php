@@ -25,14 +25,18 @@ class ConsoleController extends Controller
 
     public function index(Request $request)
     {
-        $cases = InvestigationCase::latest()->get();
+        $orgId = Auth::user()->organization_id;
+        $cases = InvestigationCase::forOrganization($orgId)->latest()->get();
         $caseId = $request->query('case_id');
-        $selectedCase = $caseId ? InvestigationCase::with('evidence')->find($caseId) : $cases->first();
+        $selectedCase = $caseId ? InvestigationCase::forOrganization($orgId)->with('evidence')->find($caseId) : $cases->first();
 
         // Get or create session for user
         $session = ConsoleSession::firstOrCreate(
             ['user_id' => Auth::id(), 'case_id' => $selectedCase?->id],
-            ['title' => 'Sesi Analis - ' . ($selectedCase?->case_code ?? 'Umum')]
+            [
+                'title' => 'Sesi Analis - ' . ($selectedCase?->case_code ?? 'Umum'),
+                'organization_id' => $orgId,
+            ]
         );
 
         $messages = $session->messages()->orderBy('id')->get();

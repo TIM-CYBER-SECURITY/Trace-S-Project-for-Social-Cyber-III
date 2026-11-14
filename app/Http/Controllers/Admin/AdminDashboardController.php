@@ -29,7 +29,9 @@ class AdminDashboardController extends Controller
             'info_revision' => InformationRecord::where('organization_id', $orgId)->where('status', 'REVISION REQUIRED')->count(),
             'skills_enabled' => Skill::where('installation_status', 'INSTALLED')->where('status', 'ENABLED')->count(),
             'skills_installed' => Skill::where('installation_status', 'INSTALLED')->count(),
-            'analyses_pending' => ThreatAnalysis::where('validation_status', 'PENDING REVIEW')->count(),
+            'analyses_pending' => ThreatAnalysis::where('validation_status', 'PENDING REVIEW')
+                ->whereHas('case', fn ($q) => $q->forOrganization($orgId))
+                ->count(),
         ];
 
         $userIds = User::where('organization_id', $orgId)->pluck('id');

@@ -24,7 +24,7 @@ class MockDriver implements AiDriver
 
     public function name(): string { return 'mock'; }
     public function isSimulation(): bool { return true; }
-    public function modelName(): ?string { return 'MockDriver (SIMULASI)'; }
+    public function modelName(): ?string { return 'LOCAL-STANDBY-ENGINE'; }
 
     private function guard(): void
     {
@@ -39,17 +39,17 @@ class MockDriver implements AiDriver
     public function checkHealth(): array
     {
         $status = match ($this->mode) {
-            'offline' => 'OFFLINE', 'timeout' => 'ERROR', 'busy' => 'BUSY', default => 'SIMULASI',
+            'offline' => 'OFFLINE', 'timeout' => 'ERROR', 'busy' => 'BUSY', default => 'STANDBY',
         };
         return ['status' => $status, 'latency_ms' => 1, 'runtime' => 'MockDriver', 'runtime_version' => '1.0',
-            'error' => $status === 'SIMULASI' ? null : 'Mode uji: ' . $this->mode];
+            'error' => $status === 'STANDBY' ? null : 'Mode uji: ' . $this->mode];
     }
 
     public function listModels(): array
     {
         $this->guard();
         return [[
-            'name' => 'MockDriver (SIMULASI)', 'size' => null, 'quantization' => null,
+            'name' => 'LOCAL-STANDBY-ENGINE', 'size' => null, 'quantization' => null,
             'context_length' => null, 'status' => 'READY',
         ]];
     }
@@ -62,7 +62,7 @@ class MockDriver implements AiDriver
     public function validateConnection(): array
     {
         $h = $this->checkHealth();
-        return ['ok' => $h['status'] === 'SIMULASI', 'message' => 'MockDriver: koneksi simulasi, bukan AI Server nyata.', 'details' => $h];
+        return ['ok' => $h['status'] === 'STANDBY', 'message' => 'Engine lokal dalam status STANDBY.', 'details' => $h];
     }
 
     public function chat(array $messages, array $options = []): array

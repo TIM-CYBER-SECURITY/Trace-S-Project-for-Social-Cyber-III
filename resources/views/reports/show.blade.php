@@ -32,9 +32,6 @@
       </a>
       <span class="text-[var(--border-strong)]">|</span>
       <span class="font-semibold">{{ $report->report_code }}</span>
-      @if($report->is_simulation)
-        <span class="badge badge-warn">{{ $isId ? 'SIMULASI' : 'SIMULATION' }}</span>
-      @endif
     </div>
 
     <div class="flex items-center gap-2">

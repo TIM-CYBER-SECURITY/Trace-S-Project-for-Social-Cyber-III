@@ -15,10 +15,13 @@
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
   <div class="lg:col-span-2 space-y-4">
     <div class="panel p-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-      <div><span class="label-meta">ORGANIZATION:</span> <div>{{ $user->organization?->name ?? '-' }}</div></div>
+      <div><span class="label-meta">INSTANSI:</span> <div>{{ $user->organization?->name ?? '-' }}</div></div>
+      <div><span class="label-meta">KODE INSTANSI:</span> <div class="font-mono font-bold">{{ $user->organization?->code ?? '-' }}</div></div>
       <div><span class="label-meta">UNIT:</span> <div>{{ $user->unit?->name ?? '-' }}</div></div>
       <div><span class="label-meta">POSITION:</span> <div>{{ $user->position ?? '-' }}</div></div>
       <div><span class="label-meta">ACCOUNT STATUS:</span> <div><span class="badge badge-sand mt-0.5">{{ $user->account_status }}</span></div></div>
+      <div><span class="label-meta">KODE DEVICE TERAKHIR:</span> <div class="font-mono">{{ $user->last_device_code ?? '-' }}</div></div>
+      <div><span class="label-meta">IP LOGIN TERAKHIR:</span> <div class="font-mono">{{ $user->last_login_ip ?? '-' }}</div></div>
       <div><span class="label-meta">MUST CHANGE PASSWORD:</span> <div class="font-mono">{{ $user->must_change_password ? 'YES' : 'NO' }}</div></div>
       <div><span class="label-meta">EXPIRES AT:</span> <div class="font-mono">{{ $user->expires_at?->format('Y-m-d H:i') ?? 'NO EXPIRY' }}</div></div>
     </div>
