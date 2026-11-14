@@ -587,39 +587,81 @@ class AiManager
                     } catch (\Throwable) {
                     }
 
-                    $res = $this->executeAnalyzeWithDriver(
+                    return $this->executeLocalOrFallback(
                         $localDriver,
+                        $cfg,
                         $module,
                         $payload,
                         $validEvidenceIds,
-                        max(1, 1 + (int) ($cfg['max_retries'] ?? 2)),
-                        true
+                        $cloudDriver->name(),
+                        $cloudEx
                     );
-                    $res['execution_tier'] = 'LOCAL_FAILOVER';
-                    $res['failover_triggered'] = true;
-                    $res['failover_reason'] = mb_substr($cloudEx->getMessage(), 0, 250);
-                    $res['cloud_provider_attempted'] = $cloudDriver->name();
-                    $res['result']['execution_tier'] = 'LOCAL_FAILOVER';
-                    $res['result']['failover_triggered'] = true;
-                    $res['result']['failover_reason'] = $res['failover_reason'];
-                    return $res;
                 }
             }
         }
 
-        $res = $this->executeAnalyzeWithDriver(
+        return $this->executeLocalOrFallback(
             $localDriver,
+            $cfg,
             $module,
             $payload,
-            $validEvidenceIds,
-            max(1, 1 + (int) ($cfg['max_retries'] ?? 2)),
-            !$localDriver->isSimulation()
+            $validEvidenceIds
         );
-        $res['execution_tier'] = $localDriver->isSimulation() ? 'MOCK_SIMULATION' : 'LOCAL_DIRECT';
-        $res['failover_triggered'] = false;
-        $res['failover_reason'] = null;
-        $res['result']['execution_tier'] = $res['execution_tier'];
-        $res['result']['failover_triggered'] = false;
+    }
+
+    /** Jalankan driver lokal dengan cadangan deterministik aman di container cloud bila AI lokal offline. */
+    private function executeLocalOrFallback(
+        AiDriver $localDriver,
+        array $cfg,
+        string $module,
+        array $payload,
+        array $validEvidenceIds,
+        ?string $cloudProvider = null,
+        ?\Throwable $cloudEx = null
+    ): array {
+        $maxAttempts = max(1, 1 + (int) ($cfg['max_retries'] ?? 2));
+        $canFallback = !empty($cfg['cloud_deterministic_fallback']) && !$this->hasExplicitDriver && !$localDriver->isSimulation();
+        $reason = $cloudEx !== null ? mb_substr($cloudEx->getMessage(), 0, 250) : null;
+
+        try {
+            $res = $this->executeAnalyzeWithDriver(
+                $localDriver,
+                $module,
+                $payload,
+                $validEvidenceIds,
+                $maxAttempts,
+                !$localDriver->isSimulation()
+            );
+            $tier = $cloudEx !== null ? 'LOCAL_FAILOVER' : ($localDriver->isSimulation() ? 'MOCK_SIMULATION' : 'LOCAL_DIRECT');
+        } catch (AiUnavailableException $e) {
+            if (!$canFallback) {
+                throw $e;
+            }
+            $res = $this->executeAnalyzeWithDriver(
+                new MockDriver($this->claims, 'ok'),
+                $module,
+                $payload,
+                $validEvidenceIds,
+                1,
+                false
+            );
+            $tier = 'CLOUD_DETERMINISTIC_FALLBACK';
+            $reason = $reason ?? mb_substr($e->getMessage(), 0, 250);
+        }
+
+        $triggered = $cloudEx !== null || $tier === 'CLOUD_DETERMINISTIC_FALLBACK';
+        $res['execution_tier'] = $tier;
+        $res['failover_triggered'] = $triggered;
+        $res['failover_reason'] = $reason;
+        if ($cloudProvider !== null) {
+            $res['cloud_provider_attempted'] = $cloudProvider;
+        }
+        $res['result']['execution_tier'] = $tier;
+        $res['result']['failover_triggered'] = $triggered;
+        if ($reason !== null) {
+            $res['result']['failover_reason'] = $reason;
+        }
+
         return $res;
     }
 
@@ -1057,7 +1099,18 @@ class AiManager
             $prof = $this->activeModelProfile();
             $options['temperature'] = $prof['recommended_temperature'] ?? 0.2;
         }
-        return $this->driver()->chat($messages, $options);
+        $localDriver = $this->driver();
+        try {
+            return $localDriver->chat($messages, $options);
+        } catch (AiUnavailableException $e) {
+            if (!empty($cfg['cloud_deterministic_fallback']) && !$this->hasExplicitDriver && !$localDriver->isSimulation()) {
+                $out = (new MockDriver($this->claims, 'ok'))->chat($messages, $options);
+                $out['execution_tier'] = 'CLOUD_DETERMINISTIC_FALLBACK';
+                $out['failover_triggered'] = true;
+                return $out;
+            }
+            throw $e;
+        }
     }
 
     /** @return array<int,array<int,float>> */

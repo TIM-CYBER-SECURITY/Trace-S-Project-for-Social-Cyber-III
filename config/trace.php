@@ -115,6 +115,7 @@ return [
         'exa_model'         => env('EXA_AI_MODEL', 'exa'),
         'exa_base_url'      => env('EXA_AI_BASE_URL', 'https://api.exa.ai'),
         'exa_search_enabled' => filter_var(env('EXA_SEARCH_ENABLED', true), FILTER_VALIDATE_BOOL),
+        'cloud_deterministic_fallback' => filter_var(env('AI_CLOUD_DETERMINISTIC_FALLBACK', false), FILTER_VALIDATE_BOOL),
     ],
 
     // sync = langsung dijalankan, queue = masuk antrean database (php artisan queue:work)

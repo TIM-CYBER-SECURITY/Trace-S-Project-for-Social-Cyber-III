@@ -1,0 +1,10 @@
+.git
+.tools
+node_modules
+vendor
+database/database.sqlite
+database/database.sqlite-journal
+storage/logs/*.log
+storage/framework/sessions/*
+storage/framework/views/*.php
+.env

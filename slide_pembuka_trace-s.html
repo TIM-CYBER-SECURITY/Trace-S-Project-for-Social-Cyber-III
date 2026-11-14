@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <title>TRACE-S // Slide Pembuka Video Demo</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+      background-color: #060908;
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+      color: #E2E8F0;
+      position: relative;
+    }
+
+    /* Cyber grid background */
+    .bg-grid {
+      position: absolute;
+      inset: 0;
+      background-image: 
+        linear-gradient(to right, rgba(30, 58, 43, 0.15) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(30, 58, 43, 0.15) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+    }
+
+    /* Radial glow in center */
+    .radial-glow {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 1200px;
+      height: 700px;
+      background: radial-gradient(ellipse at center, rgba(34, 197, 94, 0.08) 0%, rgba(14, 165, 233, 0.05) 45%, transparent 70%);
+      pointer-events: none;
+    }
+
+    /* Outer border frame */
+    .frame-container {
+      position: absolute;
+      inset: 35px;
+      border: 1px solid rgba(74, 222, 128, 0.25);
+      background: rgba(11, 17, 15, 0.65);
+      backdrop-filter: blur(12px);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 40px 60px;
+    }
+
+    /* HUD Corner Accents */
+    .corner-tl {
+      position: absolute;
+      top: -3px;
+      left: -3px;
+      width: 30px;
+      height: 30px;
+      border-top: 3px solid #22c55e;
+      border-left: 3px solid #22c55e;
+    }
+    .corner-tr {
+      position: absolute;
+      top: -3px;
+      right: -3px;
+      width: 30px;
+      height: 30px;
+      border-top: 3px solid #22c55e;
+      border-right: 3px solid #22c55e;
+    }
+    .corner-bl {
+      position: absolute;
+      bottom: -3px;
+      left: -3px;
+      width: 30px;
+      height: 30px;
+      border-bottom: 3px solid #22c55e;
+      border-left: 3px solid #22c55e;
+    }
+    .corner-br {
+      position: absolute;
+      bottom: -3px;
+      right: -3px;
+      width: 30px;
+      height: 30px;
+      border-bottom: 3px solid #22c55e;
+      border-right: 3px solid #22c55e;
+    }
+
+    /* Top Bar */
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 20px;
+    }
+    .top-left {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+    .event-badge {
+      background: #14532d;
+      color: #86efac;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      padding: 6px 14px;
+      text-transform: uppercase;
+      border: 1px solid rgba(74, 222, 128, 0.4);
+      border-radius: 4px;
+    }
+    .event-title {
+      font-size: 15px;
+      letter-spacing: 3px;
+      color: #94A3B8;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .top-right {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+    .security-tag {
+      border: 1px solid #ef4444;
+      color: #f87171;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      padding: 5px 12px;
+      text-transform: uppercase;
+      border-radius: 3px;
+    }
+    .doc-id {
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      color: #64748B;
+    }
+
+    /* Center Content */
+    .center-content {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin: auto 0;
+    }
+    .logo-img {
+      width: 650px;
+      max-width: 90%;
+      height: auto;
+      filter: drop-shadow(0 0 25px rgba(255, 255, 255, 0.15));
+      margin-bottom: 25px;
+    }
+    .subtitle-main {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: 8px;
+      color: #F8FAFC;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+    }
+    .subtitle-desc {
+      font-size: 17px;
+      color: #94A3B8;
+      letter-spacing: 2px;
+      max-width: 900px;
+      line-height: 1.6;
+      margin-bottom: 35px;
+    }
+
+    /* Feature Pills */
+    .pill-grid {
+      display: flex;
+      justify-content: center;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+    .pill {
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 6px;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 1.2px;
+      color: #CBD5E1;
+      text-transform: uppercase;
+    }
+    .pill-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 8px #22c55e;
+    }
+    .pill-dot-gold {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #eab308;
+      box-shadow: 0 0 8px #eab308;
+    }
+    .pill-dot-blue {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #0ea5e9;
+      box-shadow: 0 0 8px #0ea5e9;
+    }
+
+    /* Bottom Bar */
+    .bottom-bar {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      align-items: center;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      padding-top: 25px;
+    }
+    .team-box {
+      text-align: left;
+    }
+    .team-label {
+      font-size: 11px;
+      letter-spacing: 2px;
+      color: #64748B;
+      text-transform: uppercase;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .team-val {
+      font-size: 18px;
+      font-weight: 800;
+      color: #38BDF8;
+      letter-spacing: 1.5px;
+    }
+
+    .org-box {
+      text-align: center;
+    }
+    .org-label {
+      font-size: 11px;
+      letter-spacing: 2px;
+      color: #64748B;
+      text-transform: uppercase;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .org-val {
+      font-size: 18px;
+      font-weight: 800;
+      color: #F8FAFC;
+      letter-spacing: 1px;
+    }
+    .org-code {
+      font-family: 'Courier New', monospace;
+      color: #FBBF24;
+      font-size: 13px;
+      font-weight: bold;
+    }
+
+    .system-box {
+      text-align: right;
+    }
+    .system-label {
+      font-size: 11px;
+      letter-spacing: 2px;
+      color: #64748B;
+      text-transform: uppercase;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .system-val {
+      font-size: 16px;
+      font-weight: 800;
+      color: #4ADE80;
+      letter-spacing: 1px;
+    }
+    .system-sub {
+      font-size: 12px;
+      color: #94A3B8;
+      font-family: 'Courier New', monospace;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Background Elements -->
+  <div class="bg-grid"></div>
+  <div class="radial-glow"></div>
+
+  <!-- HUD Frame Container -->
+  <div class="frame-container">
+    <div class="corner-tl"></div>
+    <div class="corner-tr"></div>
+    <div class="corner-bl"></div>
+    <div class="corner-br"></div>
+
+    <!-- Top Status Bar -->
+    <div class="top-bar">
+      <div class="top-left">
+        <span class="event-badge">HACKATHON 2026</span>
+        <span class="event-title">Social Cyber III &bull; Cognitive Warfare Defense</span>
+      </div>
+      <div class="top-right">
+        <span class="security-tag">OFFICIAL AUDIT</span>
+        <span class="doc-id">DOC: TRS-SOC-2026-FINAL</span>
+      </div>
+    </div>
+
+    <!-- Main Center Hero -->
+    <div class="center-content">
+      <img src="trace_s_logo_dark_theme.png" alt="TRACE-S Logo" class="logo-img">
+      <div class="subtitle-main">SOCIAL CYBER COGNITIVE DEFENSE SUITE</div>
+      <div class="subtitle-desc">
+        Platform Pertahanan Kognitif Ruang Siber Berdaulat dengan Sistem Hybrid AI Auto-Failover,<br>
+        On-Premise Local AI Tanpa Kebocoran Data, dan Tata Kelola Identitas Berjenjang Trace-ID
+      </div>
+
+      <!-- Capability Badges -->
+      <div class="pill-grid">
+        <div class="pill">
+          <span class="pill-dot"></span>
+          <span>Air-Gapped Local AI (Qwen2.5)</span>
+        </div>
+        <div class="pill">
+          <span class="pill-dot-blue"></span>
+          <span>Hybrid Cloud Auto-Failover</span>
+        </div>
+        <div class="pill">
+          <span class="pill-dot-gold"></span>
+          <span>Trace-ID Agency Isolation</span>
+        </div>
+        <div class="pill">
+          <span class="pill-dot"></span>
+          <span>Zero Simulation // 100% Empiris</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Metadata Bar -->
+    <div class="bottom-bar">
+      <div class="team-box">
+        <div class="team-label">TIM PENGEMBANG</div>
+        <div class="team-val">Tim Sindikat_PawPatrol</div>
+      </div>
+
+      <div class="org-box">
+        <div class="org-label">MITRA KEDINASAN PERTAHANAN</div>
+        <div class="org-val">PUSSIBERAD TNI AD <span class="org-code">[KODE: PUS001TNIAD]</span></div>
+      </div>
+
+      <div class="system-box">
+        <div class="system-label">STATUS KESIAPAN OPERASIONAL</div>
+        <div class="system-val">PRODUCTION-READY</div>
+        <div class="system-sub">49 Tests Passed &bull; 60 Empirical Runs</div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

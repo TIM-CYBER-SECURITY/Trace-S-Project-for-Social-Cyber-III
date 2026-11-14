@@ -1,1 +1,2 @@
 *.sqlite*
+!cloud_seed.sqlite

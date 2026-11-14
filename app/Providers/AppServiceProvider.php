@@ -17,6 +17,15 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        $host = (string) request()->getHost();
+        if (
+            request()->header('x-forwarded-proto') === 'https'
+            || str_contains($host, 'trycloudflare.com')
+            || str_contains($host, 'railway.app')
+        ) {
+            \Illuminate\Support\Facades\URL::forceScheme('https');
+        }
+
         RateLimiter::for('trace-heavy', function (Request $request) {
             return Limit::perMinute(30)->by($request->user()?->id ?: $request->ip());
         });
