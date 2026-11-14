@@ -203,4 +203,40 @@ class AiManagementController extends Controller
             return back()->with('error', $e->getMessage());
         }
     }
+
+    public function configureCloud(Request $request)
+    {
+        $validated = $request->validate([
+            'engine_mode' => 'required|in:HYBRID_AUTO,FORCE_LOCAL,FORCE_CLOUD',
+            'cloud_provider' => 'required|in:google_ai_studio,exa_ai',
+            'cloud_timeout' => 'required|integer|min:3|max:60',
+            'google_model' => 'nullable|string|max:120',
+            'google_api_key' => 'nullable|string|max:500',
+            'clear_google_key' => 'nullable|boolean',
+            'exa_model' => 'nullable|string|max:120',
+            'exa_api_key' => 'nullable|string|max:500',
+            'clear_exa_key' => 'nullable|boolean',
+            'exa_search_enabled' => 'nullable|boolean',
+        ]);
+
+        $cfg = $this->ai->configureCloudRuntime($validated, Auth::user(), $this->audit);
+        $providerLabel = $cfg['cloud_provider'] === 'exa_ai' ? 'Exa.ai Neural API' : 'Google AI Studio (Gemini)';
+
+        return back()->with(
+            'success',
+            "Konfigurasi Hybrid Cloud AI diperbarui: Mode {$cfg['engine_mode']} • Primary Cloud: {$providerLabel} • Failover Timeout: {$cfg['cloud_timeout']}s -> Auto-Fallback ke AI Lokal."
+        );
+    }
+
+    public function testCloud()
+    {
+        try {
+            return response()->json($this->ai->testCloudConnection());
+        } catch (\Throwable $e) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Pengujian Cloud gagal: ' . $e->getMessage(),
+            ]);
+        }
+    }
 }

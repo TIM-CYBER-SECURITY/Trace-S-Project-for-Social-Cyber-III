@@ -59,44 +59,63 @@ class ManipulationDetector
         };
 
         // 1. Perbandingan Angka, Persentase, Nominal, dan Tahun terhadap Sumber Rujukan
+        // Aggregasi lintas seluruh rujukan: hanya tandai NUMERIC_TAMPER jika tidak ada satupun rujukan
+        // mengonfirmasi angka tersebut DAN minimal satu rujukan memiliki angka berjenis sama yang bertentangan.
         $inputNums = $this->numeric->numbers($text);
         if ($inputNums !== [] && $referenceItems !== []) {
+            $parsedRefNums = [];
             foreach ($referenceItems as $ref) {
                 $refText = (string) ($ref['text'] ?? '');
                 if ($refText === '') {
                     continue;
                 }
-                $refNums = $this->numeric->numbers($refText);
-                if ($refNums === []) {
-                    continue;
+                $nums = $this->numeric->numbers($refText);
+                if ($nums !== []) {
+                    $parsedRefNums[] = [
+                        'code' => $ref['code'] ?? null,
+                        'nums' => $nums,
+                    ];
                 }
-                foreach ($inputNums as $in) {
-                    $sameKindRef = array_values(array_filter($refNums, fn ($rn) => $rn['kind'] === $in['kind']));
+            }
+
+            foreach ($inputNums as $in) {
+                $confirmedByAnyRef = false;
+                $conflictingRefRaws = [];
+                $firstConflictCode = null;
+
+                foreach ($parsedRefNums as $pr) {
+                    $sameKindRef = array_values(array_filter($pr['nums'], fn ($rn) => $rn['kind'] === $in['kind']));
                     if ($sameKindRef === []) {
                         continue;
                     }
-                    $exactMatch = false;
                     foreach ($sameKindRef as $rn) {
                         if (abs($rn['value'] - $in['value']) < 0.0001) {
-                            $exactMatch = true;
-                            break;
+                            $confirmedByAnyRef = true;
+                            break 2;
                         }
+                        if (count($conflictingRefRaws) < 2) {
+                            $conflictingRefRaws[] = $rn['raw'];
+                        }
+                        $firstConflictCode ??= $pr['code'];
                     }
-                    if (!$exactMatch) {
-                        $refRawList = implode(', ', array_slice(array_column($sameKindRef, 'raw'), 0, 2));
-                        $addHighlight(
-                            $in['raw'],
-                            'NUMERIC_TAMPER',
-                            'HIGH',
-                            "Nilai '{$in['raw']}' berbeda dengan rujukan ({$refRawList}) — potensi perubahan angka / timpa teks.",
-                            $ref['code'] ?? null
-                        );
-                    }
+                }
+
+                if (!$confirmedByAnyRef && $conflictingRefRaws !== []) {
+                    $refRawList = implode(', ', $conflictingRefRaws);
+                    $addHighlight(
+                        $in['raw'],
+                        'NUMERIC_TAMPER',
+                        'HIGH',
+                        "Nilai '{$in['raw']}' berbeda dengan rujukan ({$refRawList}) — potensi perubahan angka / timpa teks.",
+                        $firstConflictCode
+                    );
                 }
             }
         }
 
         // 2. Perbandingan Tanggal & Penanda Waktu terhadap Sumber Rujukan (DATE_TAMPER)
+        // Aggregasi lintas rujukan: hanya tandai DATE_TAMPER jika tidak ada rujukan mengonfirmasi tanggal
+        // tersebut DAN minimal satu rujukan mencantumkan tanggal berbeda.
         if ($referenceItems !== []) {
             $inputDates = $this->numeric->dates($text);
             if ($inputDates !== []) {
@@ -104,22 +123,44 @@ class ManipulationDetector
                 if (preg_match_all('/\b\d{1,2}\s+(?:januari|februari|maret|april|mei|juni|juli|agustus|september|oktober|november|desember)\s+\d{4}\b|\b\d{4}-\d{2}-\d{2}\b/iu', $text, $dm)) {
                     $rawDateMatches = $dm[0];
                 }
+                $parsedRefDates = [];
                 foreach ($referenceItems as $ref) {
                     $refDates = $this->numeric->dates((string) ($ref['text'] ?? ''));
-                    if ($refDates === []) {
-                        continue;
+                    if ($refDates !== []) {
+                        $parsedRefDates[] = [
+                            'code' => $ref['code'] ?? null,
+                            'dates' => $refDates,
+                        ];
                     }
-                    foreach ($inputDates as $idx => $isoDate) {
-                        if (!in_array($isoDate, $refDates, true)) {
-                            $seg = $rawDateMatches[$idx] ?? $isoDate;
-                            $addHighlight(
-                                $seg,
-                                'DATE_TAMPER',
-                                'HIGH',
-                                "Tanggal '{$seg}' ({$isoDate}) menyimpang dari tanggal dokumen rujukan (" . implode(', ', array_slice($refDates, 0, 2)) . ').',
-                                $ref['code'] ?? null
-                            );
+                }
+
+                foreach ($inputDates as $idx => $isoDate) {
+                    $confirmedDate = false;
+                    $conflictingDates = [];
+                    $firstDateRefCode = null;
+
+                    foreach ($parsedRefDates as $prd) {
+                        if (in_array($isoDate, $prd['dates'], true)) {
+                            $confirmedDate = true;
+                            break;
                         }
+                        foreach ($prd['dates'] as $rd) {
+                            if (count($conflictingDates) < 2 && !in_array($rd, $conflictingDates, true)) {
+                                $conflictingDates[] = $rd;
+                            }
+                        }
+                        $firstDateRefCode ??= $prd['code'];
+                    }
+
+                    if (!$confirmedDate && $conflictingDates !== []) {
+                        $seg = $rawDateMatches[$idx] ?? $isoDate;
+                        $addHighlight(
+                            $seg,
+                            'DATE_TAMPER',
+                            'HIGH',
+                            "Tanggal '{$seg}' ({$isoDate}) menyimpang dari tanggal dokumen rujukan (" . implode(', ', $conflictingDates) . ').',
+                            $firstDateRefCode
+                        );
                     }
                 }
             }

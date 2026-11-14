@@ -492,4 +492,116 @@ XML;
         $this->assertSame([], $result['findings'][1]['evidence_ids']);
         $this->assertSame('INTERPRETASI_AI', $result['findings'][1]['type']);
     }
+
+    public function test_hybrid_cloud_ai_google_studio_exa_and_auto_failover_to_local_ai(): void
+    {
+        $admin = $this->makeUser('ADMINISTRATOR');
+
+        $cloudPayload = json_encode([
+            'module' => 'credibility_scan',
+            'summary' => 'Analisis Cloud Google AI Studio: klaim terbukti valid sesuai rujukan resmi.',
+            'is_simulation' => false,
+            'claims' => [['id' => 'c1', 'text' => 'Proyek infrastruktur berjalan sesuai target.', 'type' => 'FAKTA', 'check_status' => 'TERVERIFIKASI']],
+            'verification_status' => 'TERVERIFIKASI',
+            'content_indicator' => 'ASLI',
+            'classification' => 'VERIFIED',
+            'credibility_score' => 88,
+            'threat_level' => 'RENDAH',
+            'confidence' => 0.91,
+            'linguistic_analysis' => ['emotion' => 'Netral', 'fallacy' => 'Tidak ada', 'source_verification' => 'Selaras'],
+            'findings' => [['statement' => 'Analisis via Google AI Studio', 'type' => 'INTERPRETASI_AI', 'evidence_ids' => []]],
+            'evidence' => [],
+            'sources' => [],
+            'recommendations' => ['Pertahankan monitoring'],
+            'limitations' => ['Verifikasi periodik'],
+            'tactical_summary' => 'Google AI Studio mengonfirmasi narasi sejalan dengan sumber publik.',
+        ], JSON_UNESCAPED_UNICODE);
+
+        $localFallbackPayload = json_encode([
+            'module' => 'credibility_scan',
+            'summary' => 'Fallback Lokal AI: klaim belum terverifikasi dan perlu audit lanjutan.',
+            'is_simulation' => false,
+            'claims' => [['id' => 'c1', 'text' => 'Klaim lanjutan saat jaringan putus.', 'type' => 'FAKTA', 'check_status' => 'BELUM TERVERIFIKASI']],
+            'verification_status' => 'BELUM TERVERIFIKASI',
+            'content_indicator' => 'BELUM DAPAT DIPASTIKAN',
+            'classification' => 'UNVERIFIED',
+            'credibility_score' => 45,
+            'threat_level' => 'SEDANG',
+            'confidence' => 0.62,
+            'linguistic_analysis' => ['emotion' => 'Netral', 'fallacy' => 'Tidak ada', 'source_verification' => 'Mode Offline Lokal'],
+            'findings' => [['statement' => 'Diproses oleh AI Lokal setelah failover jaringan.', 'type' => 'INTERPRETASI_AI', 'evidence_ids' => []]],
+            'evidence' => [],
+            'sources' => [],
+            'recommendations' => ['Verifikasi ulang saat sinyal pulih'],
+            'limitations' => ['Mode offline failover lokal'],
+            'tactical_summary' => 'Sistem beralih mulus ke AI Lokal (qwen2.5-0.5b-instruct) saat Cloud API terputus.',
+        ], JSON_UNESCAPED_UNICODE);
+
+        Http::fake([
+            'http://127.0.0.1:1234/api/v0/models' => Http::response([
+                'data' => [['id' => 'qwen2.5-0.5b-instruct', 'type' => 'llm', 'state' => 'loaded', 'max_context_length' => 8192]],
+            ], 200),
+            'generativelanguage.googleapis.com/*' => Http::sequence()
+                ->push(['models' => [['name' => 'models/gemini-2.0-flash']]], 200) // health check
+                ->push(['candidates' => [['content' => ['parts' => [['text' => $cloudPayload]]]]]], 200) // cloud primary success
+                ->push(['error' => ['message' => 'Service temporarily unavailable']], 503), // cloud outage -> auto-failover!
+            'http://127.0.0.1:1234/v1/chat/completions' => Http::response([
+                'choices' => [['message' => ['content' => $localFallbackPayload]]],
+            ], 200),
+        ]);
+
+        // 1. Konfigurasi engine lokal + Hybrid Cloud API (Google AI Studio + Exa.ai)
+        $this->actingAs($admin, 'web')->post('/admin/ai/configure', [
+            'driver' => 'openai_compatible',
+            'base_url' => 'http://127.0.0.1:1234',
+            'model' => 'qwen2.5-0.5b-instruct',
+        ])->assertRedirect();
+
+        $this->actingAs($admin, 'web')->post('/admin/ai/configure-cloud', [
+            'engine_mode' => 'HYBRID_AUTO',
+            'cloud_provider' => 'google_ai_studio',
+            'cloud_timeout' => 8,
+            'google_model' => 'gemini-2.0-flash',
+            'google_api_key' => 'AIzaSyTestSecretKey999',
+            'exa_model' => 'exa',
+            'exa_api_key' => 'exa-secret-token-777',
+            'exa_search_enabled' => '1',
+        ])->assertRedirect();
+
+        // API key tersimpan terenkripsi dan tidak pernah muncul plaintext di log
+        $encGoogle = DB::table('app_settings')->where('key', 'ai.google_api_key_enc')->value('value');
+        $encExa = DB::table('app_settings')->where('key', 'ai.exa_api_key_enc')->value('value');
+        $this->assertSame('AIzaSyTestSecretKey999', Crypt::decryptString($encGoogle));
+        $this->assertSame('exa-secret-token-777', Crypt::decryptString($encExa));
+
+        // 2. Uji endpoint /admin/ai/test-cloud
+        $this->actingAs($admin, 'web')->postJson('/admin/ai/test-cloud')
+            ->assertStatus(200)
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('local_fallback.status', 'ONLINE');
+
+        /** @var AiManager $mgr */
+        $mgr = app(AiManager::class);
+        $mgr->resetDriver();
+
+        // 3. Panggilan #1: Cloud AI Studio sukses (CLOUD_PRIMARY)
+        $resCloud = $mgr->analyze('credibility_scan', ['text' => 'Proyek infrastruktur berjalan sesuai target.', 'evidence' => [], 'case' => null, 'flags' => []], []);
+        $this->assertSame('CLOUD_PRIMARY', $resCloud['execution_tier']);
+        $this->assertSame('google_ai_studio', $resCloud['driver']);
+        $this->assertFalse($resCloud['failover_triggered']);
+        $this->assertSame(88, $resCloud['result']['credibility_score']);
+
+        // 4. Panggilan #2: Google AI Studio mengalami HTTP 503 / putus jaringan -> Auto-Failover ke qwen2.5-0.5b-instruct!
+        $resFailover = $mgr->analyze('credibility_scan', ['text' => 'Klaim lanjutan saat jaringan putus.', 'evidence' => [], 'case' => null, 'flags' => []], []);
+        $this->assertSame('LOCAL_FAILOVER', $resFailover['execution_tier']);
+        $this->assertTrue($resFailover['failover_triggered']);
+        $this->assertSame('openai_compatible', $resFailover['driver']);
+        $this->assertSame('qwen2.5-0.5b-instruct', $resFailover['model_name']);
+        $this->assertSame(45, $resFailover['result']['credibility_score']);
+
+        // Audit trail mencatat AI_CLOUD_FAILOVER tanpa membocorkan kunci
+        $failLog = SystemLog::where('action', 'AI_CLOUD_FAILOVER')->latest('id')->first();
+        $this->assertNotNull($failLog);
+        $this->assertStringNotContainsString('AIzaSyTestSecretKey999', json_encode($failLog->metadata));
+    }
 }

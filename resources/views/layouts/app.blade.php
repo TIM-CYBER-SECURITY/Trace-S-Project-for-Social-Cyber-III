@@ -76,7 +76,7 @@
          title="AI Driver: {{ $driverUpper }}{{ $aiShortModel ? ' • Model: ' . $aiStatus['active_model'] : '' }}">
         <span class="w-2 h-2 rounded-full {{ $isSimDriver ? 'bg-[#B9AA88]' : ($serverOnline ? 'bg-[#688A4D]' : 'bg-[#991B1B]') }}"></span>
         <span class="text-[10px] tracking-wider uppercase tabular-nums">
-          AI: <strong>{{ $driverUpper }}</strong>
+          AI: <strong>{{ !empty($aiStatus['cloud_configured']) ? 'HYBRID (' . strtoupper((string) ($aiStatus['cloud_provider'] ?? 'CLOUD')) . ' -> ' . $driverUpper . ')' : $driverUpper }}</strong>
           @if($aiShortModel && !$isSimDriver)
             <span class="text-[#C7C3B2] font-normal normal-case">&bull; {{ $aiShortModel }}</span>
           @endif

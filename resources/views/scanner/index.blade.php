@@ -368,10 +368,20 @@
           @endif
         </div>
 
-        <!-- BAGIAN 3: Analisis & Penentuan Status Kredibilitas Oleh AI Lokal -->
+        <!-- BAGIAN 3: Analisis & Penentuan Status Kredibilitas Oleh AI Lokal / Hybrid Engine -->
         <div class="space-y-3 pt-2 border-t border-[var(--border-color)]">
-          <div class="label-meta">
-            3. {{ $isId ? 'Analisis & Penentuan Status Kredibilitas AI Lokal' : 'Local AI Analysis & Final Credibility Status' }}
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="label-meta">
+              3. {{ $isId ? 'Analisis & Penentuan Status Kredibilitas' : 'AI Analysis & Final Credibility Status' }}
+            </div>
+            @php $tier = $res['execution_tier'] ?? 'LOCAL_DIRECT'; @endphp
+            @if($tier === 'CLOUD_PRIMARY')
+              <span class="badge badge-olive font-mono">ENGINE: CLOUD AI ({{ strtoupper((string) ($res['cloud_provider'] ?? 'CLOUD')) }})</span>
+            @elseif($tier === 'LOCAL_FAILOVER' || !empty($res['failover_triggered']))
+              <span class="badge badge-warn font-mono">AUTO-FAILOVER -> AI LOKAL ({{ $latestAnalysis->model_name }})</span>
+            @else
+              <span class="badge badge-neutral font-mono">ENGINE: AI LOKAL ({{ $latestAnalysis->model_name ?? $latestAnalysis->driver }})</span>
+            @endif
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center panel-subtle p-4">

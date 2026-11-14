@@ -274,6 +274,12 @@ Route::middleware(['auth.trace'])->group(function () {
         Route::post('/ai/switch-model', [AiManagementController::class, 'switchModel'])
             ->middleware('permission:ai.manage')
             ->name('ai.switch-model');
+        Route::post('/ai/configure-cloud', [AiManagementController::class, 'configureCloud'])
+            ->middleware('permission:ai.manage')
+            ->name('ai.configure-cloud');
+        Route::post('/ai/test-cloud', [AiManagementController::class, 'testCloud'])
+            ->middleware('permission:ai.manage')
+            ->name('ai.test-cloud');
 
         Route::get('/audit', [AuditLogController::class, 'index'])
             ->middleware('permission:audit.view')

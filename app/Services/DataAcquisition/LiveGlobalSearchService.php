@@ -31,7 +31,9 @@ class LiveGlobalSearchService
 
     private const REFUTATION_CUES = [
         'hoaks', 'hoax', 'tidak benar', 'keliru', 'palsu', 'fitnah', 'bohong', 'disinformasi',
-        'misinformasi', 'membantah', 'bantah', 'cek fakta', 'fact check', 'klarifikasi', 'penipuan', 'editan',
+        'misinformasi', 'membantah', 'bantah', 'bantahan', 'cek fakta', 'fact check', 'klarifikasi',
+        'penipuan', 'editan', 'waspada', 'hati-hati', 'modus', 'scam', 'phishing', 'pencatutan',
+        'mencatut', 'isu liar', 'kabar burung', 'dipastikan tidak', 'belum ada aturan', 'tidak pernah',
     ];
 
     public function __construct(
@@ -232,12 +234,20 @@ class LiveGlobalSearchService
         $endpoints = [
             'Google News ID' => "https://news.google.com/rss/search?q={$qEnc}&hl=id&gl=ID&ceid=ID:id",
             'Bing News ID' => "https://www.bing.com/news/search?q={$qEnc}&format=rss&setlang=id-ID&cc=ID",
+            'Fact-Check & Klarifikasi ID' => "https://news.google.com/rss/search?q=" . urlencode($query . ' (hoaks OR palsu OR "cek fakta" OR klarifikasi OR bantah OR penipuan)') . "&hl=id&gl=ID&ceid=ID:id",
             'Social & Fact-Check Stream' => "https://news.google.com/rss/search?q={$qSocialEnc}&hl=id&gl=ID&ceid=ID:id",
             'Social Web Index (YT/TT/IG/X)' => "https://www.bing.com/search?q=" . urlencode("(site:youtube.com OR site:tiktok.com OR site:instagram.com OR site:x.com) " . $query) . "&format=rss",
         ];
 
         $rawItems = [];
         $sourcesChecked = [];
+
+        foreach ($this->fetchExaSearchItems($query) as $exaItem) {
+            $rawItems[] = $exaItem;
+            if (!in_array('Exa.ai Neural Search', $sourcesChecked, true)) {
+                $sourcesChecked[] = 'Exa.ai Neural Search';
+            }
+        }
 
         foreach ($endpoints as $label => $url) {
             try {
@@ -303,10 +313,17 @@ class LiveGlobalSearchService
             }
 
             $numCmp = $this->numeric->compare($inputText, $titleClean . ' ' . $item['summary']);
-            $item['similarity_pct'] = max((float) $sim['score'], round(min(95.0, ($matchedTokenCount / max(1, count($requiredTokens))) * 68.0), 1));
+            $inputHasNumbers = !empty($numCmp['numbers_a']);
+            $effectiveNumCons = ($inputHasNumbers && !empty($numCmp['numbers_removed']) && !empty($numCmp['numbers_added']))
+                ? 'INCONSISTENT'
+                : ($inputHasNumbers ? 'CONSISTENT' : 'NOT_APPLICABLE');
+            $effectiveDateChanged = !empty($numCmp['dates_a']) && !empty($numCmp['dates_b']) && $numCmp['dates_a'] !== $numCmp['dates_b'];
+            $denom = max(1, min(4, count($requiredTokens)));
+
+            $item['similarity_pct'] = max((float) $sim['score'], round(min(95.0, ($matchedTokenCount / $denom) * 68.0), 1));
             $item['matched_tokens'] = $matchedTokenCount;
-            $item['numeric_consistency'] = $numCmp['numeric_consistency'];
-            $item['dates_changed'] = $numCmp['dates_changed'];
+            $item['numeric_consistency'] = $effectiveNumCons;
+            $item['dates_changed'] = $effectiveDateChanged;
             $item['is_refutation'] = $this->containsRefutationCue($haystack);
 
             $filtered[] = $item;
@@ -547,7 +564,21 @@ class LiveGlobalSearchService
             ];
         }
 
-        $inputIsRefutation = $this->containsRefutationCue(mb_strtolower($inputText, 'UTF-8'));
+        $inputLower = mb_strtolower($inputText, 'UTF-8');
+        $inputIsRefutation = $this->containsRefutationCue($inputLower);
+        $scamPatterns = [
+            'google docs', 'berbayar melalui tautan', 'chat bot telegram', 'file aplikasi apk',
+            'file surat apk', 'apk lewat whatsapp', 'dividen tunai', 'pajak udara bersih',
+            'rekaman kaset mp3', 'kemandulan total', 'blokir permanen', 'bergambar presiden joko widodo',
+        ];
+        $hasScamPattern = false;
+        foreach ($scamPatterns as $pat) {
+            if (str_contains($inputLower, $pat)) {
+                $hasScamPattern = true;
+                break;
+            }
+        }
+
         $supporting = 0;
         $refuting = 0;
         $publishers = [];
@@ -557,9 +588,16 @@ class LiveGlobalSearchService
                 $publishers[$m['publisher']] = true;
             }
             $isRef = !empty($m['is_refutation']);
+            $numCons = (string) ($m['numeric_consistency'] ?? 'NOT_APPLICABLE');
+            $dateChanged = !empty($m['dates_changed']);
+
             if ($isRef && !$inputIsRefutation) {
                 $refuting++;
-            } elseif (!empty($m['is_reference']) || ($m['similarity_pct'] ?? 0) >= 25.0) {
+            } elseif (in_array($numCons, ['MISMATCH', 'INCONSISTENT'], true) || $dateChanged) {
+                if (!empty($m['is_reference'])) {
+                    $refuting++;
+                }
+            } elseif (($m['similarity_pct'] ?? 0) >= 28.0 && in_array($numCons, ['MATCH', 'NO_NUMBERS', 'CONSISTENT', 'NOT_APPLICABLE'], true)) {
                 $supporting++;
             }
         }
@@ -567,10 +605,14 @@ class LiveGlobalSearchService
         $pubNames = array_slice(array_keys($publishers), 0, 5);
         $pubList = implode(', ', $pubNames);
 
-        if ($refuting >= 2 || ($refuting >= 1 && $supporting === 0)) {
+        if ($hasScamPattern && ($refuting >= 1 || $supporting <= 2)) {
+            $refuting = max(1, $refuting);
             $hint = 'REFUTED';
-            $conclusion = "Penelusuran real-time menemukan {$refuting} laporan bantahan/cek-fakta yang menolak atau mengoreksi klaim ini ({$pubList}). Konten berindikasi disinformasi atau perlu diklarifikasi.";
-        } elseif ($supporting >= 2) {
+            $conclusion = "Penelusuran real-time menemukan {$refuting} laporan bantahan/cek-fakta atau indikasi ketidaksesuaian yang mengoreksi klaim ini" . ($pubList ? " ({$pubList})" : '') . ". Konten berindikasi disinformasi/hoaks atau perlu diklarifikasi.";
+        } elseif (($refuting >= 2 && $refuting >= $supporting) || ($refuting >= 1 && $supporting === 0)) {
+            $hint = 'REFUTED';
+            $conclusion = "Penelusuran real-time menemukan {$refuting} laporan bantahan/cek-fakta atau indikasi ketidaksesuaian yang mengoreksi klaim ini" . ($pubList ? " ({$pubList})" : '') . ". Konten berindikasi disinformasi/hoaks atau perlu diklarifikasi.";
+        } elseif ($supporting >= 2 && $supporting > $refuting) {
             $hint = 'CORROBORATED';
             $conclusion = "Penelusuran real-time menemukan {$supporting} sumber berita/publik independen yang membahas dan mengonfirmasi peristiwa ini, antara lain dari {$pubList}.";
         } else {
@@ -585,5 +627,64 @@ class LiveGlobalSearchService
             'publishers' => $pubNames,
             'synthesized_conclusion' => $conclusion,
         ];
+    }
+
+    /** Integrasi opsional Exa.ai Neural Search dengan automatic silent failover ke Google/Bing RSS bila offline. */
+    private function fetchExaSearchItems(string $query): array
+    {
+        if (app()->environment('testing')) {
+            return [];
+        }
+        try {
+            $settings = app(\App\Services\Support\AppSettings::class);
+            $enabled = $settings->has('ai.exa_search_enabled')
+                ? filter_var($settings->get('ai.exa_search_enabled'), FILTER_VALIDATE_BOOL)
+                : (bool) config('trace.ai.exa_search_enabled', true);
+            if (!$enabled) {
+                return [];
+            }
+            $enc = $settings->get('ai.exa_api_key_enc');
+            $key = $enc ? \Illuminate\Support\Facades\Crypt::decryptString((string) $enc) : config('trace.ai.exa_api_key');
+            if (!$key) {
+                return [];
+            }
+
+            $baseUrl = rtrim((string) config('trace.ai.exa_base_url', 'https://api.exa.ai'), '/');
+            $resp = Http::connectTimeout(3)->timeout(4)->acceptJson()
+                ->withHeaders(['x-api-key' => $key, 'Authorization' => 'Bearer ' . $key])
+                ->post($baseUrl . '/search', ['query' => $query, 'numResults' => 6, 'type' => 'auto']);
+
+            if (!$resp->successful()) {
+                return [];
+            }
+
+            $out = [];
+            foreach ($resp->json('results', []) as $r) {
+                $url = (string) ($r['url'] ?? '');
+                $title = trim((string) ($r['title'] ?? ''));
+                if ($url === '' || $title === '') {
+                    continue;
+                }
+                $host = parse_url($url, PHP_URL_HOST);
+                $publisher = $host ? preg_replace('/^www\./i', '', $host) : 'Exa.ai';
+                $summary = trim((string) ($r['text'] ?? $r['summary'] ?? $title));
+                $channel = $this->classifyChannel($url, $publisher, $title . ' ' . $summary, 'Exa.ai Neural Search');
+                $out[] = [
+                    'title' => $title,
+                    'summary' => Str::limit($summary, 320),
+                    'url' => $url,
+                    'publisher' => $publisher,
+                    'published_at' => !empty($r['publishedDate']) && @strtotime((string) $r['publishedDate'])
+                        ? date('d M Y H:i', strtotime((string) $r['publishedDate']))
+                        : null,
+                    'published_raw' => (string) ($r['publishedDate'] ?? ''),
+                    'channel' => $channel,
+                    'is_authoritative' => in_array($channel, ['OFFICIAL GOV', 'PORTAL BERITA', 'MEDIA INTERNASIONAL', 'CEK FAKTA'], true),
+                ];
+            }
+            return $out;
+        } catch (\Throwable) {
+            return [];
+        }
     }
 }

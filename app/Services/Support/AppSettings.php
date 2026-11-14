@@ -28,6 +28,14 @@ class AppSettings
         'ai.timeout',
         'ai.allow_external',
         'ai.api_key_enc',
+        'ai.engine_mode',
+        'ai.cloud_provider',
+        'ai.cloud_timeout',
+        'ai.google_model',
+        'ai.google_api_key_enc',
+        'ai.exa_model',
+        'ai.exa_api_key_enc',
+        'ai.exa_search_enabled',
     ];
 
     private ?array $cache = null;

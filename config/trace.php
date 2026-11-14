@@ -87,23 +87,34 @@ return [
     ],
 
     // ------------------------------------------------------------------
-    // AI Server: local-first, model-agnostic
+    // AI Server: Hybrid Adaptive (Cloud Google AI Studio / Exa.ai -> Auto-Failover Local)
     // ------------------------------------------------------------------
     'ai' => [
-        'driver'          => env('AI_DRIVER', 'mock'),           // mock | ollama | openai_compatible | external
-        'base_url'        => env('AI_BASE_URL', env('AI_SERVER_URL')),
-        'model'           => env('AI_MODEL', env('AI_SERVER_MODEL')),
-        'embedding_model' => env('AI_EMBEDDING_MODEL'),
-        'timeout'         => (int) env('AI_TIMEOUT', env('AI_REQUEST_TIMEOUT', 180)),
-        'require_local'   => filter_var(env('AI_REQUIRE_LOCAL', true), FILTER_VALIDATE_BOOL),
-        'allow_external'  => filter_var(env('AI_ALLOW_EXTERNAL', false), FILTER_VALIDATE_BOOL),
-        'external_api_key' => env('AI_EXTERNAL_API_KEY'),         // hanya jika admin mengaktifkan ExternalDriver
-        'api_key'         => env('AI_API_KEY', env('AI_SERVER_API_KEY')), // opsional, autentikasi layanan ke AI Server internal
-        'max_retries'     => (int) env('AI_MAX_RETRIES', 2),      // retry terbatas untuk JSON tidak valid
-        'max_input_chars' => (int) env('AI_MAX_INPUT_CHARS', 12000),
-        'max_output_chars' => (int) env('AI_MAX_OUTPUT_CHARS', 20000),
-        // Hanya untuk MockDriver: ok | offline | invalid_json | timeout | busy
-        'mock_mode'       => env('AI_MOCK_MODE', 'ok'),
+        'driver'            => env('AI_DRIVER', 'mock'),           // mock | ollama | openai_compatible | external
+        'base_url'          => env('AI_BASE_URL', env('AI_SERVER_URL')),
+        'model'             => env('AI_MODEL', env('AI_SERVER_MODEL')),
+        'embedding_model'   => env('AI_EMBEDDING_MODEL'),
+        'timeout'           => (int) env('AI_TIMEOUT', env('AI_REQUEST_TIMEOUT', 180)),
+        'require_local'     => filter_var(env('AI_REQUIRE_LOCAL', true), FILTER_VALIDATE_BOOL),
+        'allow_external'    => filter_var(env('AI_ALLOW_EXTERNAL', false), FILTER_VALIDATE_BOOL),
+        'external_api_key'  => env('AI_EXTERNAL_API_KEY'),
+        'api_key'           => env('AI_API_KEY', env('AI_SERVER_API_KEY')),
+        'max_retries'       => (int) env('AI_MAX_RETRIES', 2),
+        'max_input_chars'   => (int) env('AI_MAX_INPUT_CHARS', 12000),
+        'max_output_chars'  => (int) env('AI_MAX_OUTPUT_CHARS', 20000),
+        'mock_mode'         => env('AI_MOCK_MODE', 'ok'),
+
+        // Hybrid Cloud API + Auto-Failover ke AI Lokal
+        'engine_mode'       => env('AI_ENGINE_MODE', 'HYBRID_AUTO'), // HYBRID_AUTO | FORCE_LOCAL | FORCE_CLOUD
+        'cloud_provider'    => env('AI_CLOUD_PROVIDER', 'google_ai_studio'), // google_ai_studio | exa_ai
+        'cloud_timeout'     => (int) env('AI_CLOUD_TIMEOUT', 10),
+        'google_api_key'    => env('GOOGLE_AI_STUDIO_API_KEY'),
+        'google_model'      => env('GOOGLE_AI_STUDIO_MODEL', 'gemini-2.0-flash'),
+        'google_base_url'   => env('GOOGLE_AI_STUDIO_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta'),
+        'exa_api_key'       => env('EXA_API_KEY'),
+        'exa_model'         => env('EXA_AI_MODEL', 'exa'),
+        'exa_base_url'      => env('EXA_AI_BASE_URL', 'https://api.exa.ai'),
+        'exa_search_enabled' => filter_var(env('EXA_SEARCH_ENABLED', true), FILTER_VALIDATE_BOOL),
     ],
 
     // sync = langsung dijalankan, queue = masuk antrean database (php artisan queue:work)

@@ -271,6 +271,19 @@ class ScannerController extends Controller
         try {
             $analysisResult = $this->ai->analyze('credibility_scan', $payload, $validCodes);
             $data = $analysisResult['result'];
+            $data['execution_tier'] = $analysisResult['execution_tier'] ?? 'LOCAL_DIRECT';
+            $data['failover_triggered'] = !empty($analysisResult['failover_triggered']);
+            $data['failover_reason'] = $analysisResult['failover_reason'] ?? null;
+            $data['cloud_provider'] = $analysisResult['cloud_provider'] ?? ($analysisResult['cloud_provider_attempted'] ?? null);
+
+            if (!empty($analysisResult['failover_triggered'])) {
+                $trace[] = [
+                    'step' => 'HYBRID_FAILOVER',
+                    'label' => 'Auto-Failover: Cloud AI API -> AI Lokal Host Aktif',
+                    'detail' => 'Koneksi Cloud API (' . ($analysisResult['cloud_provider_attempted'] ?? 'cloud') . ') terganggu/timeout (' . Str::limit((string) ($analysisResult['failover_reason'] ?? 'OFFLINE'), 90) . '). Sistem otomatis beralih ke AI Lokal (' . ($analysisResult['model_name'] ?? 'local') . ').',
+                    'status' => 'FAILOVER_LOCAL',
+                ];
+            }
 
             // 5. Deteksi Highlight Kata Kunci & Potensi Timpa Teks / Editan AI terhadap Referensi & Klaim
             $referenceItems = [];
@@ -468,15 +481,14 @@ class ScannerController extends Controller
             if (!empty($corroboration['synthesized_conclusion'])) {
                 $data['tactical_summary'] = $corroboration['synthesized_conclusion'];
             }
-        } elseif ($hint === 'CORROBORATED' && $supporting >= 2 && $refuting === 0 && !$hasHighTamper) {
-            if (in_array($data['verification_status'] ?? '', ['BELUM TERVERIFIKASI', 'TIDAK CUKUP BUKTI'], true)
-                || (int) ($data['credibility_score'] ?? 50) === 50) {
+        } elseif ($hint === 'CORROBORATED' && $supporting >= 2 && !$hasHighTamper) {
+            if (($data['verification_status'] ?? '') !== 'TERVERIFIKASI' || (int) ($data['credibility_score'] ?? 50) < 70) {
                 $data['verification_status'] = 'TERVERIFIKASI';
                 $data['classification'] = 'VERIFIED';
                 $data['content_indicator'] = 'ASLI';
-                $data['credibility_score'] = min(94, 74 + ($supporting * 3));
+                $data['credibility_score'] = min(94, 74 + ($supporting * 2));
                 $data['threat_level'] = 'RENDAH';
-                $data['confidence'] = min(0.92, round(0.68 + ($supporting * 0.04), 2));
+                $data['confidence'] = min(0.92, round(0.68 + ($supporting * 0.03), 2));
                 foreach ($data['claims'] ?? [] as $k => $cl) {
                     $data['claims'][$k]['check_status'] = 'TERVERIFIKASI';
                 }

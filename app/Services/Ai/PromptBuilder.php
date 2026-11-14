@@ -27,7 +27,7 @@ class PromptBuilder
   "sources": [],
   "recommendations": ["string"],
   "limitations": ["string"],
-  "tactical_summary": "2-3 kalimat kesimpulan analisis yang menyebut temuan sumber berita/medsos (bukan mengulang klaim mentah)"
+  "tactical_summary": "string"
 }
 JSON;
 
@@ -54,7 +54,7 @@ ATURAN WAJIB:
    - Jika bukti pembanding belum tersedia/tidak cukup -> verification_status "TIDAK CUKUP BUKTI" atau "BELUM TERVERIFIKASI", content_indicator "BELUM DAPAT DIPASTIKAN", classification "UNVERIFIED", dan credibility_score SEDANG (30-60).
 6. confidence adalah desimal 0.0..1.0 sesuai kecukupan bukti (misal 0.3..0.9). Dilarang menyatakan benar/palsu hanya dari gaya tulisan, jumlah interaksi, atau reputasi akun.
 7. Temuan bertipe FAKTA atau KLAIM_SUMBER wajib menyertakan minimal satu evidence_ids yang benar-benar ada dalam daftar BUKTI TERSEDIA. Jika BUKTI TERSEDIA kosong, isi "evidence": [], "sources": [], dan gunakan hanya findings bertipe "INTERPRETASI_AI" atau "REKOMENDASI" dengan "evidence_ids": [].
-8. Cantumkan keterbatasan analisis pada "limitations" dan ringkasan taktis faktual pada "tactical_summary".
+8. Cantumkan keterbatasan analisis pada "limitations" dan tulis 2-3 kalimat kesimpulan faktual yang menyebut temuan sumber berita/medsos pada "tactical_summary" (jangan mengulang klaim mentah dan jangan menyalin kata "string").
 
 SKEMA:
 TXT . "\n" . self::SCHEMA;

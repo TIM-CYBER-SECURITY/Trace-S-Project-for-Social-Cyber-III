@@ -7,7 +7,9 @@ use App\Models\AiModelChange;
 use App\Models\AiServer;
 use App\Models\User;
 use App\Services\Ai\Contracts\AiDriver;
+use App\Services\Ai\Drivers\ExaAiDriver;
 use App\Services\Ai\Drivers\ExternalDriver;
+use App\Services\Ai\Drivers\GoogleAiStudioDriver;
 use App\Services\Ai\Drivers\MockDriver;
 use App\Services\Ai\Drivers\OllamaDriver;
 use App\Services\Ai\Drivers\OpenAICompatibleDriver;
@@ -30,6 +32,7 @@ use Illuminate\Support\Str;
 class AiManager
 {
     private ?AiDriver $driver = null;
+    private bool $hasExplicitDriver = false;
     private ModelProfileResolver $profiles;
     private HardwareTelemetry $telemetry;
 
@@ -48,12 +51,15 @@ class AiManager
     public function setDriver(?AiDriver $driver): void
     {
         $this->driver = $driver;
+        $this->hasExplicitDriver = $driver !== null;
         Cache::forget('trace_ai_status_snapshot');
     }
 
     public function resetDriver(): void
     {
         $this->driver = null;
+        $this->hasExplicitDriver = false;
+        $this->settings->flushCache();
         Cache::forget('trace_ai_status_snapshot');
     }
 
@@ -84,9 +90,42 @@ class AiManager
             if ($this->settings->has('ai.api_key_enc')) {
                 $cfg['api_key'] = Crypt::decryptString((string) $this->settings->get('ai.api_key_enc'));
             }
+            if ($this->settings->has('ai.engine_mode')) {
+                $cfg['engine_mode'] = (string) $this->settings->get('ai.engine_mode');
+            }
+            if ($this->settings->has('ai.cloud_provider')) {
+                $cfg['cloud_provider'] = (string) $this->settings->get('ai.cloud_provider');
+            }
+            if ($this->settings->has('ai.cloud_timeout')) {
+                $cfg['cloud_timeout'] = max(3, min(60, (int) $this->settings->get('ai.cloud_timeout')));
+            }
+            if ($this->settings->has('ai.google_model')) {
+                $cfg['google_model'] = (string) $this->settings->get('ai.google_model');
+            }
+            if ($this->settings->has('ai.google_api_key_enc')) {
+                $cfg['google_api_key'] = Crypt::decryptString((string) $this->settings->get('ai.google_api_key_enc'));
+            }
+            if ($this->settings->has('ai.exa_model')) {
+                $cfg['exa_model'] = (string) $this->settings->get('ai.exa_model');
+            }
+            if ($this->settings->has('ai.exa_api_key_enc')) {
+                $cfg['exa_api_key'] = Crypt::decryptString((string) $this->settings->get('ai.exa_api_key_enc'));
+            }
+            if ($this->settings->has('ai.exa_search_enabled')) {
+                $cfg['exa_search_enabled'] = filter_var($this->settings->get('ai.exa_search_enabled'), FILTER_VALIDATE_BOOL);
+            }
         } catch (\Throwable) {
             // Fallback aman ke config(.env) saat bootstrap migrasi awal
         }
+
+        $maskKey = fn (?string $k): ?string => (!$k || strlen($k) < 8)
+            ? ($k ? '••••••••' : null)
+            : (substr($k, 0, 4) . '••••••••' . substr($k, -3));
+
+        $cfg['has_google_key'] = !empty($cfg['google_api_key']);
+        $cfg['has_exa_key'] = !empty($cfg['exa_api_key']);
+        $cfg['google_key_masked'] = $maskKey($cfg['google_api_key'] ?? null);
+        $cfg['exa_key_masked'] = $maskKey($cfg['exa_api_key'] ?? null);
 
         return $cfg;
     }
@@ -193,7 +232,128 @@ class AiManager
 
     public function isSimulation(): bool
     {
+        if ($this->shouldAttemptCloud()) {
+            return false;
+        }
         return $this->driver()->isSimulation();
+    }
+
+    /** Buat instansi Cloud AI Driver (Google AI Studio / Exa.ai) bila terkonfigurasi. */
+    public function cloudDriver(?array $cfg = null): ?AiDriver
+    {
+        $cfg = $cfg ?? $this->resolvedConfig();
+        $provider = (string) ($cfg['cloud_provider'] ?? 'google_ai_studio');
+        $timeout = max(3, min(60, (int) ($cfg['cloud_timeout'] ?? 10)));
+
+        return match ($provider) {
+            'exa_ai' => new ExaAiDriver(
+                $cfg['exa_api_key'] ?? null,
+                (string) ($cfg['exa_model'] ?? 'exa'),
+                $timeout,
+                (string) ($cfg['exa_base_url'] ?? 'https://api.exa.ai')
+            ),
+            default => new GoogleAiStudioDriver(
+                $cfg['google_api_key'] ?? null,
+                (string) ($cfg['google_model'] ?? 'gemini-2.0-flash'),
+                $timeout,
+                (string) ($cfg['google_base_url'] ?? 'https://generativelanguage.googleapis.com/v1beta')
+            ),
+        };
+    }
+
+    /** Tentukan apakah analisis perlu mencoba Cloud AI API terlebih dahulu. */
+    public function shouldAttemptCloud(?array $cfg = null): bool
+    {
+        if ($this->hasExplicitDriver) {
+            return false;
+        }
+        $cfg = $cfg ?? $this->resolvedConfig();
+        $mode = (string) ($cfg['engine_mode'] ?? 'HYBRID_AUTO');
+        if ($mode === 'FORCE_LOCAL') {
+            return false;
+        }
+        $provider = (string) ($cfg['cloud_provider'] ?? 'google_ai_studio');
+        $hasKey = $provider === 'exa_ai'
+            ? !empty($cfg['exa_api_key'])
+            : !empty($cfg['google_api_key']);
+
+        return $mode === 'FORCE_CLOUD' || $hasKey;
+    }
+
+    /** Simpan konfigurasi Hybrid Cloud AI (Google AI Studio & Exa.ai) dengan enkripsi API Key. */
+    public function configureCloudRuntime(array $params, ?User $by, AuditLogger $audit): array
+    {
+        $engineMode = (string) ($params['engine_mode'] ?? 'HYBRID_AUTO');
+        $provider = (string) ($params['cloud_provider'] ?? 'google_ai_studio');
+        $cloudTimeout = max(3, min(60, (int) ($params['cloud_timeout'] ?? 10)));
+        $googleModel = trim((string) ($params['google_model'] ?? 'gemini-2.0-flash')) ?: 'gemini-2.0-flash';
+        $exaModel = trim((string) ($params['exa_model'] ?? 'exa')) ?: 'exa';
+        $exaSearch = !empty($params['exa_search_enabled']);
+
+        $this->settings->setInternal('ai.engine_mode', $engineMode, $by);
+        $this->settings->setInternal('ai.cloud_provider', $provider, $by);
+        $this->settings->setInternal('ai.cloud_timeout', (string) $cloudTimeout, $by);
+        $this->settings->setInternal('ai.google_model', $googleModel, $by);
+        $this->settings->setInternal('ai.exa_model', $exaModel, $by);
+        $this->settings->setInternal('ai.exa_search_enabled', $exaSearch ? '1' : '0', $by);
+
+        if (!empty($params['clear_google_key'])) {
+            $this->settings->setInternal('ai.google_api_key_enc', null, $by);
+        } elseif (!empty($params['google_api_key'])) {
+            $this->settings->setInternal('ai.google_api_key_enc', Crypt::encryptString(trim((string) $params['google_api_key'])), $by);
+        }
+
+        if (!empty($params['clear_exa_key'])) {
+            $this->settings->setInternal('ai.exa_api_key_enc', null, $by);
+        } elseif (!empty($params['exa_api_key'])) {
+            $this->settings->setInternal('ai.exa_api_key_enc', Crypt::encryptString(trim((string) $params['exa_api_key'])), $by);
+        }
+
+        Cache::forget('trace_ai_status_snapshot');
+        $freshCfg = $this->resolvedConfig();
+
+        $audit->log('AI_HYBRID_CLOUD_CONFIGURED', null, [
+            'engine_mode' => $engineMode,
+            'cloud_provider' => $provider,
+            'cloud_timeout' => $cloudTimeout,
+            'google_model' => $googleModel,
+            'exa_model' => $exaModel,
+            'exa_search_enabled' => $exaSearch,
+            'has_google_key' => $freshCfg['has_google_key'],
+            'has_exa_key' => $freshCfg['has_exa_key'],
+        ], $by?->id);
+
+        return $freshCfg;
+    }
+
+    /** Uji koneksi Cloud AI (Google AI Studio / Exa.ai) dan kesiapan Local Fallback secara bersamaan. */
+    public function testCloudConnection(): array
+    {
+        $cfg = $this->resolvedConfig();
+        $cloud = $this->cloudDriver($cfg);
+        $cloudRes = $cloud ? $cloud->validateConnection() : ['ok' => false, 'status' => 'NOT_CONFIGURED', 'message' => 'Cloud driver tidak aktif'];
+
+        $localRes = ['status' => 'OFFLINE', 'model' => null];
+        try {
+            $d = $this->driver();
+            $h = $d->checkHealth();
+            $localRes = [
+                'driver' => $d->name(),
+                'status' => $h['status'] ?? 'OFFLINE',
+                'model' => $d->modelName(),
+            ];
+        } catch (\Throwable $e) {
+            $localRes['error'] = $e->getMessage();
+        }
+
+        return [
+            'ok' => !empty($cloudRes['ok']),
+            'engine_mode' => $cfg['engine_mode'] ?? 'HYBRID_AUTO',
+            'cloud_provider' => $cfg['cloud_provider'] ?? 'google_ai_studio',
+            'cloud' => $cloudRes,
+            'local_fallback' => $localRes,
+            'message' => ($cloudRes['message'] ?? '') . " | Standby Fallback Lokal: {$localRes['status']}" . ($localRes['model'] ? " ({$localRes['model']})" : ''),
+        ];
     }
 
     /** Status ringkas untuk top bar dan panel admin (tidak melempar eksepsi). */
@@ -215,10 +375,14 @@ class AiManager
                     'runtime' => $h['runtime'] ?? null,
                     'runtime_version' => $h['runtime_version'] ?? null,
                     'loaded_models' => $h['loaded_models'] ?? [],
-                    'is_simulation' => $d->isSimulation(),
+                    'is_simulation' => $d->isSimulation() && !$this->shouldAttemptCloud($cfg),
                     'latency_ms' => $h['latency_ms'],
                     'ai_ram_used_gb' => $hw['ai_process_ram_gb'] ?? null,
                     'ai_active_process' => $hw['ai_active_process'] ?? null,
+                    'engine_mode' => $cfg['engine_mode'] ?? 'HYBRID_AUTO',
+                    'cloud_provider' => $cfg['cloud_provider'] ?? 'google_ai_studio',
+                    'cloud_model' => ($cfg['cloud_provider'] ?? '') === 'exa_ai' ? ($cfg['exa_model'] ?? 'exa') : ($cfg['google_model'] ?? 'gemini-2.0-flash'),
+                    'cloud_configured' => $this->shouldAttemptCloud($cfg),
                     'error' => $h['error'] ?? null,
                 ];
             } catch (\Throwable $e) {
@@ -236,6 +400,10 @@ class AiManager
                     'latency_ms' => null,
                     'ai_ram_used_gb' => $hw['ai_process_ram_gb'] ?? null,
                     'ai_active_process' => $hw['ai_active_process'] ?? null,
+                    'engine_mode' => $cfg['engine_mode'] ?? 'HYBRID_AUTO',
+                    'cloud_provider' => $cfg['cloud_provider'] ?? 'google_ai_studio',
+                    'cloud_model' => ($cfg['cloud_provider'] ?? '') === 'exa_ai' ? ($cfg['exa_model'] ?? 'exa') : ($cfg['google_model'] ?? 'gemini-2.0-flash'),
+                    'cloud_configured' => $this->shouldAttemptCloud($cfg),
                     'error' => $e->getMessage(),
                 ];
             }
@@ -349,19 +517,97 @@ class AiManager
     }
 
     /**
-     * Analisis terstruktur dengan validasi skema, normalisasi enum untuk LLM open-weights, dan retry terbatas.
+     * Analisis terstruktur Hybrid Adaptive:
+     * 1. Bila mode HYBRID_AUTO/FORCE_CLOUD & Cloud API key tersedia, coba Cloud Driver (Google AI Studio / Exa.ai).
+     * 2. Bila koneksi putus / timeout / HTTP 5xx / kuota habis pada mode HYBRID_AUTO, Auto-Failover ke AI Lokal
+     *    dan catat event AI_CLOUD_FAILOVER pada Audit Log imutabel.
+     * 3. Lakukan normalisasi & validasi skema, serta pemulihan aman bila model lokal kecil (mis. 0.5B) tidak patuh skema JSON.
      *
      * @param  array{text:string,evidence:array,case:?array,flags:array}  $payload
      * @param  string[]  $validEvidenceIds
-     * @return array{result:array,driver:string,model_name:?string,model_version:?string,is_simulation:bool,attempts:int}
+     * @return array{result:array,driver:string,model_name:?string,model_version:?string,is_simulation:bool,attempts:int,execution_tier?:string,failover_triggered?:bool,failover_reason?:?string}
      *
      * @throws AiUnavailableException|AiInvalidOutputException
      */
     public function analyze(string $module, array $payload, array $validEvidenceIds): array
     {
-        $driver = $this->driver();
         $cfg = $this->resolvedConfig();
-        $max = max(1, 1 + (int) ($cfg['max_retries'] ?? 2));
+        $attemptCloud = $this->shouldAttemptCloud($cfg);
+        $localDriver = $this->driver();
+
+        if ($attemptCloud) {
+            $cloudDriver = $this->cloudDriver($cfg);
+            if ($cloudDriver !== null) {
+                try {
+                    $res = $this->executeAnalyzeWithDriver($cloudDriver, $module, $payload, $validEvidenceIds, 1, false);
+                    $res['execution_tier'] = 'CLOUD_PRIMARY';
+                    $res['failover_triggered'] = false;
+                    $res['failover_reason'] = null;
+                    $res['cloud_provider'] = $cloudDriver->name();
+                    $res['result']['execution_tier'] = 'CLOUD_PRIMARY';
+                    $res['result']['failover_triggered'] = false;
+                    return $res;
+                } catch (\Throwable $cloudEx) {
+                    if (($cfg['engine_mode'] ?? 'HYBRID_AUTO') === 'FORCE_CLOUD') {
+                        throw $cloudEx;
+                    }
+                    try {
+                        app(AuditLogger::class)->log('AI_CLOUD_FAILOVER', null, [
+                            'cloud_provider' => $cloudDriver->name(),
+                            'cloud_model' => $cloudDriver->modelName(),
+                            'reason' => mb_substr($cloudEx->getMessage(), 0, 300),
+                            'fallback_driver' => $localDriver->name(),
+                            'fallback_model' => $localDriver->modelName(),
+                        ]);
+                    } catch (\Throwable) {
+                    }
+
+                    $res = $this->executeAnalyzeWithDriver(
+                        $localDriver,
+                        $module,
+                        $payload,
+                        $validEvidenceIds,
+                        max(1, 1 + (int) ($cfg['max_retries'] ?? 2)),
+                        true
+                    );
+                    $res['execution_tier'] = 'LOCAL_FAILOVER';
+                    $res['failover_triggered'] = true;
+                    $res['failover_reason'] = mb_substr($cloudEx->getMessage(), 0, 250);
+                    $res['cloud_provider_attempted'] = $cloudDriver->name();
+                    $res['result']['execution_tier'] = 'LOCAL_FAILOVER';
+                    $res['result']['failover_triggered'] = true;
+                    $res['result']['failover_reason'] = $res['failover_reason'];
+                    return $res;
+                }
+            }
+        }
+
+        $res = $this->executeAnalyzeWithDriver(
+            $localDriver,
+            $module,
+            $payload,
+            $validEvidenceIds,
+            max(1, 1 + (int) ($cfg['max_retries'] ?? 2)),
+            !$localDriver->isSimulation()
+        );
+        $res['execution_tier'] = $localDriver->isSimulation() ? 'MOCK_SIMULATION' : 'LOCAL_DIRECT';
+        $res['failover_triggered'] = false;
+        $res['failover_reason'] = null;
+        $res['result']['execution_tier'] = $res['execution_tier'];
+        $res['result']['failover_triggered'] = false;
+        return $res;
+    }
+
+    /** Eksekusi inti analisis terstruktur pada driver target dengan retry & salvage aman untuk model kecil. */
+    private function executeAnalyzeWithDriver(
+        AiDriver $driver,
+        string $module,
+        array $payload,
+        array $validEvidenceIds,
+        int $max,
+        bool $allowSalvageOnSmallModel
+    ): array {
+        $cfg = $this->resolvedConfig();
         if (function_exists('set_time_limit')) {
             @set_time_limit(max(240, ($max * ((int) ($cfg['timeout'] ?? 180))) + 60));
         }
@@ -382,7 +628,7 @@ class AiManager
                 continue;
             }
 
-            $data = $this->normalizeAnalysisData($data, $module, $driver, $validEvidenceIds);
+            $data = $this->normalizeAnalysisData($data, $module, $driver, $validEvidenceIds, $payload);
 
             $errors = $this->validator->validateAnalysis($data, $validEvidenceIds);
             if (!$errors) {
@@ -404,6 +650,43 @@ class AiManager
             $messages[] = ['role' => 'user', 'content' => 'JSON tidak sesuai skema: ' . implode('; ', array_slice($errors, 0, 8)) . '. Perbaiki dan kirim ulang HANYA JSON valid.'];
         }
 
+        // Untuk model lokal nyata berukuran kecil (mis. Qwen2.5-0.5B) yang merespons teks non-JSON valid,
+        // selamatkan keluaran secara aman tanpa mengarang bukti palsu agar operasi taktis tidak terputus.
+        if ($allowSalvageOnSmallModel && !$driver->isSimulation() && $lastRaw !== null && trim($lastRaw) !== '') {
+            $plainText = trim(JsonExtractor::stripThinking($lastRaw));
+            $fallbackSummary = mb_substr($plainText !== '' ? $plainText : (string) ($payload['corroboration_summary'] ?? $payload['text'] ?? 'Analisis selesai dengan skema minimal.'), 0, 1400);
+            $salvaged = $this->normalizeAnalysisData([
+                'summary' => $fallbackSummary,
+                'tactical_summary' => !empty($payload['corroboration_summary'])
+                    ? (string) $payload['corroboration_summary']
+                    : $fallbackSummary,
+                'verification_status' => 'BELUM TERVERIFIKASI',
+                'content_indicator' => 'BELUM DAPAT DIPASTIKAN',
+                'classification' => 'UNVERIFIED',
+                'credibility_score' => 50,
+                'threat_level' => 'SEDANG',
+                'confidence' => 0.45,
+                'limitations' => ['Model lokal kecil menghasilkan teks non-skema; hasil disusun otomatis berbasis bukti real-time & tinjauan operator.'],
+                'recommendations' => ['Lakukan verifikasi silang manual pada daftar tautan sumber real-time di atas.'],
+            ], $module, $driver, $validEvidenceIds, $payload);
+
+            $salvagedErrors = $this->validator->validateAnalysis($salvaged, $validEvidenceIds);
+            if (!$salvagedErrors) {
+                $salvaged['analysis_id'] = (string) Str::uuid();
+                $salvaged['analyzed_at'] = now()->toIso8601String();
+                $salvaged['validation_status'] = 'PENDING REVIEW';
+                return [
+                    'result' => $salvaged,
+                    'driver' => $driver->name(),
+                    'model_name' => $driver->modelName(),
+                    'model_version' => $salvaged['model_version'],
+                    'is_simulation' => false,
+                    'attempts' => $max,
+                    'salvaged_from_raw' => true,
+                ];
+            }
+        }
+
         throw new AiInvalidOutputException(
             'Keluaran AI tidak sesuai skema setelah ' . $max . ' percobaan. Hasil tidak disimpan; minta pemeriksaan ulang.',
             $lastErrors,
@@ -412,7 +695,7 @@ class AiManager
     }
 
     /** Normalisasi variasi enum bilingual & struktur LLM open-weights tanpa mengarang Evidence ID fiktif. */
-    private function normalizeAnalysisData(array $data, string $module, AiDriver $driver, array $validEvidenceIds = []): array
+    private function normalizeAnalysisData(array $data, string $module, AiDriver $driver, array $validEvidenceIds = [], array $payload = []): array
     {
         $data['module'] = $module;
         $data['is_simulation'] = $driver->isSimulation();
@@ -510,16 +793,27 @@ class AiManager
             $data['confidence'] = 0.5;
         }
 
-        $summaryText = $toScalarText($data['summary'] ?? null, 4000);
+        $stripPlaceholder = function (string $val): string {
+            $low = strtolower(trim($val));
+            if ($low === 'string' || str_contains($low, 'kalimat kesimpulan analisis yang menyebut')) {
+                return '';
+            }
+            return $val;
+        };
+
+        $summaryText = $stripPlaceholder($toScalarText($data['summary'] ?? null, 4000));
         if ($summaryText === '') {
-            $summaryText = $toScalarText($data['tactical_summary'] ?? null, 4000);
+            $summaryText = $stripPlaceholder($toScalarText($data['tactical_summary'] ?? null, 4000));
         }
         if ($summaryText === '' && !empty($data['claims'][0]) && is_array($data['claims'][0])) {
-            $summaryText = $toScalarText($data['claims'][0]['text'] ?? null, 4000);
+            $summaryText = $stripPlaceholder($toScalarText($data['claims'][0]['text'] ?? null, 4000));
         }
-        if ($summaryText !== '') {
-            $data['summary'] = $summaryText;
+        if ($summaryText === '') {
+            $summaryText = !empty($payload['corroboration_summary'])
+                ? mb_substr(trim((string) $payload['corroboration_summary']), 0, 4000)
+                : ('Evaluasi kredibilitas terhadap klaim: ' . mb_substr(trim((string) ($payload['text'] ?? 'Konten diperiksa')), 0, 500));
         }
+        $data['summary'] = $summaryText;
 
         // Bangun peta ID bukti sah secara case-insensitive (tanpa mengarang ID baru)
         $validIdLookup = [];
@@ -571,10 +865,11 @@ class AiManager
                 ];
             }
         }
-        if ($normalizedClaims === [] && !empty($data['summary']) && is_string($data['summary'])) {
+        if ($normalizedClaims === []) {
+            $fallbackClaim = !empty($payload['text']) ? trim((string) $payload['text']) : (string) ($data['summary'] ?? 'Klaim diperiksa');
             $normalizedClaims[] = [
                 'id' => 'c1',
-                'text' => mb_substr(trim($data['summary']), 0, 500),
+                'text' => mb_substr($fallbackClaim, 0, 500),
                 'type' => 'FAKTA',
                 'check_status' => is_string($data['verification_status'] ?? null) ? $data['verification_status'] : 'BELUM TERVERIFIKASI',
             ];
@@ -589,7 +884,7 @@ class AiManager
                 'fallacy' => $toScalarText($la['fallacy'] ?? null, 1000, 'Tidak terdapat kesesatan logika spesifik yang dicatat.'),
                 'source_verification' => $toScalarText($la['source_verification'] ?? null, 1000, 'Memerlukan verifikasi rujukan silang operator.'),
             ];
-            $tact = $toScalarText($data['tactical_summary'] ?? null, 1500);
+            $tact = $stripPlaceholder($toScalarText($data['tactical_summary'] ?? null, 1500));
             $data['tactical_summary'] = $tact !== '' ? $tact : mb_substr(trim($data['summary']), 0, 1500);
         }
 
@@ -707,6 +1002,32 @@ class AiManager
         if (function_exists('set_time_limit')) {
             @set_time_limit(max(120, ((int) ($cfg['timeout'] ?? 180)) + 60));
         }
+
+        if ($this->shouldAttemptCloud($cfg)) {
+            $cloud = $this->cloudDriver($cfg);
+            if ($cloud !== null) {
+                try {
+                    $out = $cloud->chat($messages, $options);
+                    $out['execution_tier'] = 'CLOUD_PRIMARY';
+                    $out['failover_triggered'] = false;
+                    return $out;
+                } catch (\Throwable $e) {
+                    if (($cfg['engine_mode'] ?? 'HYBRID_AUTO') === 'FORCE_CLOUD') {
+                        throw $e;
+                    }
+                    try {
+                        app(AuditLogger::class)->log('AI_CLOUD_FAILOVER', null, [
+                            'context' => 'console_chat',
+                            'cloud_provider' => $cloud->name(),
+                            'reason' => mb_substr($e->getMessage(), 0, 300),
+                            'fallback_model' => $this->activeModelName(),
+                        ]);
+                    } catch (\Throwable) {
+                    }
+                }
+            }
+        }
+
         if (!array_key_exists('temperature', $options)) {
             $prof = $this->activeModelProfile();
             $options['temperature'] = $prof['recommended_temperature'] ?? 0.2;
