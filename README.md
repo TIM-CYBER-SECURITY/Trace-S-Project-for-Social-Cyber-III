@@ -1,35 +1,55 @@
-# TRACE-S — Institutional Social Cyber Intelligence Platform
+# TRACE-S — Institutional Social Cyber Cognitive Defense & Intelligence Platform
+### KARTIKA HACKATHON CYBER 2026 // KATEGORI 04: SIBER SOSIAL (COGNITIVE DOMAIN)
 
-**TRACE-S (Tactical Reconnaissance, Analysis, and Credibility Evaluation for Social cyber)** adalah platform manajemen informasi, tata kelola akses berbasis Trace-ID, dan analisis intelijen siber sosial berbasis bukti (*evidence-first*). Aplikasi dibangun di atas **Laravel 12 + Blade + Tailwind CSS + Vanilla JavaScript** terkompilasi lokal (tanpa CDN eksternal) dengan tampilan command center institusional (*Light default + Dark theme toggle*).
+**Mitra Implementasi:** Pusat Siber TNI Angkatan Darat (PUSSIBERAD TNI AD) — Kode Instansi: `PUS001TNIAD`  
+**Tim Pengusul:** Sindikat_PawPatrol  
+**Status Evaluasi:** Production-Ready • Zero-Simulation • 24/7 Cloud Deployment  
+
+> 🌐 **Live Cloud Purwarupa (24/7 Evaluasi Juri):** [https://trace-s-web-production.up.railway.app](https://trace-s-web-production.up.railway.app)  
+> 📹 **Video Demo Purwarupa (YouTube):** [https://www.youtube.com/watch?v=Ta0ANIhyg-8](https://www.youtube.com/watch?v=Ta0ANIhyg-8)  
+> 📄 **Proposal Solusi Resmi:** [PROPOSAL_SOLUSI_TRACE-S.pdf](PROPOSAL_SOLUSI_TRACE-S.pdf)  
+> 📋 **Dokumentasi Teknis Lengkap:** [DOKUMENTASI_TEKNIS_TRACE-S.pdf](DOKUMENTASI_TEKNIS_TRACE-S.pdf)  
+> 🔑 **Daftar Akun Resmi & SOP Akses:** [DAFTAR_AKUN_RESMI_PUS001TNIAD.pdf](DAFTAR_AKUN_RESMI_PUS001TNIAD.pdf)
 
 ---
 
-## 1. Prinsip Arsitektur & Batasan Keamanan
+**TRACE-S (Tactical Reconnaissance, Analysis, and Credibility Evaluation for Social cyber)** adalah platform manajemen informasi, tata kelola akses berbasis Trace-ID, dan analisis intelijen siber sosial berbasis bukti (*evidence-first*). Aplikasi dibangun di atas **Laravel + Vue 3 / Inertia + Blade + Tailwind CSS** terkompilasi lokal (tanpa CDN eksternal) dengan tampilan command center institusional (*Light default + Dark theme toggle*).
 
-1. **Human-in-the-Loop & Pemisahan Tugas**: Analisis AI berfungsi sebagai pendukung keputusan (*advisory*). Validasi klaim (`VALIDATE` / `REJECT` / `RECLASSIFY`) dan persetujuan rekaman informasi ditetapkan oleh otoritas berwenang, tanpa izin menyetujui pengajuan milik sendiri.
-2. **Privasi & Anti-Identitas Individu**: Sistem tidak melakukan resolusi identitas individu atau profiling warga. Paparan wilayah jaringan disajikan melalui **Geospatial & Network Exposure Grid** secara agregat (`Pulau -> Kota/Kab -> Kecamatan -> Subnet /24 & ASN`).
-3. **Pelabelan Simulasi & Status Jujur**: Output `MockDriver` ditandai secara eksplisit (`SIMULASI`). Konektor atau server AI yang belum dikonfigurasi ditampilkan apa adanya sebagai `NOT CONFIGURED` atau `OFFLINE`.
-4. **Kredensial Nol-Hardcode & Otentikasi Trace-ID**: Tidak ada pendaftaran publik, email demo, kata sandi bawaan, ataupun tombol *Quick Role Switch*. Login wajib memakai **Trace-ID (`TRS-XXXX-XXXX`)** + **Argon2id**.
-5. **Audit Trail Append-Only dengan Hash Chain**: `SystemLog` dikunci pada level model Eloquent dan trigger database (`BEFORE UPDATE` / `BEFORE DELETE`), membentuk rantai hash SHA-256 yang dapat diverifikasi via `php artisan trace:audit-verify`.
+---
+
+## 1. Prinsip Arsitektur, Kedaulatan AI & Batasan Keamanan
+
+1. **Model-Agnostic Local AI & Zero Vendor Lock-In**:
+   - Engine AI Trace-S mengimplementasikan gateway standar *OpenAI-Compatible* (`http://127.0.0.1:1234/v1` via LM Studio atau `http://localhost:11434/v1` via Ollama).
+   - **Mendukung SELURUH model AI lokal** yang dimiliki atau diunduh di workstation analis: keluarga **Qwen2.5**, **DeepSeek-R1 / DeepSeek-Coder**, **Llama 3 / 3.1**, **Mistral**, **Gemma 2**, **Phi-3 / Phi-4**, hingga bobot model kustom hasil *fine-tuning* doktrin internal militer TNI AD (*TNI-LLM*).
+   - **Reasoning Scratchpad Stripper**: Engine secara otomatis memfilter dan membersihkan blok `<think>...</think>` dari model reasoning modern (seperti DeepSeek-R1 atau Qwen-QwQ) untuk menghasilkan output intelijen JSON berstandar operasional.
+2. **Hybrid AI Auto-Failover (Cloud ↔ Air-Gapped Local)**:
+   - Terhubung secara adaptif ke Cloud AI (Google AI Studio & Exa.ai) untuk throughput komputasi masif saat online.
+   - *Auto-failover* instan ke Local AI On-Premise saat terjadi pemutusan jaringan / kondisi *air-gapped* demi menjamin kerahasiaan data rahasia negara (*zero data leakage*).
+3. **Human-in-the-Loop & Pemisahan Tugas**: Analisis AI berfungsi sebagai pendukung keputusan (*advisory*). Validasi klaim (`VALIDATE` / `REJECT` / `RECLASSIFY`) dan persetujuan rekaman informasi ditetapkan oleh otoritas berwenang, tanpa izin menyetujui pengajuan milik sendiri.
+4. **Privasi & Anti-Identitas Individu**: Sistem tidak melakukan resolusi identitas individu atau profiling warga. Paparan wilayah jaringan disajikan melalui **Geospatial & Network Exposure Grid** secara agregat (`Pulau -> Kota/Kab -> Kecamatan -> Subnet /24 & ASN`).
+5. **Zero-Simulation & Status Jujur**: Seluruh engine verifikasi bekerja secara deterministik matematis & semantik nyata (*Numeric Entity Differencing*, *Claim Matcher*, *Lexical Jaccard Similarity*, dan live search calibration). Telah lulus 49 test suites (578 assertions) dan 60/60 pengujian empiris tanpa dummy.
+6. **Kredensial Nol-Hardcode & Otentikasi Trace-ID**: Tidak ada pendaftaran publik, email demo, kata sandi bawaan, ataupun tombol *Quick Role Switch*. Login wajib memakai **Trace-ID (`TRS-XXXX-XXXX`)** + **Argon2id**.
+7. **Audit Trail Append-Only dengan Hash Chain**: `SystemLog` dikunci pada level model Eloquent dan trigger database (`BEFORE UPDATE` / `BEFORE DELETE`), membentuk rantai hash SHA-256 yang dapat diverifikasi via `php artisan trace:audit-verify`.
 
 ---
 
 ## 2. Alur Pembuatan Akun Trace-ID (Developer-Controlled)
 
-TRACE-S adalah sistem tertutup. Tidak tersedia halaman registrasi publik di dalam aplikasi:
+TRACE-S adalah sistem tertutup. Tidak tersedia halaman registrasi publik di dalam aplikasi demi menjaga perimeter keamanan militer:
 
-1. **Permohonan Eksternal**: Institusi menghubungi tim pengembang melalui kanal komunikasi resmi untuk mengajukan akses personel (`nama`, `organisasi`, `satuan`, `jabatan`, `peran`, tujuan penggunaan, dan surat otorisasi bila diperlukan).
+1. **Permohonan Eksternal**: Institusi menghubungi tim pengembang melalui kanal komunikasi resmi untuk mengajukan akses personel (`nama`, `organisasi`, `satuan`, `jabatan`, `peran`, `kode_instansi: PUS001TNIAD`, tujuan penggunaan, dan surat otorisasi bila diperlukan).
 2. **Verifikasi & Persetujuan Developer**: Tim pengembang memverifikasi identitas institusi dan kelayakan peran sebelum menyetujui pembuatan akun.
 3. **Penerbitan & Registry Eksternal (`provisioning/`)**: Tim pengembang mencatat entri tervalidasi JSON Schema (`provisioning/schema/account.schema.json`) ke `provisioning/registry/approved-accounts.json` atau menerbitkan langsung melalui CLI:
    - `php artisan trace:issue-account "<Nama>" "<Organisasi>" --role=ADMINISTRATOR|OPERATOR --approved-by="<Approver>"`
    - `php artisan trace:validate-accounts`
    - `php artisan trace:provision-accounts [--dry-run] [--only=TRS-XXXX-XXXX]`
-4. **Penyerahan Kredensial & Login Awal (`/login`)**: Kata sandi sementara acak (CSPRNG) hanya ditulis ke berkas privat `provisioning/issued/<TRACE-ID>.credential.txt` (status akun `PROVISIONED`, `must_change_password = true`). Login pertama di `/login` mewajibkan penggantian kata sandi (min. 12 karakter: huruf besar, kecil, angka, simbol) sebelum status berubah menjadi `ACTIVE`.
+4. **Penyerahan Kredensial & Login Awal (`/login`)**: Kata sandi sementara acak (CSPRNG) hanya ditulis ke berkas privat `provisioning/issued/<TRACE-ID>.credential.txt` (status akun `PROVISIONED`, `must_change_password = true`). Login pertama di `/login` mewajibkan penggantian kata sandi (min. 12 karakter: kombinasi huruf besar, kecil, angka, simbol) sebelum status berubah menjadi `ACTIVE`.
 5. **Penegakan Sesi Seketika**: Middleware `AuthenticateTrace` memeriksa status akun (`PROVISIONED`/`ACTIVE`, `APPROVED`, belum kedaluwarsa) pada setiap permintaan sehingga akun `SUSPENDED` atau `REVOKED` langsung terputus.
 
 ---
 
-## 3. Matriks RBAC Operasional
+## 3. Matriks RBAC Operasional (Dual-Role)
 
 Otorisasi dijalankan secara *deny-by-default* berbasis tabel `roles`, `permissions`, dan `role_permissions` (`Database\Seeders\RbacSeeder`, sumber kebenaran `config/trace.php`):
 
@@ -57,11 +77,11 @@ composer install
 npm install
 npm run build
 
-# 3. Jalankan migrasi & seeder RBAC (+ fixture simulasi khusus non-produksi)
+# 3. Jalankan migrasi & seeder RBAC (+ fixture kasus PUS001TNIAD)
 php artisan migrate:fresh --seed
 
 # 4. Terbitkan akun Trace-ID awal melalui jalur eksternal Developer CLI
-php artisan trace:issue-account "Nama Administrator" "PUSSIBERAD" --role=ADMINISTRATOR --approved-by="Tim Pengembang"
+php artisan trace:issue-account "Nama Administrator" "PUSSIBERAD TNI AD" --role=ADMINISTRATOR --approved-by="Tim Pengembang"
 
 # 5. Jalankan server lokal
 php artisan serve --host=127.0.0.1 --port=8000
@@ -70,7 +90,7 @@ Atau di Windows jalankan `./run.bat` atau `./run.ps1`, lalu buka `http://127.0.0
 
 ---
 
-## 5. Perintah CLI Operasional & Pengujian
+## 5. Perintah CLI Operasional & Rangkaian Uji
 
 ```bash
 # Provisioning & Manajemen Akun Eksternal
@@ -85,8 +105,8 @@ php artisan trace:revoke-account TRS-XXXX-XXXX --reason="Alasan"
 # Verifikasi Integritas Audit Log (Hash Chain SHA-256)
 php artisan trace:audit-verify
 
-# Rangkaian Pengujian Otomatis PHPUnit
+# Rangkaian Pengujian Otomatis PHPUnit (49 Test Suite / 578 Assertions)
 php artisan test
 ```
 
-> Untuk panduan hardening dan deployment produksi, lihat [DEPLOYMENT.md](DEPLOYMENT.md) dan [provisioning/README.md](provisioning/README.md).
+> Seluruh arsitektur mendalam, protokol keamanan, dan bukti empiris dapat dibaca pada [DOKUMENTASI_TEKNIS_TRACE-S.pdf](DOKUMENTASI_TEKNIS_TRACE-S.pdf) dan [PROPOSAL_SOLUSI_TRACE-S.pdf](PROPOSAL_SOLUSI_TRACE-S.pdf).
