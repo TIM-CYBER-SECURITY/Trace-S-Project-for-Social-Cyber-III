@@ -25,7 +25,8 @@
   $systemNotice = $settings->get('system_notice');
   $aiStatus = app(\App\Services\Ai\AiManager::class)->status();
   $driverUpper = strtoupper($aiStatus['driver'] ?? 'OPENAI_COMPATIBLE');
-  $serverOnline = ($aiStatus['status'] ?? 'OFFLINE') === 'ONLINE';
+  $hasStandby = !empty($aiStatus['standby_engine_active']);
+  $serverOnline = ($aiStatus['status'] ?? 'OFFLINE') === 'ONLINE' || $hasStandby;
   $unreadNotifs = $user ? \App\Models\AppNotification::where('recipient_id', $user->id)->whereNull('read_at')->count() : 0;
 @endphp
 <body class="min-h-screen flex flex-col bg-[var(--bg-canvas)] text-[var(--text-primary)] text-sm antialiased">
@@ -90,8 +91,8 @@
          title="AI Driver: {{ $driverUpper }}{{ $aiShortModel ? ' • Model: ' . $rawActiveModel : '' }}">
         <span id="topbar-ai-dot" class="w-2 h-2 rounded-full trace-live-dot {{ $serverOnline ? 'bg-[#688A4D]' : 'bg-[#991B1B]' }}"></span>
         <span class="text-[10px] tracking-wider uppercase tabular-nums">
-          AI: <strong id="topbar-ai-driver">{{ !empty($aiStatus['cloud_configured']) ? 'HYBRID (' . strtoupper((string) ($aiStatus['cloud_provider'] ?? 'CLOUD')) . ' -> ' . $driverUpper . ')' : $driverUpper }}</strong>
-          @if($aiShortModel)
+          AI: <strong id="topbar-ai-driver">{{ !empty($aiStatus['cloud_configured']) ? 'HYBRID (' . strtoupper((string) ($aiStatus['cloud_provider'] ?? 'CLOUD')) . ' -> ' . $driverUpper . ')' : ($hasStandby ? 'STANDBY ENGINE' : $driverUpper) }}</strong>
+          @if($aiShortModel && !$hasStandby)
             <span id="topbar-ai-model" class="text-[#C7C3B2] font-normal normal-case">&bull; {{ $aiShortModel }}</span>
           @endif
           <span id="topbar-ai-ram" class="text-[#B9AA88] font-normal">

@@ -54,6 +54,8 @@
         <span class="badge badge-neutral">DRIVER: {{ $aiDriver }}</span>
         @if(($aiStatus['status'] ?? 'OFFLINE') === 'ONLINE' || !empty($aiStatus['cloud_configured']))
           <span class="badge badge-olive">ONLINE</span>
+        @elseif(!empty($aiStatus['standby_engine_active']) || !empty($aiStatus['has_standby_fallback']))
+          <span class="badge badge-olive">STANDBY ACTIVE</span>
         @else
           <span class="badge badge-danger">{{ $aiStatus['status'] ?? 'OFFLINE' }}</span>
         @endif

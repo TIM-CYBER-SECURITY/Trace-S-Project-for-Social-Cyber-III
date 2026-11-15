@@ -64,13 +64,23 @@
   </div>
 
   @if($isAiOffline && !$isSim)
-  <div class="panel p-3 border-l-4 border-l-[#991B1B] flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
-    <div class="flex items-center gap-2 text-[#991B1B] dark:text-[#FCA5A5]">
-      <i class="fa-solid fa-triangle-exclamation"></i>
-      <span><b>AI SERVER OFFLINE:</b> {{ $isId ? 'Aktifkan model AI lokal di atas atau nyalakan engine LM Studio / Bionic / Ollama.' : 'Local AI server is offline.' }}</span>
+    @if(!empty($aiStatus['standby_engine_active']) || !empty($aiStatus['has_standby_fallback']))
+    <div class="panel p-3 border-l-4 border-l-[#586B47] bg-[#162019] flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
+      <div class="flex items-center gap-2 text-[#E2DEC9]">
+        <i class="fa-solid fa-shield-halved text-[#8EA374]"></i>
+        <span><b>COGNITIVE DEFENSE ENGINE (ACTIVE):</b> {{ $isId ? 'Mesin heuristik mandiri aktif 100% tanpa dependensi eksternal. Ekstraksi klaim, deteksi manipulasi teks & ekspor PDF siap operasional.' : 'Autonomous heuristic engine active without external cloud dependencies. Claim extraction, text manipulation detection & PDF exports ready.' }}</span>
+      </div>
+      <span class="badge badge-olive">STANDBY ENGINE ACTIVE</span>
     </div>
-    <span class="badge badge-danger">{{ $driverUpper }}</span>
-  </div>
+    @else
+    <div class="panel p-3 border-l-4 border-l-[#991B1B] flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
+      <div class="flex items-center gap-2 text-[#991B1B] dark:text-[#FCA5A5]">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span><b>AI SERVER OFFLINE:</b> {{ $isId ? 'Aktifkan model AI lokal di atas atau nyalakan engine LM Studio / Bionic / Ollama.' : 'Local AI server is offline.' }}</span>
+      </div>
+      <span class="badge badge-danger">{{ $driverUpper }}</span>
+    </div>
+    @endif
   @endif
 
   <!-- Agency Hybrid Cloud AI Configuration (Shared per Kode Instansi for Operators & Admins) -->

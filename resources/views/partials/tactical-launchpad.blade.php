@@ -65,7 +65,13 @@
       </div>
       <div class="text-[10px] text-[var(--text-muted)] tabular-nums flex items-center justify-between gap-1">
         <span>AI RAM: <b class="text-[var(--text-primary)]">{{ ($aiRam !== null && $aiRam > 0) ? number_format((float) $aiRam, 2) . ' GB' : '0.00 GB' }}</b></span>
-        <span class="badge {{ $cleanLaunchStatus === 'ONLINE' ? 'badge-olive' : 'badge-neutral' }} text-[9px]">{{ $cleanLaunchStatus }}</span>
+        @if($cleanLaunchStatus === 'ONLINE')
+          <span class="badge badge-olive text-[9px]">ONLINE</span>
+        @elseif(!empty($aiStat['standby_engine_active']) || !empty($aiStat['has_standby_fallback']))
+          <span class="badge badge-olive text-[9px]">STANDBY ACTIVE</span>
+        @else
+          <span class="badge badge-neutral text-[9px]">{{ $cleanLaunchStatus }}</span>
+        @endif
       </div>
     </div>
   </div>

@@ -386,14 +386,17 @@ class AiManager
             try {
                 $d = $this->driver();
                 $h = $d->checkHealth();
+                $hasStandby = !empty($cfg['cloud_deterministic_fallback']);
+                $isStandbyActive = $hasStandby && ($h['status'] ?? 'OFFLINE') !== 'ONLINE';
+
                 return [
                     'driver' => $d->name(),
-                    'status' => $h['status'],
+                    'status' => $isStandbyActive ? 'STANDBY' : $h['status'],
                     'model' => $d->modelName(),
                     'active_model' => $d->modelName(),
                     'base_url' => $d->name() === 'mock' ? null : ($cfg['base_url'] ?? null),
                     'timeout' => (int) ($cfg['timeout'] ?? 180),
-                    'runtime' => $h['runtime'] ?? null,
+                    'runtime' => $isStandbyActive ? 'Deterministic Standby Engine' : ($h['runtime'] ?? null),
                     'runtime_version' => $h['runtime_version'] ?? null,
                     'loaded_models' => $h['loaded_models'] ?? [],
                     'is_simulation' => $d->isSimulation() && !$this->shouldAttemptCloud($cfg),
@@ -404,17 +407,20 @@ class AiManager
                     'cloud_provider' => $cfg['cloud_provider'] ?? 'google_ai_studio',
                     'cloud_model' => ($cfg['cloud_provider'] ?? '') === 'exa_ai' ? ($cfg['exa_model'] ?? 'exa') : ($cfg['google_model'] ?? 'gemini-2.0-flash'),
                     'cloud_configured' => $this->shouldAttemptCloud($cfg),
-                    'error' => $h['error'] ?? null,
+                    'has_standby_fallback' => $hasStandby,
+                    'standby_engine_active' => $isStandbyActive,
+                    'error' => $isStandbyActive ? null : ($h['error'] ?? null),
                 ];
             } catch (\Throwable $e) {
+                $hasStandby = !empty($cfg['cloud_deterministic_fallback']);
                 return [
                     'driver' => $cfg['driver'] ?? 'mock',
-                    'status' => 'ERROR',
+                    'status' => $hasStandby ? 'STANDBY' : 'ERROR',
                     'model' => $cfg['model'] ?? null,
                     'active_model' => $cfg['model'] ?? null,
                     'base_url' => $cfg['base_url'] ?? null,
                     'timeout' => (int) ($cfg['timeout'] ?? 180),
-                    'runtime' => null,
+                    'runtime' => $hasStandby ? 'Deterministic Standby Engine' : null,
                     'runtime_version' => null,
                     'loaded_models' => [],
                     'is_simulation' => false,
@@ -425,7 +431,9 @@ class AiManager
                     'cloud_provider' => $cfg['cloud_provider'] ?? 'google_ai_studio',
                     'cloud_model' => ($cfg['cloud_provider'] ?? '') === 'exa_ai' ? ($cfg['exa_model'] ?? 'exa') : ($cfg['google_model'] ?? 'gemini-2.0-flash'),
                     'cloud_configured' => $this->shouldAttemptCloud($cfg),
-                    'error' => $e->getMessage(),
+                    'has_standby_fallback' => $hasStandby,
+                    'standby_engine_active' => $hasStandby,
+                    'error' => $hasStandby ? null : $e->getMessage(),
                 ];
             }
         };
