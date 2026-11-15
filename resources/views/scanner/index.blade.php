@@ -6,7 +6,8 @@
   $prefillText = request()->query('prefill', '');
   $driverUpper = strtoupper($aiStatus['driver'] ?? 'MOCK');
   $isSim = (bool) ($aiStatus['is_simulation'] ?? true);
-  $isAiOffline = ($aiStatus['status'] ?? 'OFFLINE') === 'ERROR' || ($aiStatus['status'] ?? 'OFFLINE') === 'OFFLINE';
+  $isStandbyActive = !empty($aiStatus['standby_engine_active']) || ($aiStatus['status'] ?? '') === 'STANDBY';
+  $isAiOffline = ($aiStatus['status'] ?? 'OFFLINE') === 'ERROR' || ($aiStatus['status'] ?? 'OFFLINE') === 'OFFLINE' || $isStandbyActive;
   $canReview = Auth::check() && Auth::user()->hasPermission('analysis.review');
   $canExport = Auth::check() && Auth::user()->hasPermission('report.export');
   $canGenerateReport = Auth::check() && Auth::user()->hasPermission('report.generate');
@@ -64,7 +65,7 @@
   </div>
 
   @if($isAiOffline && !$isSim)
-    @if(!empty($aiStatus['standby_engine_active']) || !empty($aiStatus['has_standby_fallback']))
+    @if($isStandbyActive)
     <div class="panel p-3 border-l-4 border-l-[#586B47] bg-[#162019] flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
       <div class="flex items-center gap-2 text-[#E2DEC9]">
         <i class="fa-solid fa-shield-halved text-[#8EA374]"></i>
